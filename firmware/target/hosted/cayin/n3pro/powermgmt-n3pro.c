@@ -18,8 +18,12 @@
 #include "powermgmt.h"
 #include "power.h"
 
-/* Placeholder curves; must be calibrated against the real N3Pro battery.
- * 0%, 10%, ... 100% in millivolts. */
+/* The battery percentage comes from the kernel fuel gauge
+ * (/sys/class/power_supply/battery/capacity, PERCENTAGE_MEASURE), so no
+ * calibration is needed. These curves only drive the voltage readout and
+ * the remaining-time estimate; they use the same Li-ion range as the other
+ * HiBy hosted targets (R1/R3ProII) and can be tuned if the OF's shutdown
+ * point differs. */
 unsigned short battery_level_disksafe = 3470;
 
 /* the OF shuts down at this voltage */
@@ -28,11 +32,11 @@ unsigned short battery_level_shutoff = 3400;
 /* voltages (millivolt) of 0%, 10%, ... 100% when charging disabled */
 unsigned short percent_to_volt_discharge[11] =
 {
-    3400, 3675, 3715, 3750, 3775, 3810, 3850, 3915, 3985, 4060, 4155
+    3400, 3675, 3715, 3750, 3775, 3810, 3850, 4028, 4125, 4237, 4376
 };
 
 /* voltages (millivolt) of 0%, 10%, ... 100% when charging enabled */
 unsigned short percent_to_volt_charge[11] =
 {
-    3485, 3780, 3836, 3857, 3890, 3930, 3986, 4062, 4158, 4185, 4196
+    3485, 3780, 3836, 3857, 3890, 3930, 3986, 4028, 4125, 4237, 4376
 };
