@@ -460,6 +460,18 @@ index 4c2f0d58b0..1e779f448b 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
+diff --git a/apps/menus/settings_menu.c b/apps/menus/settings_menu.c
+index 1879ada8fe..97c536faad 100644
+--- a/apps/menus/settings_menu.c
++++ b/apps/menus/settings_menu.c
+@@ -493,6 +493,7 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
+ #endif
+          );
+ 
++
+ /*    SYSTEM MENU                  */
+ /***********************************/
+ 
 diff --git a/apps/menus/sound_menu.c b/apps/menus/sound_menu.c
 index 61d16f4cb1..be464b2dce 100644
 --- a/apps/menus/sound_menu.c
@@ -1070,6 +1082,19 @@ index d2ffb33fe6..8844910141 100644
  /* use touchscreen */
  
  #elif CONFIG_KEYPAD == MA_PAD
+diff --git a/apps/recorder/keyboard.c b/apps/recorder/keyboard.c
+index cb00fef74f..22d146962e 100644
+--- a/apps/recorder/keyboard.c
++++ b/apps/recorder/keyboard.c
+@@ -503,7 +503,7 @@ int kbd_input(char* text, int buflen, ucschar_t *kbd)
+ #ifdef HAVE_KBD_POINT_MODE
+             if (touchscreen_get_mode() == TOUCHSCREEN_POINT)
+             {
+-#if (LCD_WIDTH >= 480) && (LCD_HEIGHT >= 640)
++#if ((LCD_WIDTH >= 480) && (LCD_HEIGHT >= 640)) || defined(CAYIN_N3PRO)
+             /* Three pages of eight lines. Page two is page one shifted, cell
+              * for cell; page three completes Latin-1 and adds the accented
+              * letters common to the other European locales. The space bar
 diff --git a/apps/settings.c b/apps/settings.c
 index f9b170a52d..c16240f7d5 100644
 --- a/apps/settings.c
@@ -1160,10 +1185,10 @@ index 449ff6bd76..0f369b3dd2 100644
          {
              /* save last choice */
 diff --git a/firmware/SOURCES b/firmware/SOURCES
-index 8b524edcc4..bcdd9eaa99 100644
+index 8b524edcc4..b555091e92 100644
 --- a/firmware/SOURCES
 +++ b/firmware/SOURCES
-@@ -211,6 +211,16 @@ target/hosted/agptek/rocker_codec.c
+@@ -211,6 +211,18 @@ target/hosted/agptek/rocker_codec.c
  #endif
  #endif
  
@@ -1173,7 +1198,9 @@ index 8b524edcc4..bcdd9eaa99 100644
 +target/hosted/cayin/n3pro/powermgmt-n3pro.c
 +#if !defined(BOOTLOADER)
 +target/hosted/cayin/n3pro/cayin-n3pro.c
++target/hosted/cayin/n3pro/led-n3pro.c
 +target/hosted/hiby/hibylinux_codec.c
++target/hosted/hiby/usb-dac-hiby.c
 +#endif
 +#endif
 +
@@ -1257,10 +1284,10 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..37779a102f
+index 0000000000..4ce37616af
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,96 @@
 +/*
 + * This config file is for the Cayin N3Pro
 + */
@@ -1296,9 +1323,13 @@ index 0000000000..37779a102f
 +#define HAVE_HEADPHONE_DETECTION
 +#define NO_BUTTON_LR
 +
++/* RGB indicator (TI LP5562 via the led_pattern sysfs node) */
++#define HAVE_GENERAL_PURPOSE_LED
++
 +#ifndef BOOTLOADER
 +#define HAVE_BUTTON_DATA
 +#define HAVE_TOUCHSCREEN
++#define HAVE_KBD_POINT_MODE
 +#endif
 +
 +/* KeyPad configuration for plugins */
@@ -1343,8 +1374,10 @@ index 0000000000..37779a102f
 +#define BOOTDIR      "/.rockbox"
 +
 +/* USB */
++#define HAVE_USB_ADB
 +#define USB_VID_STR "C502"
 +#define USB_PID_STR "0029"
++#define HAVE_HOST_USB_AUDIO
 +
 +/* Generic HiBy stuff */
 +#include "hibylinux.h"
@@ -1434,10 +1467,10 @@ index 0000000000..f33b4009e5
 + * the touchscreen via GT9XX.  Nothing to define here. */
 diff --git a/firmware/target/hosted/cayin/n3pro/button-n3pro.c b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
 new file mode 100644
-index 0000000000..7342f801c1
+index 0000000000..c976a4f7cc
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
-@@ -0,0 +1,109 @@
+@@ -0,0 +1,126 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -1461,6 +1494,7 @@ index 0000000000..7342f801c1
 +#include "button.h"
 +#include "button-target.h"
 +#include "touchscreen.h"
++#include "kernel.h"
 +#include "hibylinux_codec.h"
 +#ifndef BOOTLOADER
 +#include "cayin-n3pro.h"
@@ -1538,13 +1572,29 @@ index 0000000000..7342f801c1
 +#ifdef BOOTLOADER
 +    return false;
 +#else
-+    /* Called on every button poll; use it as the periodic N3Pro housekeeping
-+     * tick (electron-tube power follows the playback state). */
-+    cayin_tube_tick();
-+    /* hiby_get_outputs() also programs the AK4493 "Output Port Switch";
-+     * without this the DAC output port is left unrouted -> no sound. */
-+    int ps = hiby_get_outputs();
-+    return (ps == 2);
++    /* Called on every button poll (very frequently).  Throttle the sysfs /
++     * ALSA work below to a few times a second so the button thread does not
++     * spin in the kernel. */
++    static long last = 0;
++    static bool present = false;
++
++    if (!TIME_BEFORE(current_tick, last + HZ/4))
++    {
++        last = current_tick;
++        /* Electron-tube power follows the playback state. */
++        cayin_tube_tick();
++        /* The generic LED core never calls the charging hooks. */
++        led_n3pro_tick();
++        /* Re-apply the USB Audio setting once the PCM mixer is up (the
++         * boot-time apply runs before audio_init and bails out). */
++        cayin_usb_retry();
++        /* hiby_get_outputs() also programs the AK4493 "Output Port Switch";
++         * without this the DAC output port is left unrouted -> no sound.
++         * The N3Pro exposes both a headset (2) and a balanced (3) switch. */
++        int ps = hiby_get_outputs();
++        present = (ps == 2 || ps == 3);
++    }
++    return present;
 +#endif
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/button-target.h b/firmware/target/hosted/cayin/n3pro/button-target.h
@@ -1809,10 +1859,10 @@ index 0000000000..a77605d30c
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/cayin-n3pro.h b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.h
 new file mode 100644
-index 0000000000..c66718d1f0
+index 0000000000..e01e326d62
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.h
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,78 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -1884,6 +1934,12 @@ index 0000000000..c66718d1f0
 +void cayin_tube_set_mode(int mode);
 +void cayin_tube_tick(void);
 +
++/* RGB indicator (LP5562 pattern engine), polled from the button tick. */
++void led_n3pro_tick(void);
++
++/* Re-apply the USB Audio setting once PCM is up (usb-hiby.c). */
++void cayin_usb_retry(void);
++
 +#endif /* _CAYIN_N3PRO_H_ */
 diff --git a/firmware/target/hosted/cayin/n3pro/debug-n3pro.c b/firmware/target/hosted/cayin/n3pro/debug-n3pro.c
 new file mode 100644
@@ -1937,6 +1993,165 @@ index 0000000000..0dab04cc69
 +
 +extern void lcd_set_active(bool active);
 +#endif /* __LCD_TARGET_H__ */
+diff --git a/firmware/target/hosted/cayin/n3pro/led-n3pro.c b/firmware/target/hosted/cayin/n3pro/led-n3pro.c
+new file mode 100644
+index 0000000000..d626fa985b
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/led-n3pro.c
+@@ -0,0 +1,153 @@
++/***************************************************************************
++ *             __________               __   ___
++ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
++ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
++ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
++ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
++ *                     \/            \/     \/    \/    \/
++ *
++ * Copyright (C) 2026 ctzjj
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ *
++ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
++ * KIND, either express or implied.
++ *
++ ****************************************************************************/
++#include <stdbool.h>
++#include <string.h>
++#include <unistd.h>
++#include "config.h"
++#include "sysfs.h"
++#include "settings.h"
++#include "power.h"
++#include "kernel.h"
++#include "playback.h"
++#include "audio.h"
++
++/* The N3Pro's RGB indicator is a TI LP5562 driven by a custom kernel pattern
++ * engine.  The individual /sys/class/leds/{R,G,B,W}/brightness files have no
++ * effect while the engine is running; instead a preset pattern is selected by
++ * writing its number to the led_pattern sysfs node:
++ *
++ *   0 = off            1 = yellow-green    2 = green
++ *   3 = blue           4 = purple          5 = white
++ *   6 = red breathing  7 = red solid
++ */
++static const char * const sysfs_led_pattern =
++    "/sys/bus/i2c/devices/1-0030/led_pattern";
++
++enum n3pro_led_pattern {
++    N3PRO_LED_INVALID = -1,
++    N3PRO_LED_OFF,
++    N3PRO_LED_YELLOW_GREEN,
++    N3PRO_LED_GREEN,
++    N3PRO_LED_BLUE,
++    N3PRO_LED_PURPLE,
++    N3PRO_LED_WHITE,
++    N3PRO_LED_RED_BREATHING,
++    N3PRO_LED_RED_SOLID,
++};
++
++#define DEFAULT_PATTERN N3PRO_LED_YELLOW_GREEN
++
++static int last_pattern = N3PRO_LED_INVALID;
++
++static void set_led(int pattern)
++{
++    if (last_pattern != pattern) {
++        last_pattern = pattern;
++        sysfs_set_int(sysfs_led_pattern, pattern);
++    }
++}
++
++#ifdef HAVE_GENERAL_PURPOSE_LED
++void led_hw_brightness(int brightness)
++{
++    /* No software brightness control; the pattern engine owns the channels. */
++    (void)brightness;
++}
++
++void led_hw_charged(void)
++{
++    set_led(N3PRO_LED_RED_SOLID);
++}
++
++void led_hw_charging(void)
++{
++    set_led(N3PRO_LED_RED_BREATHING);
++}
++
++void led_hw_off(void)
++{
++    /* Don't extinguish the indicator while charging is indicated. */
++    if (!charging_state()) {
++        set_led(N3PRO_LED_OFF);
++    }
++}
++
++void led_hw_on(void)
++{
++    if (charging_state()) {
++        led_hw_charging();
++    } else if (global_settings.use_led_indicators) {
++        set_led(DEFAULT_PATTERN);
++    } else {
++        led_hw_off();
++    }
++}
++
++void led_hw_set_mode(bool mode)
++{
++    if (mode) {
++        led_hw_on();
++    } else {
++        led_hw_off();
++    }
++}
++#endif
++
++#ifndef BOOTLOADER
++/* The generic Rockbox LED core never calls the charging hooks, so poll the
++ * power supply ourselves from the button tick. */
++void led_n3pro_tick(void)
++{
++    static long last = 0;
++    char status[16] = {0};
++
++    if (TIME_BEFORE(current_tick, last + HZ))
++        return;
++    last = current_tick;
++
++    sysfs_get_string("/sys/class/power_supply/battery/status", status,
++                     sizeof(status));
++
++    if (strncmp(status, "Charging", 8) == 0) {
++        set_led(N3PRO_LED_RED_BREATHING);
++    } else if (strncmp(status, "Full", 4) == 0) {
++        set_led(N3PRO_LED_RED_SOLID);
++    } else {
++        /* Like the stock firmware: lit only while audio is playing (and only
++         * if the user enabled the LED indicators), with the colour chosen by
++         * the track's sample rate. */
++        unsigned int st = audio_status();
++        if ((st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE)
++            && global_settings.use_led_indicators) {
++            struct mp3entry *id3 = audio_current_track();
++            unsigned int hz = id3 ? id3->frequency : 0;
++
++            if (hz == 0)             set_led(DEFAULT_PATTERN);
++            else if (hz <= 48000)    set_led(N3PRO_LED_YELLOW_GREEN); /* 44.1/48k */
++            else if (hz <= 96000)    set_led(N3PRO_LED_GREEN);        /* 88.2/96k */
++            else if (hz <= 192000)   set_led(N3PRO_LED_BLUE);         /* 176.4/192k */
++            else if (hz <= 384000)   set_led(N3PRO_LED_PURPLE);       /* 352.8/384k */
++            else                     set_led(N3PRO_LED_WHITE);        /* DSD */
++        } else {
++            set_led(N3PRO_LED_OFF);
++        }
++    }
++}
++#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh b/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh
 new file mode 100755
 index 0000000000..25d7be9bc8
@@ -2272,7 +2487,7 @@ index 0000000000..830f19fde4
 +#define NEED_GENERIC_BYTESWAPS
 +#endif /* __SYSTEM_TARGET_H__ */
 diff --git a/firmware/target/hosted/hiby/hibylinux_codec.c b/firmware/target/hosted/hiby/hibylinux_codec.c
-index 4cb445887d..8dd995dcaa 100644
+index 4cb445887d..4202abfeb0 100644
 --- a/firmware/target/hosted/hiby/hibylinux_codec.c
 +++ b/firmware/target/hosted/hiby/hibylinux_codec.c
 @@ -35,6 +35,10 @@
@@ -2317,21 +2532,24 @@ index 4cb445887d..8dd995dcaa 100644
  }
  
  void audiohw_close(void)
-@@ -151,13 +165,38 @@ void audiohw_set_volume(int vol_l, int vol_r)
+@@ -151,13 +165,46 @@ void audiohw_set_volume(int vol_l, int vol_r)
  void audiohw_set_filter_roll_off(int value)
  {
      logf("rolloff %d", value);
--    /* 0 = Sharp;
--     *       1 = Slow;
--     *       2 = Short Sharp
--     *       3 = Short Slow
--     *       4 = Super Slow */
++#if defined(CAYIN_N3PRO)
 +    /* N3Pro order:
 +     *   0 = Short delay sharp (default)
 +     *   1 = Short delay slow
 +     *   2 = Sharp
 +     *   3 = Slow
 +     *   4 = Super slow */
++#else
+     /* 0 = Sharp;
+      *       1 = Slow;
+      *       2 = Short Sharp
+      *       3 = Short Slow
+      *       4 = Super Slow */
++#endif
      long int value_hw = value;
      alsa_controls_set_ints("Digital Filter", 1, &value_hw);
 +#if defined(CAYIN_N3PRO)
@@ -2361,8 +2579,187 @@ index 4cb445887d..8dd995dcaa 100644
  }
 +#endif
  
+diff --git a/firmware/target/hosted/hiby/usb-dac-hiby.c b/firmware/target/hosted/hiby/usb-dac-hiby.c
+index 469dc640b9..6b2b1a949f 100644
+--- a/firmware/target/hosted/hiby/usb-dac-hiby.c
++++ b/firmware/target/hosted/hiby/usb-dac-hiby.c
+@@ -37,6 +37,7 @@
+ #include <pthread.h>
+ #include <stdbool.h>
+ #include <stdint.h>
++#include <stdio.h>
+ #include <string.h>
+ #include <sys/ioctl.h>
+ #include <unistd.h>
+@@ -70,6 +71,12 @@ static volatile unsigned int dac_head;  /* frames produced; pump only */
+ static volatile unsigned int dac_tail;  /* frames consumed; mixer only */
+ static pthread_t dac_thread;
+ static volatile bool dac_running;
++#if defined(CAYIN_N3PRO)
++/* The N3Pro pump may be blocked inside the vendor driver's open()/read()
++ * (which wait for the host and support no poll()), so it is detached and
++ * never joined: bumping the generation invalidates a stale thread. */
++static volatile unsigned int dac_gen;
++#endif
+ static int dac_fd = -1;
+ 
+ /* Mixer callback (PCM feed context). Returns the next chunk from the ring,
+@@ -114,6 +121,66 @@ static void *dac_pump_thread(void *arg)
+     int32_t rbuf[DAC_READ_BYTES / sizeof(int32_t)];
+     (void)arg;
+ 
++#if defined(CAYIN_N3PRO)
++    /* All device I/O happens on this thread: the vendor driver's open()
++     * blocks until the host actually streams, so the caller must never
++     * touch the device. */
++    const unsigned int gen = dac_gen;
++    int fd = open(UAC_SA_DEV, O_RDWR | O_NONBLOCK);
++    if (fd < 0)
++    {
++        while (dac_running && gen == dac_gen)
++        {
++            usleep(100000);
++            fd = open(UAC_SA_DEV, O_RDWR | O_NONBLOCK);
++            if (fd >= 0)
++                break;
++        }
++        if (fd < 0)
++        {
++            dac_running = false;
++            return NULL;
++        }
++    }
++    dac_fd = fd;
++
++    while (dac_running && gen == dac_gen)
++    {
++        unsigned int head = dac_head;
++
++        /* Leave room for a full read; else wait for the mixer to drain */
++        if (head - dac_tail > DAC_RING_FRAMES - DAC_CHUNK_FRAMES)
++        {
++            usleep(1000);
++            continue;
++        }
++
++        ssize_t n = read(fd, rbuf, DAC_READ_BYTES);
++        if (n <= 0)
++        {
++            if (errno == EBADF)
++                break;
++            usleep(1000);
++            continue;
++        }
++
++        int frames = n / UAC_SA_FRAME_SIZE;
++        for (int i = 0; i < frames; i++)
++        {
++            unsigned int idx = (head + i) & (DAC_RING_FRAMES - 1);
++            dac_ring[2 * idx]     = (int16_t)(rbuf[2 * i]     >> 16);
++            dac_ring[2 * idx + 1] = (int16_t)(rbuf[2 * i + 1] >> 16);
++        }
++        dac_head = head + frames;
++    }
++
++    close(fd);
++    if (dac_fd == fd)
++        dac_fd = -1;
++    return NULL;
++
++#else /* !CAYIN_N3PRO: upstream R1 behaviour */
++
+     while (dac_running)
+     {
+         unsigned int head = dac_head;
+@@ -128,7 +195,7 @@ static void *dac_pump_thread(void *arg)
+         ssize_t n = read(dac_fd, rbuf, DAC_READ_BYTES);
+         if (n <= 0)
+         {
+-            usleep(1000);       /* no host data queued yet */
++            usleep(1000);
+             continue;
+         }
+ 
+@@ -143,19 +210,45 @@ static void *dac_pump_thread(void *arg)
+     }
+ 
+     return NULL;
++#endif
+ }
+ 
+ bool usb_dac_start(void)
+ {
+     static const struct mixer_play_cbs cbs = { .get_more = dac_get_more };
+ 
++    /* usb_detect() runs on more than one thread; without this guard each
++     * of them would open the device and spawn its own pump thread. */
++    if (dac_running)
++        return true;
++
++#if defined(CAYIN_N3PRO)
++    /* The vendor driver's open()/read() block until the host streams, so
++     * ALL device I/O is done by the pump thread; this function only sets
++     * up the mixer and spawns it and can therefore never wedge the USB
++     * thread it is called from. */
++    mixer_set_frequency(USB_DAC_SAMPLE_RATE);
++
++    dac_head = dac_tail = 0;
++    dac_gen++;
++    dac_running = true;
++    if (pthread_create(&dac_thread, NULL, dac_pump_thread, NULL) != 0)
++    {
++        logf("uac_sa pump thread failed");
++        dac_running = false;
++        return false;
++    }
++    /* Never joined: a pump blocked inside the driver must not block us. */
++    pthread_detach(dac_thread);
++#else
+     /* The node is created asynchronously when the UDC binds; during boot
+      * the hotplug helper can lag behind, so wait briefly for it. This runs
+      * on a Rockbox thread, so sleep() yields to the cooperative scheduler
+      * instead of stalling every other thread the way usleep() would. */
++    const int dac_open_flags = O_RDWR;
+     for (int tries = 50; tries > 0; tries--)
+     {
+-        dac_fd = open(UAC_SA_DEV, O_RDWR);
++        dac_fd = open(UAC_SA_DEV, dac_open_flags);
+         if (dac_fd >= 0)
+             break;
+         sleep(HZ / 50);     /* 20 ms */
+@@ -192,6 +285,7 @@ bool usb_dac_start(void)
+         dac_fd = -1;
+         return false;
+     }
++#endif /* CAYIN_N3PRO */
+ 
+     mixer_channel_set_amplitude(PCM_MIXER_CHAN_USBAUDIO, MIX_AMP_UNITY);
+     mixer_channel_play_data(PCM_MIXER_CHAN_USBAUDIO, &cbs, NULL, 0);
+@@ -203,6 +297,14 @@ void usb_dac_stop(void)
+     if (!dac_running)
+         return;
+ 
++#if defined(CAYIN_N3PRO)
++    /* The pump is detached (it may be blocked inside the vendor driver's
++     * open()/read() with no poll() to wake it): mark it stale and let it
++     * wind down on its own; joining here could deadlock forever. */
++    dac_running = false;
++    dac_gen++;
++    mixer_channel_stop(PCM_MIXER_CHAN_USBAUDIO);
++#else
+     dac_running = false;
+     pthread_join(dac_thread, NULL);
+     mixer_channel_stop(PCM_MIXER_CHAN_USBAUDIO);
+@@ -212,6 +314,7 @@ void usb_dac_stop(void)
+         close(dac_fd);
+         dac_fd = -1;
+     }
++#endif
+ }
+ 
+ bool usb_audio_get_active(void)
 diff --git a/firmware/target/hosted/lcd-linuxfb.c b/firmware/target/hosted/lcd-linuxfb.c
-index 63661a1254..ed7e804df5 100644
+index 63661a1254..f1b0fdc8d8 100644
 --- a/firmware/target/hosted/lcd-linuxfb.c
 +++ b/firmware/target/hosted/lcd-linuxfb.c
 @@ -90,7 +90,10 @@ void lcd_init_device(void)
@@ -2393,17 +2790,17 @@ index 63661a1254..ed7e804df5 100644
 +    for (int j = 0; j < height; j++)
 +    {
 +        const fb_data *srow = src_base + (long)(y + j) * LCD_WIDTH + x;
++        /* rotated destination row, walked backwards */
++        unsigned int *drow = dst + (long)(LCD_HEIGHT - 1 - y - j) * LCD_WIDTH
++                               + (LCD_WIDTH - 1 - x);
 +
 +        for (int i = 0; i < width; i++)
 +        {
 +            unsigned short c = srow[i];
 +            unsigned r = (c >> 11) & 0x1f, g = (c >> 5) & 0x3f, b = c & 0x1f;
-+            unsigned r8 = (r << 3) | (r >> 2);
-+            unsigned g8 = (g << 2) | (g >> 4);
-+            unsigned b8 = (b << 3) | (b >> 2);
-+            int dx = LCD_WIDTH  - 1 - (x + i);
-+            int dy = LCD_HEIGHT - 1 - (y + j);
-+            dst[(long)dy * LCD_WIDTH + dx] = (r8 << 16) | (g8 << 8) | b8;
++            *drow-- = ((r << 3 | r >> 2) << 16)
++                    | ((g << 2 | g >> 4) << 8)
++                    |  (b << 3 | b >> 2);
 +        }
 +    }
 +}
@@ -2448,6 +2845,396 @@ index 63661a1254..ed7e804df5 100644
  #endif
          redraw();
      }
+diff --git a/firmware/target/hosted/usb-hiby.c b/firmware/target/hosted/usb-hiby.c
+index 050c86e446..c385089e5a 100644
+--- a/firmware/target/hosted/usb-hiby.c
++++ b/firmware/target/hosted/usb-hiby.c
+@@ -4,7 +4,7 @@
+  *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+  *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+- *                     \/            \/     \/    \/            \/
++ *                     \/            \/     \/    \/    \/
+  *
+  * Copyright (C) 2018 by Marcin Bukat
+  *
+@@ -26,41 +26,11 @@
+ #include "usb.h"
+ #include "sysfs.h"
+ #include "power.h"
+-
+-//#define LOGF_ENABLE
+-#include "logf.h"
+-
+-static bool adb_mode = false;
+-
+-#ifdef HAVE_MULTIDRIVE
+-void cleanup_rbhome(void);
+-void startup_rbhome(void);
++#ifdef HAVE_HOST_USB_AUDIO
++#include "pcm.h"
++#include "hiby/usb-dac-hiby.h"
+ #endif
+-
+-/* TODO: implement usb detection properly */
+-int usb_detect(void)
+-{
+-    return power_input_status() == POWER_INPUT_USB_CHARGER ? USB_INSERTED : USB_EXTRACTED;
+-}
+-
+-void usb_enable(bool on)
+-{
+-    logf("usb enable %d %d\n", on, adb_mode);
+-
+-    /* Ignore usb enable/disable when ADB is enabled so we can fireup adb shell
+-     * without entering ums mode
+-     */
+-    if (!adb_mode)
+-    {
+-        sysfs_set_int("/sys/class/android_usb/android0/enable", on ? 1 : 0);
+-    }
+-}
+-
+-/* This is called by usb thread after usb extract in order to return
+- * regular FS access
+- *
+- * returns the # of successful mounts
+-*/
++#include "logf.h"
+ int disk_mount_all(void)
+ {
+     const char * const dev[] = {"/dev/mmcblk0p1", "/dev/mmcblk0"};
+@@ -88,10 +58,6 @@ int disk_mount_all(void)
+     return 0;
+ }
+ 
+-/* This is called by usb thread after all threads ACKs usb inserted message
+- *
+- * returns the # of successful unmounts
+- */
+ int disk_unmount_all(void)
+ {
+ #ifdef HAVE_MULTIDRIVE
+@@ -113,6 +79,289 @@ int disk_unmount_all(void)
+     return 0;
+ }
+ 
++#if defined(CAYIN_N3PRO)
++/* ------------------------------------------------------------------------
++ * Cayin N3Pro
++ *
++ * The vendor android_usb gadget is configured through sysfs; changing the
++ * function list requires the gadget to be disabled first. The structure
++ * mirrors firmware/target/hosted/hiby/usb-hiby-gadget.c (R1):
++ *
++ *  - usb_detect() never touches the gadget or the DAC; it only reports
++ *    insertion. A charger never enumerates the gadget, so "CONFIGURED"
++ *    tells a real host apart from a dumb charger.
++ *  - The base mode is applied by configure_usb_mode(); the DAC gadget is
++ *    reconciled separately from usb_set_audio()/hiby_set_usb_mode(), the
++ *    only two places R1 drives it from.
++ *  - The DAC is never started before the PCM mixer is up (pcm_is_initialized)
++ *    and if it fails to come up the base mode is restored.
++ * ------------------------------------------------------------------------ */
++static const char * const sysfs_functions = "/sys/class/android_usb/android0/functions";
++static const char * const sysfs_enable    = "/sys/class/android_usb/android0/enable";
++static const char * const sysfs_lun       = "/sys/class/android_usb/android0/f_mass_storage/lun/file";
++
++static int _usb_mode  = -1;
++static int _usb_audio = 0;
++static bool _usb_init = false;
++
++/* Reconfiguring the gadget invalidates the endpoints adbd holds open; the
++ * daemon does not notice and turns into a zombie (interface enumerates but
++ * refuses connections). The vendor adbserver.sh loop respawns it within a
++ * second, so kick it here after every function-list change. */
++static void restart_adbd(void)
++{
++    system("killall adbd 2>/dev/null");
++}
++
++/* The "USB Audio" setting: 0 never, 1 always, 2 while charge-only,
++ * 3 while mass-storage (same values as R1). */
++static bool dac_wanted(void)
++{
++    switch (_usb_audio)
++    {
++    case 1: return true;
++    case 2: return _usb_mode == USB_MODE_CHARGE;
++    case 3: return _usb_mode == USB_MODE_MASS_STORAGE;
++    default: return false;
++    }
++}
++
++/* Apply the base USB mode without the DAC (R1 configure_usb_mode). */
++static void configure_usb_mode(int mode)
++{
++    sysfs_set_int(sysfs_enable, 0);
++
++    /* Plain modes are plain composites: clear the IAD device class set by
++     * the DAC gadget, or Windows mis-parses the descriptors (it binds the
++     * whole device as a single ADB interface and loses everything else). */
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0);
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 0);
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceProtocol", 0);
++
++    switch (mode)
++    {
++    case USB_MODE_CHARGE:
++        /* charge only: export nothing and stay disabled */
++        sysfs_set_string(sysfs_functions, "");
++        restart_adbd();
++        return;
++
++    case USB_MODE_ADB:
++        sysfs_set_string(sysfs_functions, "adb");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "18D1");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "D002");
++        break;
++
++    case USB_MODE_MASS_STORAGE:
++    default:
++        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
++        sysfs_set_string(sysfs_functions, "mass_storage");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++    }
++
++    sysfs_set_int(sysfs_enable, 1);
++    restart_adbd();
++}
++
++/* Bring the DAC gadget up standalone (R1 enable_usb_audio). Composite with
++ * the base function, uac_sa first: its audio interfaces are hard-coded 0-1. */
++static bool enable_usb_audio(void)
++{
++    /* Never before the PCM mixer exists (boot), like R1. */
++    if (!pcm_is_initialized())
++        return false;
++
++    sysfs_set_int(sysfs_enable, 0);
++    usb_dac_stop();
++
++    switch (_usb_mode)
++    {
++    case USB_MODE_ADB:
++        /* No IAD here: with bDeviceClass 0xEF Windows fails to parse the
++         * uac_sa+adb composite. Also use the Cayin VID/PID: the Google/
++         * vendor ADB INFs match 18D1:D002 at device level and preempt the
++         * composite driver, which hides every other function. Windows'
++         * in-box WinUSB matches the ADB interface (FF/42/01) on its own. */
++        sysfs_set_string(sysfs_functions, "uac_sa,adb");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++
++    case USB_MODE_MASS_STORAGE:
++        /* composite: the card is exported AND the host gets a sound card */
++        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
++        sysfs_set_string(sysfs_functions, "uac_sa,mass_storage");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        /* Interface Association Descriptor, like the stock gadget / R1 */
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0xEF);
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 2);
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceProtocol", 1);
++        break;
++
++    default:
++        sysfs_set_string(sysfs_functions, "uac_sa");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++    }
++
++    sysfs_set_int(sysfs_enable, 1);
++    restart_adbd();
++
++    /* Do NOT usb_dac_start() here: the vendor driver's open() blocks until a
++     * host is streaming ("wait uac sa device"), which would hang whichever
++     * thread applies the setting. The pump is started from usb_detect()
++     * once the gadget is actually CONFIGURED. */
++    return true;
++}
++
++/* Tear the DAC gadget down and restore the base mode (R1 disable_usb_audio). */
++static void disable_usb_audio(void)
++{
++    usb_dac_stop();
++    configure_usb_mode(_usb_mode < 0 ? USBMODE_DEFAULT : _usb_mode);
++}
++
++/* Reconcile the DAC with the setting + base mode (R1 apply_usb_audio). */
++static void apply_usb_audio(void)
++{
++    bool want = dac_wanted();
++    bool active = usb_audio_get_active();
++
++    if (want && !active)
++    {
++        /* enable_usb_audio() returns false if applied before audio_init()
++         * (PCM mixer not up yet -- e.g. at boot) or if uac_sa never comes
++         * up. Either way restore the base mode so we never leave a dead
++         * gadget behind. */
++        if (!enable_usb_audio())
++            configure_usb_mode(_usb_mode < 0 ? USBMODE_DEFAULT : _usb_mode);
++    }
++    else if (!want && active)
++    {
++        disable_usb_audio();
++    }
++}
++
++void hiby_set_usb_mode(int mode)
++{
++    if (!_usb_init)
++        usb_init_device();
++
++    /* Drop any active DAC before reconfiguring the base gadget. */
++    if (usb_audio_get_active())
++        disable_usb_audio();
++
++    _usb_mode = mode;
++    configure_usb_mode(mode);
++    apply_usb_audio();
++}
++
++/* Target implementation of the "USB Audio" setting. */
++void usb_set_audio(int value)
++{
++    _usb_audio = value;
++    if (_usb_mode >= 0)
++        apply_usb_audio();
++}
++
++/* Re-apply the USB Audio setting once the PCM mixer is up. The setting is
++ * applied at boot before audio_init(), so the first attempt bails out on
++ * pcm_is_initialized() and the base mode stays; call this periodically
++ * (from the N3Pro housekeeping tick) until it sticks. */
++void cayin_usb_retry(void)
++{
++#ifdef HAVE_HOST_USB_AUDIO
++    /* Fire exactly once after the PCM mixer comes up: a failing attempt
++     * reconfigures the gadget, so retrying forever would flap it. */
++    static bool done = false;
++
++    if (done || _usb_audio <= 0 || _usb_mode < 0 || !pcm_is_initialized())
++        return;
++    if (!usb_audio_get_active() && dac_wanted())
++        apply_usb_audio();
++    done = true;
++#endif
++}
++
++int usb_detect(void)
++{
++    char state[32] = {0};
++    bool configured;
++
++    /* A dumb charger supplies VBUS but never enumerates the gadget, so only
++     * a CONFIGURED gadget counts as "connected to a host". */
++    sysfs_get_string("/sys/class/android_usb/android0/state", state, sizeof(state));
++    configured = strstr(state, "CONFIGURED") != NULL;
++
++#ifdef HAVE_HOST_USB_AUDIO
++    /* Start/stop the host-PCM pump here (USB thread context): the vendor
++     * uac_sa open() blocks until a host is streaming, so it may only run
++     * once the gadget is actually configured. */
++    if (configured)
++    {
++        if (dac_wanted() && !usb_audio_get_active())
++            usb_dac_start();
++    }
++    else if (usb_audio_get_active())
++    {
++        usb_dac_stop();
++    }
++#endif
++
++    return configured ? USB_INSERTED : USB_EXTRACTED;
++}
++
++void usb_enable(bool on)
++{
++    /* Deliberately a no-op: the gadget must stay enabled across unplug so
++     * the still-asserted soft-connect re-enumerates on replug without any
++     * help (this is how the stock firmware behaves). Tearing it down here
++     * left the device dead to the host on re-insertion, because a
++     * composite including uac_sa does not come back from enable=0/1.
++     * The gadget lifecycle is owned by configure_usb_mode()/the DAC
++     * helpers, which reconfigure it only on mode/setting changes. */
++    (void)on;
++}
++
++void usb_init_device(void)
++{
++    /* The vendor sys_server daemon also drives this gadget
++     * (usb_mgr_set_functions) and would tear our function list back down;
++     * Rockbox is the only USB manager now. */
++    system("killall sys_server 2>/dev/null");
++
++    sysfs_set_string("/sys/class/android_usb/android0/iManufacturer", "Rockbox.org");
++    sysfs_set_string("/sys/class/android_usb/android0/iProduct", "Rockbox media player");
++    sysfs_set_string("/sys/class/android_usb/android0/iSerial", "0123456789ABCDEF");
++    sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/inquiry_string", "Rockbox 0100");
++    _usb_init = true;
++}
++
++#else  /* !CAYIN_N3PRO */
++
++/* TODO: implement usb detection properly */
++int usb_detect(void)
++{
++    return power_input_status() == POWER_INPUT_USB_CHARGER ? USB_INSERTED : USB_EXTRACTED;
++}
++
++void usb_enable(bool on)
++{
++    logf("usb enable %d %d\n", on, adb_mode);
++
++    /* Ignore usb enable/disable when ADB is enabled so we can fireup adb shell
++     * without entering ums mode
++     */
++    if (!adb_mode)
++    {
++        sysfs_set_int("/sys/class/android_usb/android0/enable", on ? 1 : 0);
++    }
++}
++
+ void usb_init_device(void)
+ {
+     char functions[32] = {0};
+@@ -141,3 +390,5 @@ void usb_init_device(void)
+     sysfs_set_string("/sys/class/android_usb/android0/iSerial", "0123456789ABCDEF");
+     sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/inquiry_string", "Rockbox 0100");
+ }
++
++#endif /* CAYIN_N3PRO */
+diff --git a/firmware/usb.c b/firmware/usb.c
+index b41facb39d..9551988683 100644
+--- a/firmware/usb.c
++++ b/firmware/usb.c
+@@ -53,6 +53,10 @@
+ #if defined(HIBY_R3PROII) || defined(HIBY_R1) || defined(HIDIZS_AP80MAX)
+ #include "usb-hiby-gadget.h"
+ #endif
++#if defined(CAYIN_N3PRO)
++/* Provided by firmware/target/hosted/usb-hiby.c */
++void hiby_set_usb_mode(int mode);
++#endif
+ #if defined(DX50) || defined(DX90)
+ #include "usb-ibasso.h"
+ #endif
+@@ -91,7 +95,7 @@ void usb_set_mode(int mode)
+     usb_mode = mode;
+ #if defined(DX50) || defined(DX90)
+     ibasso_set_usb_mode(mode);
+-#elif defined(HIBY_R3PROII) || defined(HIBY_R1) || defined(HIDIZS_AP80MAX)
++#elif defined(HIBY_R3PROII) || defined(HIBY_R1) || defined(HIDIZS_AP80MAX) || defined(CAYIN_N3PRO)
+     hiby_set_usb_mode(mode);
+ #endif
+ }
 diff --git a/tools/builds.pm b/tools/builds.pm
 index 3adf0f2e38..0fbddea8b0 100644
 --- a/tools/builds.pm

@@ -33,9 +33,13 @@
 #define HAVE_HEADPHONE_DETECTION
 #define NO_BUTTON_LR
 
+/* RGB indicator (TI LP5562 via the led_pattern sysfs node) */
+#define HAVE_GENERAL_PURPOSE_LED
+
 #ifndef BOOTLOADER
 #define HAVE_BUTTON_DATA
 #define HAVE_TOUCHSCREEN
+#define HAVE_KBD_POINT_MODE
 #endif
 
 /* KeyPad configuration for plugins */
@@ -80,8 +84,10 @@
 #define BOOTDIR      "/.rockbox"
 
 /* USB */
+#define HAVE_USB_ADB
 #define USB_VID_STR "C502"
 #define USB_PID_STR "0029"
+#define HAVE_HOST_USB_AUDIO
 
 /* Generic HiBy stuff */
 #include "hibylinux.h"

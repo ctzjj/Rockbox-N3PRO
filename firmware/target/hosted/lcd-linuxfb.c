@@ -200,17 +200,17 @@ static void fb_blit_n3pro(const fb_data *src_base, int x, int y,
     for (int j = 0; j < height; j++)
     {
         const fb_data *srow = src_base + (long)(y + j) * LCD_WIDTH + x;
+        /* rotated destination row, walked backwards */
+        unsigned int *drow = dst + (long)(LCD_HEIGHT - 1 - y - j) * LCD_WIDTH
+                               + (LCD_WIDTH - 1 - x);
 
         for (int i = 0; i < width; i++)
         {
             unsigned short c = srow[i];
             unsigned r = (c >> 11) & 0x1f, g = (c >> 5) & 0x3f, b = c & 0x1f;
-            unsigned r8 = (r << 3) | (r >> 2);
-            unsigned g8 = (g << 2) | (g >> 4);
-            unsigned b8 = (b << 3) | (b >> 2);
-            int dx = LCD_WIDTH  - 1 - (x + i);
-            int dy = LCD_HEIGHT - 1 - (y + j);
-            dst[(long)dy * LCD_WIDTH + dx] = (r8 << 16) | (g8 << 8) | b8;
+            *drow-- = ((r << 3 | r >> 2) << 16)
+                    | ((g << 2 | g >> 4) << 8)
+                    |  (b << 3 | b >> 2);
         }
     }
 }

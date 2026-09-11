@@ -165,12 +165,20 @@ void audiohw_set_volume(int vol_l, int vol_r)
 void audiohw_set_filter_roll_off(int value)
 {
     logf("rolloff %d", value);
+#if defined(CAYIN_N3PRO)
     /* N3Pro order:
      *   0 = Short delay sharp (default)
      *   1 = Short delay slow
      *   2 = Sharp
      *   3 = Slow
      *   4 = Super slow */
+#else
+    /* 0 = Sharp;
+     *       1 = Slow;
+     *       2 = Short Sharp
+     *       3 = Short Slow
+     *       4 = Super Slow */
+#endif
     long int value_hw = value;
     alsa_controls_set_ints("Digital Filter", 1, &value_hw);
 #if defined(CAYIN_N3PRO)

@@ -21,6 +21,7 @@
 #include "button.h"
 #include "button-target.h"
 #include "touchscreen.h"
+#include "kernel.h"
 #include "hibylinux_codec.h"
 #ifndef BOOTLOADER
 #include "cayin-n3pro.h"
@@ -98,12 +99,28 @@ bool headphones_inserted(void)
 #ifdef BOOTLOADER
     return false;
 #else
-    /* Called on every button poll; use it as the periodic N3Pro housekeeping
-     * tick (electron-tube power follows the playback state). */
-    cayin_tube_tick();
-    /* hiby_get_outputs() also programs the AK4493 "Output Port Switch";
-     * without this the DAC output port is left unrouted -> no sound. */
-    int ps = hiby_get_outputs();
-    return (ps == 2);
+    /* Called on every button poll (very frequently).  Throttle the sysfs /
+     * ALSA work below to a few times a second so the button thread does not
+     * spin in the kernel. */
+    static long last = 0;
+    static bool present = false;
+
+    if (!TIME_BEFORE(current_tick, last + HZ/4))
+    {
+        last = current_tick;
+        /* Electron-tube power follows the playback state. */
+        cayin_tube_tick();
+        /* The generic LED core never calls the charging hooks. */
+        led_n3pro_tick();
+        /* Re-apply the USB Audio setting once the PCM mixer is up (the
+         * boot-time apply runs before audio_init and bails out). */
+        cayin_usb_retry();
+        /* hiby_get_outputs() also programs the AK4493 "Output Port Switch";
+         * without this the DAC output port is left unrouted -> no sound.
+         * The N3Pro exposes both a headset (2) and a balanced (3) switch. */
+        int ps = hiby_get_outputs();
+        present = (ps == 2 || ps == 3);
+    }
+    return present;
 #endif
 }

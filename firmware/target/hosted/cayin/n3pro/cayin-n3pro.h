@@ -69,4 +69,10 @@ void cayin_set_dsd_gain(int gain);
 void cayin_tube_set_mode(int mode);
 void cayin_tube_tick(void);
 
+/* RGB indicator (LP5562 pattern engine), polled from the button tick. */
+void led_n3pro_tick(void);
+
+/* Re-apply the USB Audio setting once PCM is up (usb-hiby.c). */
+void cayin_usb_retry(void);
+
 #endif /* _CAYIN_N3PRO_H_ */

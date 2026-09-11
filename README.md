@@ -21,7 +21,11 @@ installation is fully reversible and cannot brick the device.
 | SD card hotplug (`/mnt/sd_0`) | working |
 | ADB over USB (for debugging) | working |
 | DAC filter roll-off + tube mode settings | working |
+| USB mass storage / charge / ADB modes | working |
+| USB Audio (USB DAC -> `uac_sa`, incl. storage/ADB composites) | working |
+| RGB status LED (charge/playback indication by sample rate) | working |
 | Backlight | working |
+| Battery gauge | placeholder curves, needs calibration |
 
 ## Hardware notes
 

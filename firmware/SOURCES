@@ -217,7 +217,9 @@ target/hosted/cayin/n3pro/debug-n3pro.c
 target/hosted/cayin/n3pro/powermgmt-n3pro.c
 #if !defined(BOOTLOADER)
 target/hosted/cayin/n3pro/cayin-n3pro.c
+target/hosted/cayin/n3pro/led-n3pro.c
 target/hosted/hiby/hibylinux_codec.c
+target/hosted/hiby/usb-dac-hiby.c
 #endif
 #endif
 
