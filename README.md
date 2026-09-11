@@ -72,9 +72,11 @@ It also supports `--unpack`, `--inject-app` and `--pack` individually.
 
 ## Installing
 
-1. Unpack `rockbox-*.zip` to the root of a FAT32 microSD card, so that a
+1. Unpack `rockbox-*.zip` to the root of a FAT32/exFAT microSD card, so that a
    `.rockbox` directory appears there.
-2. Put the patched `.upt` file on the card.
+2. Rename the patched `.upt` file to **`update.upt`** and copy it to the card
+   root.  The updater only looks for a file named `update.upt`, so the name
+   matters.
 3. Power off, then hold the **play** button and press **power** to enter the
    update mode.  The updater flashes the image automatically.
 4. On boot the Rockbox boot loader menu appears; pick `ROCKBOX` or
