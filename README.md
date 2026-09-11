@@ -21,7 +21,7 @@ Download the ready-made image and SD-card payload from the
 | Volume wheel (rotary encoder -> scroll wheel) | working |
 | Audio (dual AK4493 via ALSA) | working |
 | Headphone / line / balanced detection | working |
-| DAC filter roll-off (5 modes) + Tube Mode (transistor/triode/ultra-linear) | working |
+| DAC filter roll-off (5 modes) + Tube Mode for the 2x JAN6418 tubes (transistor/triode/ultra-linear) | working |
 | SD card (`/mnt/sd_0`) | working |
 | USB: Mass Storage / Charge only / ADB modes | working |
 | USB Audio (USB DAC, incl. "DAC + storage" and "DAC + ADB" gadgets) | working* |
@@ -42,10 +42,12 @@ in-box WinUSB driver, so the **libusb** adb backend is required
   update (`firmware/target/hosted/lcd-linuxfb.c`).
 * Audio: dual AK4493 DACs on ALSA card 0 (`n3pro-ak4493-i2s`).  Digital filters
   are the ALSA `AK4493 Digital Filter` (5 modes) and `Digital Filter` controls.
-  Tube mode is a two-step operation: power the tube via the sysfs
-  `timbre_select`, then select the wiring (triode / ultra-linear) through the
-  `Timbre Tube Mode` ALSA control.  The tube is powered only while playing and
-  switched off 10 s after pause.
+  The output stage also has **two JAN6418 subminiature tubes**; *Tube Mode*
+  selects how they run: transistor (tubes powered off), **triode** or
+  **ultra-linear** (the two wiring/tap configurations of the same tubes).  It is
+  a two-step operation: power the tubes via the sysfs `timbre_select`, then
+  select the wiring through the `Timbre Tube Mode` ALSA control.  The tubes are
+  powered only while playing and switched off 10 s after pause.
 * Volume: a rotary encoder (`sa-ring-keys`) emitting `KEY_LEFT`/`KEY_RIGHT`; each
   detent is a press+release microseconds apart, so it is wired to Rockbox's
   scroll-wheel mechanism (`HAVE_SCROLLWHEEL`).

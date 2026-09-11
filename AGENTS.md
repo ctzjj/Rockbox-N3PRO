@@ -142,11 +142,13 @@ adb shell "sync; reboot"                                # UMS gadget is up
   once the backlight is off (the SLCD latches the image), so idle screenshots are
   unreliable.
 - **Audio**: dual AK4493 on ALSA card 0 (`n3pro-ak4493-i2s`).  Digital filter:
-  ALSA `AK4493 Digital Filter` (5 modes) + `Digital Filter`.  Tube mode is a
-  **two-step** operation: power the tube via sysfs `timbre_select` first, then
-  select triode/ultra-linear with the gated ALSA control `Timbre Tube Mode`.
-  `cayin-n3pro.c` powers the tube only while playing and switches it off 10 s
-  after pause (via the button tick).
+  ALSA `AK4493 Digital Filter` (5 modes) + `Digital Filter`.  The output stage
+  carries **two JAN6418 subminiature tubes**; *Tube Mode* is the operating mode
+  of those tubes — transistor (tubes off), triode or ultra-linear (the two
+  wiring/tap configurations).  It is a **two-step** operation: power the tubes
+  via sysfs `timbre_select` first, then select triode/ultra-linear with the gated
+  ALSA control `Timbre Tube Mode`.  `cayin-n3pro.c` powers the tubes only while
+  playing and switches them off 10 s after pause (via the button tick).
 - **Volume**: rotary encoder `sa-ring-keys` emitting `KEY_LEFT`/`KEY_RIGHT`; each
   detent is a press+release ~20 µs apart, so it is wired to the scroll wheel
   (`HAVE_SCROLLWHEEL`), not to plain buttons.

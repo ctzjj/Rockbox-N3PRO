@@ -25,11 +25,11 @@
 
 #define CAYIN_N3PRO_SYSFS_BASE "/sys/devices/platform/cayin-n3pro.0"
 
-/* Electron-tube vs solid-state output stage (timbre_select) */
+/* Electron-tube (2x JAN6418) vs solid-state output stage (timbre_select) */
 enum cayin_timbre
 {
-    CAYIN_TIMBRE_TRANSISTOR = 0,   /* "transistor" */
-    CAYIN_TIMBRE_TUBE,             /* "tube" */
+    CAYIN_TIMBRE_TRANSISTOR = 0,   /* "transistor" (tubes off) */
+    CAYIN_TIMBRE_TUBE,             /* "tube" (triode / ultra-linear) */
 };
 
 /* Power rating mode (power_output) */
@@ -61,10 +61,11 @@ void cayin_set_line_out_gain(int gain);
 /* DSD output gain */
 void cayin_set_dsd_gain(int gain);
 
-/* Electron-tube power management, driven by the playback state: the tube
- * is powered only while audio is playing and is switched off again 10s
- * after playback stops/pauses (saves power and tube life).  The triode /
- * ultra-linear wiring is only programmable while the tube is powered.
+/* Electron-tube (2x JAN6418) power management, driven by the playback state:
+ * the tubes are powered only while audio is playing and are switched off
+ * again 10s after playback stops/pauses (saves power and tube life).  The
+ * triode / ultra-linear wiring is only programmable while the tubes are
+ * powered.
  *   mode: 0 = transistor (off), 1 = triode, 2 = ultra-linear            */
 void cayin_tube_set_mode(int mode);
 void cayin_tube_tick(void);
