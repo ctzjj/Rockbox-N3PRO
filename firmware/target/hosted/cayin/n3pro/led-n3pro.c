@@ -122,9 +122,12 @@ void led_n3pro_tick(void)
     last = current_tick;
 
     if (charging_state()) {
-        /* The fuel gauge reports 100% once the charger tops the cell off. */
-        set_led(battery_level() >= 100 ? N3PRO_LED_RED_SOLID
-                                       : N3PRO_LED_RED_BREATHING);
+        set_led(N3PRO_LED_RED_BREATHING);
+    } else if (battery_level() >= 100 && power_input_present()) {
+        /* Charger still attached with a topped-off cell: solid red.  The
+         * shared charging_state() only reports "actively charging", so the
+         * "Full" state has to be derived from the gauge. */
+        set_led(N3PRO_LED_RED_SOLID);
     } else {
         /* Like the stock firmware: lit only while audio is playing (and only
          * if the user enabled the LED indicators), with the colour chosen by
