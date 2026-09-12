@@ -50,6 +50,11 @@
 #include "thread.h"
 #include "usb.h"
 #include "usb-dac-hiby.h"
+#if defined(CAYIN_N3PRO)
+#include <stdlib.h>
+#include <time.h>
+#include "dsp_core.h"
+#endif
 
 /*#define LOGF_ENABLE*/
 #include "logf.h"
@@ -78,6 +83,13 @@ static volatile bool dac_running;
 static volatile unsigned int dac_gen;
 #endif
 static int dac_fd = -1;
+#if defined(CAYIN_N3PRO)
+/* DSP chain the host PCM is run through (see dac_pump_thread), shared
+ * with normal playback; set up in the pump thread before streaming. */
+static struct dsp_config *dac_dsp;
+/* Host sample rate currently applied to the mixer + DSP. */
+static int dac_rate;
+#endif
 
 /* Mixer callback (PCM feed context). Returns the next chunk from the ring,
  * zero-padded with silence on underrun so the stream never stalls. Double
@@ -108,6 +120,94 @@ static void dac_get_more(const void **start, size_t *size)
     *start = buf;
     *size = DAC_CHUNK_FRAMES * 2 * sizeof(int16_t);
 }
+
+#if defined(CAYIN_N3PRO)
+/* Follow a host sample-rate change: retime the mixer + ALSA output and
+ * the DSP chain, and drop audio still buffered from the old rate.
+ * Called from the pump thread only. */
+static void dac_apply_rate(int rate)
+{
+    if (rate < 8000 || rate > 768000)
+        rate = USB_DAC_SAMPLE_RATE;
+    if (rate == dac_rate)
+        return;
+    dac_rate = rate;
+
+    /* Rockbox's output rate table tops out at 192 kHz: requesting
+     * 352.8/384 kHz falls back to the 44.1 kHz default and everything
+     * crawls. Halve the output rate instead (clean 2:1 ratio) and let
+     * the DSP resampler downconvert the host stream. */
+    int out_rate = rate;
+    while (out_rate > 192000)
+        out_rate /= 2;
+
+    dac_tail = dac_head;          /* ring: drop old-rate audio */
+
+    mixer_set_frequency(out_rate);
+    if (dac_dsp)
+    {
+        dsp_configure(dac_dsp, DSP_SET_FREQUENCY, rate);
+        dsp_configure(dac_dsp, DSP_SET_OUT_FREQUENCY, out_rate);
+    }
+
+    /* mixer_set_frequency() stops the PCM driver and nothing restarts
+     * it: in the normal flow the next track's channel play_data does.
+     * Re-kick our channel so the stream resumes at the new rate. */
+    {
+        static const struct mixer_play_cbs cbs = { .get_more = dac_get_more };
+        mixer_channel_play_data(PCM_MIXER_CHAN_USBAUDIO, &cbs, NULL, 0);
+    }
+}
+
+/* Infer the host sample rate from the data arrival rate. The uac_sa
+ * status ioctl is unreliable on this driver family (it reports a
+ * stale/default rate), so measure throughput instead. */
+static int dac_infer_rate(uint64_t frames, long ns)
+{
+    static const int rates[] = { 44100, 48000, 88200, 96000,
+                                 176400, 192000, 352800, 384000 };
+    int hz = (int)(frames * 1000000000ull / (uint64_t)ns);
+
+    for (unsigned i = 0; i < sizeof(rates) / sizeof(rates[0]); i++)
+        if (hz > rates[i] * 97 / 100 && hz < rates[i] * 103 / 100)
+            return rates[i];
+    return 0;
+}
+
+/* Watch the kernel log for the uac_sa driver's rate announcements
+ * ("... set replay rate:96000"). This is exact and event-driven; the
+ * ioctl lies on this driver family and throughput guessing gets
+ * imprecise at high rates (4096 frames is ~11 ms at 384 kHz). */
+static int dac_kmsg_fd = -1;
+
+/* Drain pending records; return the last "replay rate" seen, or 0. */
+static int dac_kmsg_rate(int max_records)
+{
+    if (dac_kmsg_fd < 0)
+        return 0;
+
+    int rate = 0;
+    char buf[512];
+
+    while (max_records-- > 0)
+    {
+        ssize_t n = read(dac_kmsg_fd, buf, sizeof(buf) - 1);
+        if (n <= 0)
+            break;                  /* EAGAIN: drained */
+        buf[n] = '\0';
+
+        char *p = strstr(buf, "replay rate");
+        if (!p)
+            continue;
+        p += strlen("replay rate");
+        while (*p != '\0' && (*p < '0' || *p > '9'))
+            p++;                     /* skip ": " of both log formats */
+        if (*p >= '0' && *p <= '9')
+            rate = atoi(p);
+    }
+    return rate;
+}
+#endif
 
 /* Drain /dev/uac_sa into the ring. The driver's only file
  * operations are open/read/ioctl (there is no poll()), so retry with a
@@ -144,8 +244,44 @@ static void *dac_pump_thread(void *arg)
     }
     dac_fd = fd;
 
+    /* Prepare the shared audio DSP chain on this thread (never on the
+     * USB thread that spawned us), exactly as usbstack/usb_audio.c does
+     * when its UAC connection comes up. DSP_SET_OUT_FREQUENCY must match
+     * the mixer rate or the resampler engages (default output 44.1 kHz
+     * vs our 48 kHz input) and mangles the host stream. */
+    dac_dsp = dsp_get_config(CODEC_IDX_AUDIO);
+    dsp_configure(dac_dsp, DSP_RESET, 0);
+    dsp_configure(dac_dsp, DSP_SET_STEREO_MODE, STEREO_INTERLEAVED);
+    dsp_configure(dac_dsp, DSP_SET_SAMPLE_DEPTH, 16);
+    dac_apply_rate(USB_DAC_SAMPLE_RATE);
+
+    /* Exact rate source: the driver logs every host-side rate change.
+     * Drain the backlog to catch the rate the host negotiated while we
+     * were opening the device. */
+    dac_kmsg_fd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK);
+    {
+        int r = dac_kmsg_rate(512);
+        if (r > 0)
+            dac_apply_rate(r);
+    }
+
+    /* Host-rate inference state: fallback for when /dev/kmsg is not
+     * readable; measures the data arrival rate over rolling windows and
+     * retimes the chain when two consecutive windows agree. */
+    uint64_t win_frames = 0;
+    int candidate = 0;
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+
     while (dac_running && gen == dac_gen)
     {
+        /* Follow the driver's rate announcements as they happen. */
+        {
+            int r = dac_kmsg_rate(8);
+            if (r > 0 && r != dac_rate)
+                dac_apply_rate(r);
+        }
+
         unsigned int head = dac_head;
 
         /* Leave room for a full read; else wait for the mixer to drain */
@@ -165,13 +301,80 @@ static void *dac_pump_thread(void *arg)
         }
 
         int frames = n / UAC_SA_FRAME_SIZE;
-        for (int i = 0; i < frames; i++)
+
+        /* Run the host PCM through the Rockbox DSP chain, the same way
+         * usbstack/usb_audio.c processes its UAC frames, so the EQ and
+         * the other Sound settings apply to USB DAC input as well.
+         * Bypassed while local playback runs: the codec thread owns the
+         * shared CODEC_IDX_AUDIO instance then. */
+        struct dsp_config *dsp = dac_dsp;
+        if (dsp && mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) == CHANNEL_STOPPED)
         {
-            unsigned int idx = (head + i) & (DAC_RING_FRAMES - 1);
-            dac_ring[2 * idx]     = (int16_t)(rbuf[2 * i]     >> 16);
-            dac_ring[2 * idx + 1] = (int16_t)(rbuf[2 * i + 1] >> 16);
+            static int16_t sbuf[DAC_CHUNK_FRAMES * 2];
+            static int16_t dbuf[DAC_CHUNK_FRAMES * 2];
+
+            for (int i = 0; i < frames; i++)
+            {
+                sbuf[2 * i]     = (int16_t)(rbuf[2 * i]     >> 16);
+                sbuf[2 * i + 1] = (int16_t)(rbuf[2 * i + 1] >> 16);
+            }
+
+            struct dsp_buffer src, dst;
+            src.remcount = frames;
+            src.pin[0] = sbuf;
+            src.pin[1] = sbuf;
+            src.proc_mask = 0;
+            dst.remcount = 0;
+            dst.bufcount = DAC_CHUNK_FRAMES;
+            dst.p16out = dbuf;
+            dsp_process(dsp, &src, &dst, false);
+
+            frames = dst.remcount;
+            for (int i = 0; i < frames; i++)
+            {
+                unsigned int idx = (head + i) & (DAC_RING_FRAMES - 1);
+                dac_ring[2 * idx]     = dbuf[2 * i];
+                dac_ring[2 * idx + 1] = dbuf[2 * i + 1];
+            }
+        }
+        else
+        {
+            for (int i = 0; i < frames; i++)
+            {
+                unsigned int idx = (head + i) & (DAC_RING_FRAMES - 1);
+                dac_ring[2 * idx]     = (int16_t)(rbuf[2 * i]     >> 16);
+                dac_ring[2 * idx + 1] = (int16_t)(rbuf[2 * i + 1] >> 16);
+            }
         }
         dac_head = head + frames;
+
+        /* Rate inference fallback (only without /dev/kmsg): tally
+         * arriving frames per time window. */
+        if (dac_kmsg_fd < 0)
+        {
+            win_frames += frames;
+            if (win_frames >= 8192)
+            {
+                clock_gettime(CLOCK_MONOTONIC, &t1);
+                long ns = (t1.tv_sec - t0.tv_sec) * 1000000000l
+                        + (t1.tv_nsec - t0.tv_nsec);
+                if (ns > 0)
+                {
+                    int rate = dac_infer_rate(win_frames, ns);
+                    if (rate == candidate && rate > 0 && rate != dac_rate)
+                        dac_apply_rate(rate);
+                    candidate = rate;
+                }
+                win_frames = 0;
+                t0 = t1;
+            }
+        }
+    }
+
+    if (dac_kmsg_fd >= 0)
+    {
+        close(dac_kmsg_fd);
+        dac_kmsg_fd = -1;
     }
 
     close(fd);
@@ -223,6 +426,14 @@ bool usb_dac_start(void)
     if (dac_running)
         return true;
 
+    /* While local playback runs the output device and its rate belong to
+     * it (and the core refuses to start it while the DAC runs, see
+     * apps/playback.c). Don't start the host-PCM pump until it stops:
+     * usb_detect() retries every tick, so the DAC comes up by itself
+     * once playback is over. */
+    if (mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) != CHANNEL_STOPPED)
+        return false;
+
     /* The vendor driver's open()/read() block until the host streams, so
      * ALL device I/O is done by the pump thread; this function only sets
      * up the mixer and spawns it and can therefore never wedge the USB
@@ -230,6 +441,7 @@ bool usb_dac_start(void)
     mixer_set_frequency(USB_DAC_SAMPLE_RATE);
 
     dac_head = dac_tail = 0;
+    dac_rate = 0;   /* force the pump to (re)apply the host rate */
     dac_gen++;
     dac_running = true;
     if (pthread_create(&dac_thread, NULL, dac_pump_thread, NULL) != 0)
@@ -302,6 +514,7 @@ void usb_dac_stop(void)
      * wind down on its own; joining here could deadlock forever. */
     dac_running = false;
     dac_gen++;
+    dac_dsp = NULL;
     mixer_channel_stop(PCM_MIXER_CHAN_USBAUDIO);
 #else
     dac_running = false;
