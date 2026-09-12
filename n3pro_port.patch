@@ -7714,17 +7714,29 @@ index 449ff6bd76..0f369b3dd2 100644
          {
              /* save last choice */
 diff --git a/firmware/SOURCES b/firmware/SOURCES
-index 8b524edcc4..b555091e92 100644
+index 8b524edcc4..495f49200c 100644
 --- a/firmware/SOURCES
 +++ b/firmware/SOURCES
-@@ -211,6 +211,18 @@ target/hosted/agptek/rocker_codec.c
+@@ -161,7 +161,9 @@ target/hosted/lc-unix.c
+ target/hosted/sysfs.c
+ target/hosted/backlight-unix.c
+ target/hosted/system-hosted.c
++#if !defined(CAYIN_N3PRO)
+ target/hosted/lcd-linuxfb.c
++#endif
+ target/hosted/power-linux.c
+ #endif
+ 
+@@ -211,6 +213,21 @@ target/hosted/agptek/rocker_codec.c
  #endif
  #endif
  
 +#if defined(CAYIN_N3PRO) && !defined(SIMULATOR)
 +target/hosted/cayin/n3pro/button-n3pro.c
 +target/hosted/cayin/n3pro/debug-n3pro.c
++target/hosted/cayin/n3pro/lcd-n3pro.c
 +target/hosted/cayin/n3pro/powermgmt-n3pro.c
++target/hosted/cayin/n3pro/usb-n3pro.c
 +#if !defined(BOOTLOADER)
 +target/hosted/cayin/n3pro/cayin-n3pro.c
 +target/hosted/cayin/n3pro/led-n3pro.c
@@ -7732,10 +7744,20 @@ index 8b524edcc4..b555091e92 100644
 +target/hosted/hiby/usb-dac-hiby.c
 +#endif
 +#endif
++#endif
 +
  #if defined(SURFANS_F28) && !defined(SIMULATOR)
  target/hosted/surfans/button-f28.c
  target/hosted/surfans/debug-f28.c
+@@ -233,7 +250,7 @@ target/hosted/xduoo/xduoolinux_codec.c
+ target/hosted/button-devinput.c
+ #endif
+ 
+-#if defined(HIBY_LINUX) && !defined(HIBY_R3PROII) && !defined(HIBY_R1) && !defined(HIDIZS_AP80MAX) && !defined(SIMULATOR)
++#if defined(HIBY_LINUX) && !defined(HIBY_R3PROII) && !defined(HIBY_R1) && !defined(HIDIZS_AP80MAX) && !defined(CAYIN_N3PRO) && !defined(SIMULATOR)
+ target/hosted/usb-hiby.c
+ #endif
+ 
 diff --git a/firmware/export/audiohw.h b/firmware/export/audiohw.h
 index 6525cc0452..f0a4061d52 100644
 --- a/firmware/export/audiohw.h
@@ -8496,6 +8518,275 @@ index 0000000000..3677651826
 @@ -0,0 +1,2 @@
 +/* Reuse the generic Agptek/HiBy debug screen (battery, buttons, touch, PCM). */
 +#include "../../agptek/debug-agptek.c"
+diff --git a/firmware/target/hosted/cayin/n3pro/lcd-n3pro.c b/firmware/target/hosted/cayin/n3pro/lcd-n3pro.c
+new file mode 100644
+index 0000000000..596673e901
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/lcd-n3pro.c
+@@ -0,0 +1,263 @@
++/***************************************************************************
++ *             __________               __   ___.
++ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
++ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
++ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
++ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
++ *                     \/            \/     \/    \/            \/
++ *
++ * Copyright (C) 2026 ctzjj
++ * Based on lcd-linuxfb.c (C) 2016 Amaury Pouly
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ *
++ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
++ * KIND, either express or implied.
++ *
++ ****************************************************************************/
++
++/* Self-contained framebuffer driver for the Cayin N3Pro.
++ *
++ * The panel is a 360x480 panel scanned straight out of the framebuffer by
++ * the Ingenic LCDC at 60 Hz.  The vendor kernel fixes /dev/fb0 at 32bpp
++ * XRGB8888 (FBIOPUT_VSCREENINFO rejects other depths) and mounts the panel
++ * rotated 180 degrees, so every update converts Rockbox's 16bpp RGB565
++ * framebuffer and writes it rotated.
++ *
++ * There is no blanking interval and the fbdev driver supports neither page
++ * flipping (yres_virtual is clamped to yres) nor FBIO_WAITFORVSYNC, so
++ * writing the visible buffer tears whenever the scan beam crosses the rows
++ * being written.  The panel TE signal is wired to a GPIO which the kernel
++ * counts as the "slcd_vsync" interrupt (~60 Hz), though: we lock onto that
++ * counter and write in scan order, staying ahead of the beam. */
++
++#include <stdlib.h>
++#include <unistd.h>
++#include <stdio.h>
++#include <string.h>
++#include <time.h>
++#include <linux/fb.h>
++#include <sys/mman.h>
++#include <sys/ioctl.h>
++#include <fcntl.h>
++#include "lcd.h"
++#include "lcd-target.h"
++#include "sysfs.h"
++#include "panic.h"
++
++static int fd = -1;
++static struct fb_var_screeninfo vinfo;
++static struct fb_fix_screeninfo finfo;
++fb_data *framebuffer = NULL; /* global variable, see lcd-target.h */
++
++static void redraw(void)
++{
++    ioctl(fd, FBIOPAN_DISPLAY, &vinfo);
++}
++
++/* ---- scan-beam synchronisation --------------------------------------- */
++
++static long long n3pro_frame_ns;
++static long long n3pro_next_vsync_ns;
++
++static long long n3pro_now_ns(void)
++{
++    struct timespec ts;
++    clock_gettime(CLOCK_MONOTONIC, &ts);
++    return (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
++}
++
++/* Current value of the slcd_vsync interrupt counter, -1 if unavailable. */
++static long long n3pro_vsync_count(void)
++{
++    char buf[2048];
++    int fd = open("/proc/interrupts", O_RDONLY);
++    if (fd < 0)
++        return -1;
++    int n = read(fd, buf, sizeof(buf) - 1);
++    close(fd);
++    if (n <= 0)
++        return -1;
++    buf[n] = '\0';
++
++    const char *p = strstr(buf, "slcd_vsync");
++    if (!p)
++        return -1;
++    while (p > buf && p[-1] != '\n')
++        p--;                          /* start of the interrupt line */
++    p = strchr(p, ':');
++    if (!p)
++        return -1;
++    return strtoll(p + 1, NULL, 10);
++}
++
++/* Block until the next panel frame start (best effort; if the sync source
++ * disappears we simply return and the blit runs unsynchronised).  The frame
++ * period is predicted from the panel timing and re-locked at every edge, so
++ * the tight-poll window stays around a millisecond. */
++static void n3pro_wait_vsync(void)
++{
++    long long c0, t0, now, d;
++
++    now = n3pro_now_ns();
++    d = n3pro_next_vsync_ns - now;
++    if (d > 400000)
++    {
++        if (d > 20000000LL)
++            d = 20000000LL;           /* stale prediction: cap the sleep */
++        usleep((d - 400000) / 1000);
++    }
++
++    c0 = n3pro_vsync_count();
++    if (c0 < 0)
++        return;
++    t0 = n3pro_now_ns();
++    while (n3pro_vsync_count() == c0)
++    {
++        now = n3pro_now_ns();
++        if (now - t0 > 30000000LL)
++        {
++            n3pro_next_vsync_ns = now + n3pro_frame_ns;
++            return;                   /* lost sync: write unsynchronised */
++        }
++    }
++    n3pro_next_vsync_ns = n3pro_now_ns() + n3pro_frame_ns;
++}
++
++/* ---- blit ------------------------------------------------------------- */
++
++/* Convert Rockbox's 16bpp RGB565 framebuffer into the panel's 32bpp
++ * XRGB8888 format and write it rotated 180 degrees so the image appears
++ * upright.  Rows are written in panel scan order (fb row 0 first) so that,
++ * combined with n3pro_wait_vsync(), the blit (~9 ms/frame) stays ahead of
++ * the scan beam (~35 us/row). */
++static void fb_blit_n3pro(const fb_data *src_base, int x, int y,
++                          int width, int height)
++{
++    unsigned int *dst = (unsigned int *)framebuffer;
++
++    for (int j = height - 1; j >= 0; j--)
++    {
++        const fb_data *srow = src_base + (long)(y + j) * LCD_WIDTH + x;
++        /* rotated destination row, walked backwards */
++        unsigned int *drow = dst + (long)(LCD_HEIGHT - 1 - y - j) * LCD_WIDTH
++                               + (LCD_WIDTH - 1 - x);
++
++        for (int i = 0; i < width; i++)
++        {
++            unsigned short c = srow[i];
++            unsigned r = (c >> 11) & 0x1f, g = (c >> 5) & 0x3f, b = c & 0x1f;
++            *drow-- = ((r << 3 | r >> 2) << 16)
++                    | ((g << 2 | g >> 4) << 8)
++                    |  (b << 3 | b >> 2);
++        }
++    }
++}
++
++/* ---- driver API ------------------------------------------------------- */
++
++void lcd_init_device(void)
++{
++    const char * const fb_dev = "/dev/fb0";
++    fd = open(fb_dev, O_RDWR | O_CLOEXEC);
++    if (fd < 0)
++    {
++        panicf("Cannot open framebuffer: %s\n", fb_dev);
++    }
++
++    if (ioctl(fd, FBIOGET_FSCREENINFO, &finfo) < 0)
++    {
++        panicf("Cannot read framebuffer fixed information");
++    }
++
++    if (finfo.smem_len < LCD_WIDTH * LCD_HEIGHT * 4)
++        panicf("Framebuffer too small (%u bytes)", finfo.smem_len);
++
++    if (ioctl(fd, FBIOGET_VSCREENINFO, &vinfo) < 0)
++    {
++        panicf("Cannot read framebuffer variable information");
++    }
++
++    /* Frame period from the panel timing (sync margins are zero). */
++    n3pro_frame_ns = (long long)vinfo.pixclock
++                     * (vinfo.xres + vinfo.left_margin + vinfo.right_margin
++                        + vinfo.hsync_len)
++                     * (vinfo.yres + vinfo.upper_margin + vinfo.lower_margin
++                        + vinfo.vsync_len) / 1000;
++
++    framebuffer = mmap(NULL, finfo.smem_len, PROT_READ | PROT_WRITE,
++                       MAP_SHARED, fd, 0);
++    if ((void *)framebuffer == MAP_FAILED)
++    {
++        panicf("Cannot map framebuffer");
++    }
++
++    memset(framebuffer, 0, finfo.smem_len);
++
++#ifdef HAVE_LCD_ENABLE
++    lcd_set_active(true);
++#endif
++}
++
++#ifdef HAVE_LCD_SHUTDOWN
++void lcd_shutdown(void)
++{
++    munmap(framebuffer, finfo.smem_len);
++    framebuffer = NULL;
++    close(fd);
++    fd = -1;
++}
++#endif
++
++#ifdef HAVE_LCD_ENABLE
++void lcd_enable(bool on)
++{
++    if (fd < 0) return;
++
++    if (lcd_active() == on)
++        return;
++
++    lcd_set_active(on);
++
++    if (on) {
++        send_event(LCD_EVENT_ACTIVATION, NULL);
++        ioctl(fd, FB_BLANK_UNBLANK);
++    } else {
++        memset(framebuffer, 0, finfo.smem_len);
++        redraw();
++        ioctl(fd, FB_BLANK_POWERDOWN);
++    }
++}
++#endif
++
++void lcd_update(void)
++{
++    if (fd < 0) return;
++
++#ifdef HAVE_LCD_ENABLE
++    if (lcd_active())
++#endif
++    {
++        n3pro_wait_vsync();           /* chase the scan beam (full screen) */
++        fb_blit_n3pro(FBADDR(0, 0), 0, 0, LCD_WIDTH, LCD_HEIGHT);
++        redraw();
++    }
++}
++
++void lcd_update_rect(int x, int y, int width, int height)
++{
++    if (fd < 0) return;
++
++#ifdef HAVE_LCD_ENABLE
++    if (lcd_active())
++#endif
++    {
++        if (width * height >= LCD_WIDTH * LCD_HEIGHT / 8)
++            n3pro_wait_vsync();       /* chase the beam on big updates */
++        fb_blit_n3pro(FBADDR(0, 0), x, y, width, height);
++        redraw();
++    }
++}
 diff --git a/firmware/target/hosted/cayin/n3pro/lcd-target.h b/firmware/target/hosted/cayin/n3pro/lcd-target.h
 new file mode 100644
 index 0000000000..0dab04cc69
@@ -9037,6 +9328,354 @@ index 0000000000..830f19fde4
 +
 +#define NEED_GENERIC_BYTESWAPS
 +#endif /* __SYSTEM_TARGET_H__ */
+diff --git a/firmware/target/hosted/cayin/n3pro/usb-n3pro.c b/firmware/target/hosted/cayin/n3pro/usb-n3pro.c
+new file mode 100644
+index 0000000000..1df5b596b6
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/usb-n3pro.c
+@@ -0,0 +1,342 @@
++/***************************************************************************
++ *             __________               __   ___.
++ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
++ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
++ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
++ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
++ *                     \/            \/     \/    \/            \/
++ *
++ * Copyright (C) 2026 ctzjj
++ * Based on usb-hiby.c (C) 2018 Marcin Bukat
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ *
++ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
++ * KIND, either express or implied.
++ *
++ ****************************************************************************/
++
++/* Self-contained USB driver for the Cayin N3Pro.
++ *
++ * The vendor kernel only exposes the android_usb sysfs gadget (configfs
++ * cannot create the functions we need), configured through
++ * /sys/class/android_usb/android0.  Changing the function list requires
++ * enable=0 -> write functions -> enable=1.  The structure mirrors
++ * firmware/target/hosted/hiby/usb-hiby-gadget.c (R1):
++ *
++ *  - usb_detect() never touches the gadget or the DAC; it only reports
++ *    insertion.  A charger never enumerates the gadget, so "CONFIGURED"
++ *    tells a real host apart from a dumb charger.
++ *  - The base mode is applied by configure_usb_mode(); the DAC gadget is
++ *    reconciled separately from usb_set_audio()/hiby_set_usb_mode().
++ *  - The DAC is never started before the PCM mixer is up (pcm_is_initialized)
++ *    and if it fails to come up the base mode is restored.
++ */
++
++#include <stdlib.h>
++#include <sys/mount.h>
++#include <string.h>
++#include <errno.h>
++#include "config.h"
++#include "disk.h"
++#include "usb.h"
++#include "sysfs.h"
++#include "power.h"
++#ifdef HAVE_HOST_USB_AUDIO
++#include "pcm.h"
++#include "hiby/usb-dac-hiby.h"
++#endif
++#include "logf.h"
++
++int disk_mount_all(void)
++{
++    const char * const dev[] = {"/dev/mmcblk0p1", "/dev/mmcblk0"};
++    const char * const fs[] = {"vfat", "exfat"};
++
++    sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/lun/file", "");
++
++    for (int i = 0; i < 2; i++)
++    {
++        for (int j = 0; j < 2; j++)
++        {
++            int rval = mount(dev[i], PIVOT_ROOT, fs[j], 0, NULL);
++            if (rval == 0 || errno == -EBUSY)
++            {
++                logf("mount good! %d/%d %d %d", i, j, rval, errno);
++                return 1;
++            }
++        }
++    }
++
++    logf("mount failed! %d", errno);
++    return 0;
++}
++
++int disk_unmount_all(void)
++{
++    if (umount(PIVOT_ROOT) == 0)
++    {
++        sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/lun/file", "/dev/mmcblk0");
++        logf("umount_all good");
++        return 1;
++    }
++
++    logf("umount_all failed! %d", errno);
++    return 0;
++}
++
++static const char * const sysfs_functions = "/sys/class/android_usb/android0/functions";
++static const char * const sysfs_enable    = "/sys/class/android_usb/android0/enable";
++static const char * const sysfs_lun       = "/sys/class/android_usb/android0/f_mass_storage/lun/file";
++
++static int _usb_mode  = -1;
++static int _usb_audio = 0;
++static bool _usb_init = false;
++
++/* Reconfiguring the gadget invalidates the endpoints adbd holds open; the
++ * daemon does not notice and turns into a zombie (interface enumerates but
++ * refuses connections). The vendor adbserver.sh loop respawns it within a
++ * second, so kick it here after every function-list change. */
++static void restart_adbd(void)
++{
++    system("killall adbd 2>/dev/null");
++}
++
++/* The "USB Audio" setting: 0 never, 1 always, 2 while charge-only,
++ * 3 while mass-storage (same values as R1). */
++static bool dac_wanted(void)
++{
++    switch (_usb_audio)
++    {
++    case 1: return true;
++    case 2: return _usb_mode == USB_MODE_CHARGE;
++    case 3: return _usb_mode == USB_MODE_MASS_STORAGE;
++    default: return false;
++    }
++}
++
++/* Apply the base USB mode without the DAC (R1 configure_usb_mode). */
++static void configure_usb_mode(int mode)
++{
++    sysfs_set_int(sysfs_enable, 0);
++
++    /* Plain modes are plain composites: clear the IAD device class set by
++     * the DAC gadget, or Windows mis-parses the descriptors (it binds the
++     * whole device as a single ADB interface and loses everything else). */
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0);
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 0);
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceProtocol", 0);
++
++    switch (mode)
++    {
++    case USB_MODE_CHARGE:
++        /* charge only: export nothing and stay disabled */
++        sysfs_set_string(sysfs_functions, "");
++        restart_adbd();
++        return;
++
++    case USB_MODE_ADB:
++        sysfs_set_string(sysfs_functions, "adb");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "18D1");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "D002");
++        break;
++
++    case USB_MODE_MASS_STORAGE:
++    default:
++        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
++        sysfs_set_string(sysfs_functions, "mass_storage");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++    }
++
++    sysfs_set_int(sysfs_enable, 1);
++    restart_adbd();
++}
++
++/* Bring the DAC gadget up standalone (R1 enable_usb_audio). Composite with
++ * the base function, uac_sa first: its audio interfaces are hard-coded 0-1. */
++#ifdef HAVE_HOST_USB_AUDIO
++static bool enable_usb_audio(void)
++{
++    /* Never before the PCM mixer exists (boot), like R1. */
++    if (!pcm_is_initialized())
++        return false;
++
++    sysfs_set_int(sysfs_enable, 0);
++    usb_dac_stop();
++
++    switch (_usb_mode)
++    {
++    case USB_MODE_ADB:
++        /* No IAD here: with bDeviceClass 0xEF Windows fails to parse the
++         * uac_sa+adb composite. Also use the Cayin VID/PID: the Google/
++         * vendor ADB INFs match 18D1:D002 at device level and preempt the
++         * composite driver, which hides every other function. Windows'
++         * in-box WinUSB matches the ADB interface (FF/42/01) on its own. */
++        sysfs_set_string(sysfs_functions, "uac_sa,adb");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++
++    case USB_MODE_MASS_STORAGE:
++        /* composite: the card is exported AND the host gets a sound card */
++        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
++        sysfs_set_string(sysfs_functions, "uac_sa,mass_storage");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        /* Interface Association Descriptor, like the stock gadget / R1 */
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0xEF);
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 2);
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceProtocol", 1);
++        break;
++
++    default:
++        sysfs_set_string(sysfs_functions, "uac_sa");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++    }
++
++    sysfs_set_int(sysfs_enable, 1);
++    restart_adbd();
++
++    /* Do NOT usb_dac_start() here: the vendor driver's open() blocks until a
++     * host is streaming ("wait uac sa device"), which would hang whichever
++     * thread applies the setting. The pump is started from usb_detect()
++     * once the gadget is actually CONFIGURED. */
++    return true;
++}
++#endif /* HAVE_HOST_USB_AUDIO */
++
++/* Tear the DAC gadget down and restore the base mode (R1 disable_usb_audio). */
++static void disable_usb_audio(void)
++{
++#ifdef HAVE_HOST_USB_AUDIO
++    usb_dac_stop();
++#endif
++    configure_usb_mode(_usb_mode < 0 ? USBMODE_DEFAULT : _usb_mode);
++}
++
++/* Reconcile the DAC with the setting + base mode (R1 apply_usb_audio). */
++static void apply_usb_audio(void)
++{
++#ifdef HAVE_HOST_USB_AUDIO
++    bool want = dac_wanted();
++    bool active = usb_audio_get_active();
++
++    if (want && !active)
++    {
++        /* enable_usb_audio() returns false if applied before audio_init()
++         * (PCM mixer not up yet -- e.g. at boot) or if uac_sa never comes
++         * up. Either way restore the base mode so we never leave a dead
++         * gadget behind. */
++        if (!enable_usb_audio())
++            configure_usb_mode(_usb_mode < 0 ? USBMODE_DEFAULT : _usb_mode);
++    }
++    else if (!want && active)
++    {
++        disable_usb_audio();
++    }
++#endif
++}
++
++void hiby_set_usb_mode(int mode)
++{
++    if (!_usb_init)
++        usb_init_device();
++
++#ifdef HAVE_HOST_USB_AUDIO
++    /* Drop any active DAC before reconfiguring the base gadget. */
++    if (usb_audio_get_active())
++        disable_usb_audio();
++#endif
++
++    _usb_mode = mode;
++    configure_usb_mode(mode);
++    apply_usb_audio();
++}
++
++/* Target implementation of the "USB Audio" setting. */
++void usb_set_audio(int value)
++{
++    _usb_audio = value;
++    if (_usb_mode >= 0)
++        apply_usb_audio();
++}
++
++/* Re-apply the USB Audio setting once the PCM mixer is up. The setting is
++ * applied at boot before audio_init(), so the first attempt bails out on
++ * pcm_is_initialized() and the base mode stays; call this periodically
++ * (from the N3Pro housekeeping tick) until it sticks. */
++void cayin_usb_retry(void)
++{
++#ifdef HAVE_HOST_USB_AUDIO
++    /* Fire exactly once after the PCM mixer comes up: a failing attempt
++     * reconfigures the gadget, so retrying forever would flap it. */
++    static bool done = false;
++
++    if (done || _usb_audio <= 0 || _usb_mode < 0 || !pcm_is_initialized())
++        return;
++    if (!usb_audio_get_active() && dac_wanted())
++        apply_usb_audio();
++    done = true;
++#endif
++}
++
++int usb_detect(void)
++{
++    char state[32] = {0};
++    bool configured;
++
++    /* A dumb charger supplies VBUS but never enumerates the gadget, so only
++     * a CONFIGURED gadget counts as "connected to a host". */
++    sysfs_get_string("/sys/class/android_usb/android0/state", state, sizeof(state));
++    configured = strstr(state, "CONFIGURED") != NULL;
++
++#ifdef HAVE_HOST_USB_AUDIO
++    /* Start/stop the host-PCM pump here (USB thread context): the vendor
++     * uac_sa open() blocks until a host is streaming, so it may only run
++     * once the gadget is actually configured. */
++    if (configured)
++    {
++        if (dac_wanted() && !usb_audio_get_active())
++            usb_dac_start();
++    }
++    else if (usb_audio_get_active())
++    {
++        usb_dac_stop();
++    }
++#endif
++
++    return configured ? USB_INSERTED : USB_EXTRACTED;
++}
++
++void usb_enable(bool on)
++{
++    /* Deliberately a no-op: the gadget must stay enabled across unplug so
++     * the still-asserted soft-connect re-enumerates on replug without any
++     * help (this is how the stock firmware behaves). Tearing it down here
++     * left the device dead to the host on re-insertion, because a
++     * composite including uac_sa does not come back from enable=0/1.
++     * The gadget lifecycle is owned by configure_usb_mode()/the DAC
++     * helpers, which reconfigure it only on mode/setting changes. */
++    (void)on;
++}
++
++void usb_init_device(void)
++{
++    /* The vendor sys_server daemon also drives this gadget
++     * (usb_mgr_set_functions) and would tear our function list back down;
++     * Rockbox is the only USB manager now. */
++    system("killall sys_server 2>/dev/null");
++
++    sysfs_set_string("/sys/class/android_usb/android0/iManufacturer", "Rockbox.org");
++    sysfs_set_string("/sys/class/android_usb/android0/iProduct", "Rockbox media player");
++    sysfs_set_string("/sys/class/android_usb/android0/iSerial", "0123456789ABCDEF");
++    sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/inquiry_string", "Rockbox 0100");
++    _usb_init = true;
++}
 diff --git a/firmware/target/hosted/hiby/hibylinux_codec.c b/firmware/target/hosted/hiby/hibylinux_codec.c
 index 4cb445887d..410a0bb353 100644
 --- a/firmware/target/hosted/hiby/hibylinux_codec.c
@@ -9344,568 +9983,6 @@ index 469dc640b9..6b2b1a949f 100644
  }
  
  bool usb_audio_get_active(void)
-diff --git a/firmware/target/hosted/lcd-linuxfb.c b/firmware/target/hosted/lcd-linuxfb.c
-index 63661a1254..06369efc21 100644
---- a/firmware/target/hosted/lcd-linuxfb.c
-+++ b/firmware/target/hosted/lcd-linuxfb.c
-@@ -24,6 +24,7 @@
- #include <unistd.h>
- #include <stdio.h>
- #include <string.h>
-+#include <time.h>
- #include <linux/fb.h>
- #include <sys/mman.h>
- #include <sys/ioctl.h>
-@@ -61,6 +62,89 @@ static void redraw(void)
-     ioctl(fd, FBIOPAN_DISPLAY, &vinfo);
- }
- 
-+#if defined(CAYIN_N3PRO)
-+/* The panel is a sync-less 60 Hz panel scanned straight out of the
-+ * framebuffer by the LCDC: there is no blanking interval, and the kernel
-+ * fbdev neither supports FBIOPAN page flipping (yres_virtual is clamped to
-+ * yres) nor FBIO_WAITFORVSYNC.  Writing the visible buffer therefore tears
-+ * whenever the scan beam crosses the rows being written -- with a ~7 ms
-+ * full-frame blit that is virtually every update (menu transitions showed
-+ * the lower half of the screen catching up frames later).
-+ *
-+ * The panel TE signal is wired to a GPIO, though, and the kernel counts it
-+ * as the "slcd_vsync" interrupt (~60 Hz, verified on the running system).
-+ * We poll that counter to lock onto the frame start and then write in scan
-+ * order: the blit (~7 ms/frame) runs well ahead of the beam (~35 us/row),
-+ * so the beam only ever reads fully-written rows.  The frame period is
-+ * predicted from the panel timing and re-locked at every edge, so the
-+ * tight-poll window stays around a millisecond. */
-+
-+static long long n3pro_frame_ns;
-+static long long n3pro_next_vsync_ns;
-+
-+static long long n3pro_now_ns(void)
-+{
-+    struct timespec ts;
-+    clock_gettime(CLOCK_MONOTONIC, &ts);
-+    return (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
-+}
-+
-+/* Current value of the slcd_vsync interrupt counter, -1 if unavailable. */
-+static long long n3pro_vsync_count(void)
-+{
-+    char buf[2048];
-+    int fd = open("/proc/interrupts", O_RDONLY);
-+    if (fd < 0)
-+        return -1;
-+    int n = read(fd, buf, sizeof(buf) - 1);
-+    close(fd);
-+    if (n <= 0)
-+        return -1;
-+    buf[n] = '\0';
-+
-+    const char *p = strstr(buf, "slcd_vsync");
-+    if (!p)
-+        return -1;
-+    while (p > buf && p[-1] != '\n')
-+        p--;                          /* start of the interrupt line */
-+    p = strchr(p, ':');
-+    if (!p)
-+        return -1;
-+    return strtoll(p + 1, NULL, 10);
-+}
-+
-+/* Block until the next panel frame start (best effort; if the sync source
-+ * disappears we simply return and the blit runs unsynchronised). */
-+static void n3pro_wait_vsync(void)
-+{
-+    long long c0, t0, now, d;
-+
-+    now = n3pro_now_ns();
-+    d = n3pro_next_vsync_ns - now;
-+    if (d > 400000)
-+    {
-+        if (d > 20000000LL)
-+            d = 20000000LL;           /* stale prediction: cap the sleep */
-+        usleep((d - 400000) / 1000);
-+    }
-+
-+    c0 = n3pro_vsync_count();
-+    if (c0 < 0)
-+        return;
-+    t0 = n3pro_now_ns();
-+    while (n3pro_vsync_count() == c0)
-+    {
-+        now = n3pro_now_ns();
-+        if (now - t0 > 30000000LL)
-+        {
-+            n3pro_next_vsync_ns = now + n3pro_frame_ns;
-+            return;                   /* lost sync: write unsynchronised */
-+        }
-+    }
-+    n3pro_next_vsync_ns = n3pro_now_ns() + n3pro_frame_ns;
-+}
-+#endif
-+
- void lcd_init_device(void)
- {
-     const char * const fb_dev = "/dev/fb0";
-@@ -90,7 +174,15 @@ void lcd_init_device(void)
-         panicf("Cannot read framebuffer variable information");
-     }
- 
--#ifdef FB_DOUBLEBUF
-+#if defined(CAYIN_N3PRO)
-+    /* N3Pro uses a fixed 32bpp Ingenic SLCD and the mode cannot be changed.
-+     * Leave it as-is; the blit converts our 16bpp buffer to the panel format. */
-+    n3pro_frame_ns = (long long)vinfo.pixclock
-+                     * (vinfo.xres + vinfo.left_margin + vinfo.right_margin
-+                        + vinfo.hsync_len)
-+                     * (vinfo.yres + vinfo.upper_margin + vinfo.lower_margin
-+                        + vinfo.vsync_len) / 1000;
-+#elif defined(FB_DOUBLEBUF)
-     if (doublebuf) {
-         vinfo.yres_virtual = vinfo.yres * 2;
-         if(ioctl(fd, FBIOPUT_VSCREENINFO, &vinfo) < 0) {
-@@ -185,6 +277,37 @@ static void fb_copy_rect(fb_data *dst, const fb_data *src,
- }
- #endif
- 
-+#if defined(CAYIN_N3PRO)
-+/* The N3Pro panel is a 32bpp XRGB8888 Ingenic panel whose scan order is
-+ * reversed (180-degree mounting).  Convert Rockbox's 16bpp RGB565
-+ * framebuffer into the panel format and write it rotated so the image
-+ * appears upright.  Rows are written in panel scan order (fb row 0 first)
-+ * so that, combined with n3pro_wait_vsync(), the blit stays ahead of the
-+ * scan beam. */
-+static void fb_blit_n3pro(const fb_data *src_base, int x, int y,
-+                          int width, int height)
-+{
-+    unsigned int *dst = (unsigned int *)framebuffer;
-+
-+    for (int j = height - 1; j >= 0; j--)
-+    {
-+        const fb_data *srow = src_base + (long)(y + j) * LCD_WIDTH + x;
-+        /* rotated destination row, walked backwards */
-+        unsigned int *drow = dst + (long)(LCD_HEIGHT - 1 - y - j) * LCD_WIDTH
-+                               + (LCD_WIDTH - 1 - x);
-+
-+        for (int i = 0; i < width; i++)
-+        {
-+            unsigned short c = srow[i];
-+            unsigned r = (c >> 11) & 0x1f, g = (c >> 5) & 0x3f, b = c & 0x1f;
-+            *drow-- = ((r << 3 | r >> 2) << 16)
-+                    | ((g << 2 | g >> 4) << 8)
-+                    |  (b << 3 | b >> 2);
-+        }
-+    }
-+}
-+#endif
-+
- void lcd_update(void)
- {
-     if (fd < 0) return;
-@@ -193,6 +316,10 @@ void lcd_update(void)
-     if (lcd_active())
- #endif
-     {
-+#if defined(CAYIN_N3PRO)
-+        n3pro_wait_vsync();           /* chase the scan beam (full screen) */
-+        fb_blit_n3pro(FBADDR(0, 0), 0, 0, LCD_WIDTH, LCD_HEIGHT);
-+#else
-         /* Copy the Rockbox framebuffer to the second framebuffer */
- #ifdef FB_STRIDE_MISMATCH
-         /* Strides differ - not one contiguous run */
-@@ -202,6 +329,7 @@ void lcd_update(void)
-         fb_data *dst = LCD_FRAMEBUF_ADDR(0, 0) + (fb_plane * FRAMEBUFFER_SIZE);
-         lcd_copy_buffer_rect(dst, FBADDR(0,0),
-                              LCD_WIDTH*LCD_HEIGHT, 1);
-+#endif
- #endif
-         redraw();
-     }
-@@ -215,6 +343,11 @@ void lcd_update_rect(int x, int y, int width, int height)
-     if (lcd_active())
- #endif
-     {
-+#if defined(CAYIN_N3PRO)
-+        if (width * height >= LCD_WIDTH * LCD_HEIGHT / 8)
-+            n3pro_wait_vsync();       /* chase the scan beam on big updates */
-+        fb_blit_n3pro(FBADDR(0, 0), x, y, width, height);
-+#else
- #ifdef FB_STRIDE_MISMATCH
-         /* Strides differ - do line-by-line */
-         fb_copy_rect(LCD_FRAMEBUF_ADDR(x, y), FBADDR(x, y), width, height);
-@@ -233,6 +366,7 @@ void lcd_update_rect(int x, int y, int width, int height)
-             /* Full width - copy as one line */
-             lcd_copy_buffer_rect(dst, src, LCD_WIDTH*height, 1);
-         }
-+#endif
- #endif
-         redraw();
-     }
-diff --git a/firmware/target/hosted/usb-hiby.c b/firmware/target/hosted/usb-hiby.c
-index 050c86e446..c385089e5a 100644
---- a/firmware/target/hosted/usb-hiby.c
-+++ b/firmware/target/hosted/usb-hiby.c
-@@ -4,7 +4,7 @@
-  *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
-  *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
-  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
-- *                     \/            \/     \/    \/            \/
-+ *                     \/            \/     \/    \/    \/
-  *
-  * Copyright (C) 2018 by Marcin Bukat
-  *
-@@ -26,41 +26,11 @@
- #include "usb.h"
- #include "sysfs.h"
- #include "power.h"
--
--//#define LOGF_ENABLE
--#include "logf.h"
--
--static bool adb_mode = false;
--
--#ifdef HAVE_MULTIDRIVE
--void cleanup_rbhome(void);
--void startup_rbhome(void);
-+#ifdef HAVE_HOST_USB_AUDIO
-+#include "pcm.h"
-+#include "hiby/usb-dac-hiby.h"
- #endif
--
--/* TODO: implement usb detection properly */
--int usb_detect(void)
--{
--    return power_input_status() == POWER_INPUT_USB_CHARGER ? USB_INSERTED : USB_EXTRACTED;
--}
--
--void usb_enable(bool on)
--{
--    logf("usb enable %d %d\n", on, adb_mode);
--
--    /* Ignore usb enable/disable when ADB is enabled so we can fireup adb shell
--     * without entering ums mode
--     */
--    if (!adb_mode)
--    {
--        sysfs_set_int("/sys/class/android_usb/android0/enable", on ? 1 : 0);
--    }
--}
--
--/* This is called by usb thread after usb extract in order to return
-- * regular FS access
-- *
-- * returns the # of successful mounts
--*/
-+#include "logf.h"
- int disk_mount_all(void)
- {
-     const char * const dev[] = {"/dev/mmcblk0p1", "/dev/mmcblk0"};
-@@ -88,10 +58,6 @@ int disk_mount_all(void)
-     return 0;
- }
- 
--/* This is called by usb thread after all threads ACKs usb inserted message
-- *
-- * returns the # of successful unmounts
-- */
- int disk_unmount_all(void)
- {
- #ifdef HAVE_MULTIDRIVE
-@@ -113,6 +79,289 @@ int disk_unmount_all(void)
-     return 0;
- }
- 
-+#if defined(CAYIN_N3PRO)
-+/* ------------------------------------------------------------------------
-+ * Cayin N3Pro
-+ *
-+ * The vendor android_usb gadget is configured through sysfs; changing the
-+ * function list requires the gadget to be disabled first. The structure
-+ * mirrors firmware/target/hosted/hiby/usb-hiby-gadget.c (R1):
-+ *
-+ *  - usb_detect() never touches the gadget or the DAC; it only reports
-+ *    insertion. A charger never enumerates the gadget, so "CONFIGURED"
-+ *    tells a real host apart from a dumb charger.
-+ *  - The base mode is applied by configure_usb_mode(); the DAC gadget is
-+ *    reconciled separately from usb_set_audio()/hiby_set_usb_mode(), the
-+ *    only two places R1 drives it from.
-+ *  - The DAC is never started before the PCM mixer is up (pcm_is_initialized)
-+ *    and if it fails to come up the base mode is restored.
-+ * ------------------------------------------------------------------------ */
-+static const char * const sysfs_functions = "/sys/class/android_usb/android0/functions";
-+static const char * const sysfs_enable    = "/sys/class/android_usb/android0/enable";
-+static const char * const sysfs_lun       = "/sys/class/android_usb/android0/f_mass_storage/lun/file";
-+
-+static int _usb_mode  = -1;
-+static int _usb_audio = 0;
-+static bool _usb_init = false;
-+
-+/* Reconfiguring the gadget invalidates the endpoints adbd holds open; the
-+ * daemon does not notice and turns into a zombie (interface enumerates but
-+ * refuses connections). The vendor adbserver.sh loop respawns it within a
-+ * second, so kick it here after every function-list change. */
-+static void restart_adbd(void)
-+{
-+    system("killall adbd 2>/dev/null");
-+}
-+
-+/* The "USB Audio" setting: 0 never, 1 always, 2 while charge-only,
-+ * 3 while mass-storage (same values as R1). */
-+static bool dac_wanted(void)
-+{
-+    switch (_usb_audio)
-+    {
-+    case 1: return true;
-+    case 2: return _usb_mode == USB_MODE_CHARGE;
-+    case 3: return _usb_mode == USB_MODE_MASS_STORAGE;
-+    default: return false;
-+    }
-+}
-+
-+/* Apply the base USB mode without the DAC (R1 configure_usb_mode). */
-+static void configure_usb_mode(int mode)
-+{
-+    sysfs_set_int(sysfs_enable, 0);
-+
-+    /* Plain modes are plain composites: clear the IAD device class set by
-+     * the DAC gadget, or Windows mis-parses the descriptors (it binds the
-+     * whole device as a single ADB interface and loses everything else). */
-+    sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0);
-+    sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 0);
-+    sysfs_set_int("/sys/class/android_usb/android0/bDeviceProtocol", 0);
-+
-+    switch (mode)
-+    {
-+    case USB_MODE_CHARGE:
-+        /* charge only: export nothing and stay disabled */
-+        sysfs_set_string(sysfs_functions, "");
-+        restart_adbd();
-+        return;
-+
-+    case USB_MODE_ADB:
-+        sysfs_set_string(sysfs_functions, "adb");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "18D1");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "D002");
-+        break;
-+
-+    case USB_MODE_MASS_STORAGE:
-+    default:
-+        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
-+        sysfs_set_string(sysfs_functions, "mass_storage");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
-+        break;
-+    }
-+
-+    sysfs_set_int(sysfs_enable, 1);
-+    restart_adbd();
-+}
-+
-+/* Bring the DAC gadget up standalone (R1 enable_usb_audio). Composite with
-+ * the base function, uac_sa first: its audio interfaces are hard-coded 0-1. */
-+static bool enable_usb_audio(void)
-+{
-+    /* Never before the PCM mixer exists (boot), like R1. */
-+    if (!pcm_is_initialized())
-+        return false;
-+
-+    sysfs_set_int(sysfs_enable, 0);
-+    usb_dac_stop();
-+
-+    switch (_usb_mode)
-+    {
-+    case USB_MODE_ADB:
-+        /* No IAD here: with bDeviceClass 0xEF Windows fails to parse the
-+         * uac_sa+adb composite. Also use the Cayin VID/PID: the Google/
-+         * vendor ADB INFs match 18D1:D002 at device level and preempt the
-+         * composite driver, which hides every other function. Windows'
-+         * in-box WinUSB matches the ADB interface (FF/42/01) on its own. */
-+        sysfs_set_string(sysfs_functions, "uac_sa,adb");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
-+        break;
-+
-+    case USB_MODE_MASS_STORAGE:
-+        /* composite: the card is exported AND the host gets a sound card */
-+        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
-+        sysfs_set_string(sysfs_functions, "uac_sa,mass_storage");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
-+        /* Interface Association Descriptor, like the stock gadget / R1 */
-+        sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0xEF);
-+        sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 2);
-+        sysfs_set_int("/sys/class/android_usb/android0/bDeviceProtocol", 1);
-+        break;
-+
-+    default:
-+        sysfs_set_string(sysfs_functions, "uac_sa");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
-+        break;
-+    }
-+
-+    sysfs_set_int(sysfs_enable, 1);
-+    restart_adbd();
-+
-+    /* Do NOT usb_dac_start() here: the vendor driver's open() blocks until a
-+     * host is streaming ("wait uac sa device"), which would hang whichever
-+     * thread applies the setting. The pump is started from usb_detect()
-+     * once the gadget is actually CONFIGURED. */
-+    return true;
-+}
-+
-+/* Tear the DAC gadget down and restore the base mode (R1 disable_usb_audio). */
-+static void disable_usb_audio(void)
-+{
-+    usb_dac_stop();
-+    configure_usb_mode(_usb_mode < 0 ? USBMODE_DEFAULT : _usb_mode);
-+}
-+
-+/* Reconcile the DAC with the setting + base mode (R1 apply_usb_audio). */
-+static void apply_usb_audio(void)
-+{
-+    bool want = dac_wanted();
-+    bool active = usb_audio_get_active();
-+
-+    if (want && !active)
-+    {
-+        /* enable_usb_audio() returns false if applied before audio_init()
-+         * (PCM mixer not up yet -- e.g. at boot) or if uac_sa never comes
-+         * up. Either way restore the base mode so we never leave a dead
-+         * gadget behind. */
-+        if (!enable_usb_audio())
-+            configure_usb_mode(_usb_mode < 0 ? USBMODE_DEFAULT : _usb_mode);
-+    }
-+    else if (!want && active)
-+    {
-+        disable_usb_audio();
-+    }
-+}
-+
-+void hiby_set_usb_mode(int mode)
-+{
-+    if (!_usb_init)
-+        usb_init_device();
-+
-+    /* Drop any active DAC before reconfiguring the base gadget. */
-+    if (usb_audio_get_active())
-+        disable_usb_audio();
-+
-+    _usb_mode = mode;
-+    configure_usb_mode(mode);
-+    apply_usb_audio();
-+}
-+
-+/* Target implementation of the "USB Audio" setting. */
-+void usb_set_audio(int value)
-+{
-+    _usb_audio = value;
-+    if (_usb_mode >= 0)
-+        apply_usb_audio();
-+}
-+
-+/* Re-apply the USB Audio setting once the PCM mixer is up. The setting is
-+ * applied at boot before audio_init(), so the first attempt bails out on
-+ * pcm_is_initialized() and the base mode stays; call this periodically
-+ * (from the N3Pro housekeeping tick) until it sticks. */
-+void cayin_usb_retry(void)
-+{
-+#ifdef HAVE_HOST_USB_AUDIO
-+    /* Fire exactly once after the PCM mixer comes up: a failing attempt
-+     * reconfigures the gadget, so retrying forever would flap it. */
-+    static bool done = false;
-+
-+    if (done || _usb_audio <= 0 || _usb_mode < 0 || !pcm_is_initialized())
-+        return;
-+    if (!usb_audio_get_active() && dac_wanted())
-+        apply_usb_audio();
-+    done = true;
-+#endif
-+}
-+
-+int usb_detect(void)
-+{
-+    char state[32] = {0};
-+    bool configured;
-+
-+    /* A dumb charger supplies VBUS but never enumerates the gadget, so only
-+     * a CONFIGURED gadget counts as "connected to a host". */
-+    sysfs_get_string("/sys/class/android_usb/android0/state", state, sizeof(state));
-+    configured = strstr(state, "CONFIGURED") != NULL;
-+
-+#ifdef HAVE_HOST_USB_AUDIO
-+    /* Start/stop the host-PCM pump here (USB thread context): the vendor
-+     * uac_sa open() blocks until a host is streaming, so it may only run
-+     * once the gadget is actually configured. */
-+    if (configured)
-+    {
-+        if (dac_wanted() && !usb_audio_get_active())
-+            usb_dac_start();
-+    }
-+    else if (usb_audio_get_active())
-+    {
-+        usb_dac_stop();
-+    }
-+#endif
-+
-+    return configured ? USB_INSERTED : USB_EXTRACTED;
-+}
-+
-+void usb_enable(bool on)
-+{
-+    /* Deliberately a no-op: the gadget must stay enabled across unplug so
-+     * the still-asserted soft-connect re-enumerates on replug without any
-+     * help (this is how the stock firmware behaves). Tearing it down here
-+     * left the device dead to the host on re-insertion, because a
-+     * composite including uac_sa does not come back from enable=0/1.
-+     * The gadget lifecycle is owned by configure_usb_mode()/the DAC
-+     * helpers, which reconfigure it only on mode/setting changes. */
-+    (void)on;
-+}
-+
-+void usb_init_device(void)
-+{
-+    /* The vendor sys_server daemon also drives this gadget
-+     * (usb_mgr_set_functions) and would tear our function list back down;
-+     * Rockbox is the only USB manager now. */
-+    system("killall sys_server 2>/dev/null");
-+
-+    sysfs_set_string("/sys/class/android_usb/android0/iManufacturer", "Rockbox.org");
-+    sysfs_set_string("/sys/class/android_usb/android0/iProduct", "Rockbox media player");
-+    sysfs_set_string("/sys/class/android_usb/android0/iSerial", "0123456789ABCDEF");
-+    sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/inquiry_string", "Rockbox 0100");
-+    _usb_init = true;
-+}
-+
-+#else  /* !CAYIN_N3PRO */
-+
-+/* TODO: implement usb detection properly */
-+int usb_detect(void)
-+{
-+    return power_input_status() == POWER_INPUT_USB_CHARGER ? USB_INSERTED : USB_EXTRACTED;
-+}
-+
-+void usb_enable(bool on)
-+{
-+    logf("usb enable %d %d\n", on, adb_mode);
-+
-+    /* Ignore usb enable/disable when ADB is enabled so we can fireup adb shell
-+     * without entering ums mode
-+     */
-+    if (!adb_mode)
-+    {
-+        sysfs_set_int("/sys/class/android_usb/android0/enable", on ? 1 : 0);
-+    }
-+}
-+
- void usb_init_device(void)
- {
-     char functions[32] = {0};
-@@ -141,3 +390,5 @@ void usb_init_device(void)
-     sysfs_set_string("/sys/class/android_usb/android0/iSerial", "0123456789ABCDEF");
-     sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/inquiry_string", "Rockbox 0100");
- }
-+
-+#endif /* CAYIN_N3PRO */
 diff --git a/firmware/usb.c b/firmware/usb.c
 index b41facb39d..9551988683 100644
 --- a/firmware/usb.c

@@ -16,6 +16,10 @@ Base commit the patch was generated against: **`10ec9bd530`** (Rockbox master,
 firmware/export/config/n3pro.h                     target config (the only model header)
 firmware/target/hosted/cayin/n3pro/                 the N3Pro target driver
     button-n3pro.c / button-target.h                keys, touch, scroll wheel, HOME
+    lcd-n3pro.c                                     full framebuffer driver (32bpp panel,
+                                                      beam-chased tear-free updates)
+    usb-n3pro.c                                     full USB driver (vendor android_usb gadget,
+                                                      mass storage / charge / ADB / USB-DAC)
     powermgmt-n3pro.c                               battery curves (see "Battery")
     led-n3pro.c                                     RGB LED (LP5562 pattern engine)
     debug-n3pro.c lcd-target.h system-target.h adc-target.h
@@ -26,6 +30,11 @@ wps/cabbiev2.360x480x16.wps, wps/cabbiev2/*-360x480x16.bmp
 tools/…                                             configure/builds.pm entries (patch only)
 n3pro_port.patch                                    ALL of the port as a unified diff
 ```
+
+The LCD and USB drivers are **standalone per-target files**, selected in
+`firmware/SOURCES` (the shared `lcd-linuxfb.c` / `usb-hiby.c` are excluded for
+`CAYIN_N3PRO` there, exactly like the R1/R3ProII exclusions) — the shared files
+themselves are **byte-identical to upstream**.
 
 Everything outside `firmware/target/hosted/cayin/n3pro/`, `n3pro.h`,
 `keymap-n3pro.c` and the WPS assets is a **change to shared Rockbox code** and
@@ -39,14 +48,22 @@ must obey the rules below.
    Every change to a file used by other targets must be wrapped in
    `#if defined(CAYIN_N3PRO) … #else … #endif` (or
    `#if (AUDIOHW_CAPS & TUBE_MODE_CAP)` for the tube setting), with the `#else`
-   branch byte-identical to upstream.  Shared files touched so far:
-   `firmware/usb.c`, `firmware/target/hosted/usb-hiby.c`,
-   `firmware/target/hosted/lcd-linuxfb.c`,
+   branch byte-identical to upstream.  Shared files touched so far (small,
+   in-place guards following the per-target precedent already in those files):
+   `firmware/usb.c`, `firmware/SOURCES`,
    `firmware/target/hosted/hiby/hibylinux_codec.c` / `.h`,
    `firmware/target/hosted/hiby/usb-dac-hiby.c`, `apps/recorder/keyboard.c`,
    `apps/settings{,_list}.c`, `apps/settings.h`, `apps/menus/{sound,settings}_menu.c`,
    `firmware/{sound.c,export/sound.h,export/audiohw.h,export/audiohw_settings.h,export/config.h}`,
    `bootloader/hibyos_linux.c`, `firmware/export/usb.h`.
+   Bigger subsystems must **not** grow `CAYIN_N3PRO` blocks inside shared
+   files: implement them as standalone files under
+   `firmware/target/hosted/cayin/n3pro/` and exclude the shared file for
+   `CAYIN_N3PRO` in `firmware/SOURCES` — `lcd-n3pro.c` and `usb-n3pro.c` are
+   the templates; the shared `lcd-linuxfb.c` / `usb-hiby.c` stay
+   byte-identical to upstream.  `usb-dac-hiby.c` is also compiled for
+   R1/R3ProII/AP80Max, so breaking its `#else` path is the easiest way to
+   regress other players.
    The plugin set is enabled for this target by adding `CAYIN_N3PRO` to the
    existing keypad exception in `apps/plugins/SOURCES.app_build` and
    `SUBDIRS.app_build` (next to R1 / R3ProII / AP80Max), which builds the full
@@ -56,9 +73,6 @@ must obey the rules below.
    new 360×480 resolution assets are in `apps/plugins/bitmaps/{native,mono}/SOURCES`
    with small layout blocks in `rockblox.c`, `bubbles.c`, `invadrox.c` and
    `wormlet.c` (`superdom`/`jewels` only needed the bitmap condition).
-   `usb-hiby.c` is also compiled for AGPtEK Rocker / Aigo Eros Q / Surfans F28 /
-   Xduoo X20 / X3II — and `usb-dac-hiby.c` for R1/R3ProII/AP80Max.  Breaking
-   their `#else` path is the easiest way to regress other players.
 2. **Reuse upstream, never reinvent.**  Filters use `LANG_FILTER_*`; USB uses the
    stock `usb_audio` setting (`LANG_USB_DAC`) and USB-modes; the wheel uses the
    `HAVE_SCROLLWHEEL`/`BUTTON_SCROLL_FWD|BACK` mechanism (same as AP80Max); the

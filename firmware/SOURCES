@@ -161,7 +161,9 @@ target/hosted/lc-unix.c
 target/hosted/sysfs.c
 target/hosted/backlight-unix.c
 target/hosted/system-hosted.c
+#if !defined(CAYIN_N3PRO)
 target/hosted/lcd-linuxfb.c
+#endif
 target/hosted/power-linux.c
 #endif
 
@@ -214,12 +216,15 @@ target/hosted/agptek/rocker_codec.c
 #if defined(CAYIN_N3PRO) && !defined(SIMULATOR)
 target/hosted/cayin/n3pro/button-n3pro.c
 target/hosted/cayin/n3pro/debug-n3pro.c
+target/hosted/cayin/n3pro/lcd-n3pro.c
 target/hosted/cayin/n3pro/powermgmt-n3pro.c
+target/hosted/cayin/n3pro/usb-n3pro.c
 #if !defined(BOOTLOADER)
 target/hosted/cayin/n3pro/cayin-n3pro.c
 target/hosted/cayin/n3pro/led-n3pro.c
 target/hosted/hiby/hibylinux_codec.c
 target/hosted/hiby/usb-dac-hiby.c
+#endif
 #endif
 #endif
 
@@ -245,7 +250,7 @@ target/hosted/xduoo/xduoolinux_codec.c
 target/hosted/button-devinput.c
 #endif
 
-#if defined(HIBY_LINUX) && !defined(HIBY_R3PROII) && !defined(HIBY_R1) && !defined(HIDIZS_AP80MAX) && !defined(SIMULATOR)
+#if defined(HIBY_LINUX) && !defined(HIBY_R3PROII) && !defined(HIBY_R1) && !defined(HIDIZS_AP80MAX) && !defined(CAYIN_N3PRO) && !defined(SIMULATOR)
 target/hosted/usb-hiby.c
 #endif
 
