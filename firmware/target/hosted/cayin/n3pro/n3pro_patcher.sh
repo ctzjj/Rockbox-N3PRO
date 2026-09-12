@@ -214,6 +214,18 @@ if [[ "$do_pack" -eq 1 ]]; then
     rm -f "$workingdir/system.ubi"
     sudo mkfs.ubifs -r "$rootfs" -m "$UBIFS_MIN_IO" -e "$UBIFS_LEB_SIZE" \
                     -c "$LEB_CNT" -o "$workingdir/system.ubi"
+
+    # Keep runtime headroom in the partition: the image accounts for the
+    # journal/LPT/index LEBs internally, but refuse to ship with less
+    # than 32 LEBs (~4 MB) left for growth, garbage collection and
+    # runtime writes (asound.conf, dbus, bluetooth pairings).
+    used_lebs="$(ubireader_display_info "$workingdir/system.ubi" 2>/dev/null \
+                 | sed -n 's/^[[:space:]]*leb_cnt: \([0-9]\{1,\}\)$/\1/p' | head -1)"
+    [[ "$used_lebs" =~ ^[0-9]+$ ]] || { echo "cannot read leb_cnt from the built image" >&2; exit 1; }
+    free_lebs=$((LEB_CNT - used_lebs))
+    echo "rootfs image uses ${used_lebs}/${LEB_CNT} LEBs (${free_lebs} free)"
+    [[ "$free_lebs" -ge 32 ]] || { echo "under 32 LEBs free; refusing to pack" >&2; exit 1; }
+
     rootfs_md5="$(md5sum "$workingdir/system.ubi" | awk '{print $1}')"
 
     cat > "$iso_out/update.txt" << EOF
