@@ -64,7 +64,7 @@ jobs:
           BASE=$(sed -n 's/^# rockbox-base: //p' n3pro_port.patch | head -1)
           [ -n "$BASE" ] || { echo "::error::no '# rockbox-base:' header in n3pro_port.patch"; exit 1; }
           echo "building against rockbox $BASE"
-          git clone --quiet https://git.rockbox.org/rockbox rockbox
+          git clone --quiet https://github.com/Rockbox/rockbox rockbox
           git -C rockbox checkout --quiet "$BASE"
           git -C rockbox apply --check ../n3pro_port.patch
           git -C rockbox apply ../n3pro_port.patch
