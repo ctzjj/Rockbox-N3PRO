@@ -82,7 +82,7 @@ jobs:
         run: |
           mkdir build-bl && cd build-bl
           ../rockbox/tools/configure --target=n3pro --type=B
-          make -j"$(nproc)" bootloader.n3pro > /dev/null
+          make -j"$(nproc)" > /dev/null
           cp bootloader.n3pro ../bootloader.n3pro
           md5sum ../bootloader.n3pro
 
