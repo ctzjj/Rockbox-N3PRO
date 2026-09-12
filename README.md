@@ -15,7 +15,7 @@ Download the ready-made image and SD-card payload from the
 | Feature | State |
 |---|---|
 | Boot (Rockbox boot menu + fallback to the stock player) | working |
-| LCD (360x480, 32bpp XRGB8888 SLCD, 180° rotated) | working |
+| LCD (360x480, 32bpp XRGB8888, 180° rotated, tear-free beam-chased updates) | working |
 | Buttons (power / prev / play / next) | working |
 | Touchscreen (GT9xx) + bottom-front HOME key | working |
 | Volume wheel (rotary encoder -> scroll wheel) | working |

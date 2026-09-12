@@ -9345,10 +9345,108 @@ index 469dc640b9..6b2b1a949f 100644
  
  bool usb_audio_get_active(void)
 diff --git a/firmware/target/hosted/lcd-linuxfb.c b/firmware/target/hosted/lcd-linuxfb.c
-index 63661a1254..f1b0fdc8d8 100644
+index 63661a1254..06369efc21 100644
 --- a/firmware/target/hosted/lcd-linuxfb.c
 +++ b/firmware/target/hosted/lcd-linuxfb.c
-@@ -90,7 +90,10 @@ void lcd_init_device(void)
+@@ -24,6 +24,7 @@
+ #include <unistd.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <time.h>
+ #include <linux/fb.h>
+ #include <sys/mman.h>
+ #include <sys/ioctl.h>
+@@ -61,6 +62,89 @@ static void redraw(void)
+     ioctl(fd, FBIOPAN_DISPLAY, &vinfo);
+ }
+ 
++#if defined(CAYIN_N3PRO)
++/* The panel is a sync-less 60 Hz panel scanned straight out of the
++ * framebuffer by the LCDC: there is no blanking interval, and the kernel
++ * fbdev neither supports FBIOPAN page flipping (yres_virtual is clamped to
++ * yres) nor FBIO_WAITFORVSYNC.  Writing the visible buffer therefore tears
++ * whenever the scan beam crosses the rows being written -- with a ~7 ms
++ * full-frame blit that is virtually every update (menu transitions showed
++ * the lower half of the screen catching up frames later).
++ *
++ * The panel TE signal is wired to a GPIO, though, and the kernel counts it
++ * as the "slcd_vsync" interrupt (~60 Hz, verified on the running system).
++ * We poll that counter to lock onto the frame start and then write in scan
++ * order: the blit (~7 ms/frame) runs well ahead of the beam (~35 us/row),
++ * so the beam only ever reads fully-written rows.  The frame period is
++ * predicted from the panel timing and re-locked at every edge, so the
++ * tight-poll window stays around a millisecond. */
++
++static long long n3pro_frame_ns;
++static long long n3pro_next_vsync_ns;
++
++static long long n3pro_now_ns(void)
++{
++    struct timespec ts;
++    clock_gettime(CLOCK_MONOTONIC, &ts);
++    return (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
++}
++
++/* Current value of the slcd_vsync interrupt counter, -1 if unavailable. */
++static long long n3pro_vsync_count(void)
++{
++    char buf[2048];
++    int fd = open("/proc/interrupts", O_RDONLY);
++    if (fd < 0)
++        return -1;
++    int n = read(fd, buf, sizeof(buf) - 1);
++    close(fd);
++    if (n <= 0)
++        return -1;
++    buf[n] = '\0';
++
++    const char *p = strstr(buf, "slcd_vsync");
++    if (!p)
++        return -1;
++    while (p > buf && p[-1] != '\n')
++        p--;                          /* start of the interrupt line */
++    p = strchr(p, ':');
++    if (!p)
++        return -1;
++    return strtoll(p + 1, NULL, 10);
++}
++
++/* Block until the next panel frame start (best effort; if the sync source
++ * disappears we simply return and the blit runs unsynchronised). */
++static void n3pro_wait_vsync(void)
++{
++    long long c0, t0, now, d;
++
++    now = n3pro_now_ns();
++    d = n3pro_next_vsync_ns - now;
++    if (d > 400000)
++    {
++        if (d > 20000000LL)
++            d = 20000000LL;           /* stale prediction: cap the sleep */
++        usleep((d - 400000) / 1000);
++    }
++
++    c0 = n3pro_vsync_count();
++    if (c0 < 0)
++        return;
++    t0 = n3pro_now_ns();
++    while (n3pro_vsync_count() == c0)
++    {
++        now = n3pro_now_ns();
++        if (now - t0 > 30000000LL)
++        {
++            n3pro_next_vsync_ns = now + n3pro_frame_ns;
++            return;                   /* lost sync: write unsynchronised */
++        }
++    }
++    n3pro_next_vsync_ns = n3pro_now_ns() + n3pro_frame_ns;
++}
++#endif
++
+ void lcd_init_device(void)
+ {
+     const char * const fb_dev = "/dev/fb0";
+@@ -90,7 +174,15 @@ void lcd_init_device(void)
          panicf("Cannot read framebuffer variable information");
      }
  
@@ -9356,24 +9454,32 @@ index 63661a1254..f1b0fdc8d8 100644
 +#if defined(CAYIN_N3PRO)
 +    /* N3Pro uses a fixed 32bpp Ingenic SLCD and the mode cannot be changed.
 +     * Leave it as-is; the blit converts our 16bpp buffer to the panel format. */
++    n3pro_frame_ns = (long long)vinfo.pixclock
++                     * (vinfo.xres + vinfo.left_margin + vinfo.right_margin
++                        + vinfo.hsync_len)
++                     * (vinfo.yres + vinfo.upper_margin + vinfo.lower_margin
++                        + vinfo.vsync_len) / 1000;
 +#elif defined(FB_DOUBLEBUF)
      if (doublebuf) {
          vinfo.yres_virtual = vinfo.yres * 2;
          if(ioctl(fd, FBIOPUT_VSCREENINFO, &vinfo) < 0) {
-@@ -185,6 +188,34 @@ static void fb_copy_rect(fb_data *dst, const fb_data *src,
+@@ -185,6 +277,37 @@ static void fb_copy_rect(fb_data *dst, const fb_data *src,
  }
  #endif
  
 +#if defined(CAYIN_N3PRO)
-+/* The N3Pro panel is a 32bpp XRGB8888 Ingenic SLCD whose scan order is
-+ * reversed (180-degree).  Convert Rockbox's 16bpp RGB565 framebuffer into the
-+ * panel format and write it rotated so the image appears upright. */
++/* The N3Pro panel is a 32bpp XRGB8888 Ingenic panel whose scan order is
++ * reversed (180-degree mounting).  Convert Rockbox's 16bpp RGB565
++ * framebuffer into the panel format and write it rotated so the image
++ * appears upright.  Rows are written in panel scan order (fb row 0 first)
++ * so that, combined with n3pro_wait_vsync(), the blit stays ahead of the
++ * scan beam. */
 +static void fb_blit_n3pro(const fb_data *src_base, int x, int y,
 +                          int width, int height)
 +{
 +    unsigned int *dst = (unsigned int *)framebuffer;
 +
-+    for (int j = 0; j < height; j++)
++    for (int j = height - 1; j >= 0; j--)
 +    {
 +        const fb_data *srow = src_base + (long)(y + j) * LCD_WIDTH + x;
 +        /* rotated destination row, walked backwards */
@@ -9395,17 +9501,18 @@ index 63661a1254..f1b0fdc8d8 100644
  void lcd_update(void)
  {
      if (fd < 0) return;
-@@ -193,6 +224,9 @@ void lcd_update(void)
+@@ -193,6 +316,10 @@ void lcd_update(void)
      if (lcd_active())
  #endif
      {
 +#if defined(CAYIN_N3PRO)
++        n3pro_wait_vsync();           /* chase the scan beam (full screen) */
 +        fb_blit_n3pro(FBADDR(0, 0), 0, 0, LCD_WIDTH, LCD_HEIGHT);
 +#else
          /* Copy the Rockbox framebuffer to the second framebuffer */
  #ifdef FB_STRIDE_MISMATCH
          /* Strides differ - not one contiguous run */
-@@ -202,6 +236,7 @@ void lcd_update(void)
+@@ -202,6 +329,7 @@ void lcd_update(void)
          fb_data *dst = LCD_FRAMEBUF_ADDR(0, 0) + (fb_plane * FRAMEBUFFER_SIZE);
          lcd_copy_buffer_rect(dst, FBADDR(0,0),
                               LCD_WIDTH*LCD_HEIGHT, 1);
@@ -9413,17 +9520,19 @@ index 63661a1254..f1b0fdc8d8 100644
  #endif
          redraw();
      }
-@@ -215,6 +250,9 @@ void lcd_update_rect(int x, int y, int width, int height)
+@@ -215,6 +343,11 @@ void lcd_update_rect(int x, int y, int width, int height)
      if (lcd_active())
  #endif
      {
 +#if defined(CAYIN_N3PRO)
++        if (width * height >= LCD_WIDTH * LCD_HEIGHT / 8)
++            n3pro_wait_vsync();       /* chase the scan beam on big updates */
 +        fb_blit_n3pro(FBADDR(0, 0), x, y, width, height);
 +#else
  #ifdef FB_STRIDE_MISMATCH
          /* Strides differ - do line-by-line */
          fb_copy_rect(LCD_FRAMEBUF_ADDR(x, y), FBADDR(x, y), width, height);
-@@ -233,6 +271,7 @@ void lcd_update_rect(int x, int y, int width, int height)
+@@ -233,6 +366,7 @@ void lcd_update_rect(int x, int y, int width, int height)
              /* Full width - copy as one line */
              lcd_copy_buffer_rect(dst, src, LCD_WIDTH*height, 1);
          }

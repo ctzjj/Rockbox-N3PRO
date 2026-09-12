@@ -149,12 +149,22 @@ adb shell "sync; reboot"                                # UMS gadget is up
 ## Hardware notes (recovered from the stock firmware + kernel)
 
 - **SoC / OS**: Ingenic X1000, Linux 3.10.14, HiByOS.
-- **Display**: 360×480 smart LCD.  `/dev/fb0` is **32bpp XRGB8888** with a
+- **Display**: 360×480 panel.  `/dev/fb0` is **32bpp XRGB8888** with a
   1440-byte stride and the panel is mounted **rotated 180°**.  Rockbox keeps its
   internal 16bpp RGB565 framebuffer and converts/rotates on update
-  (`fb_blit_n3pro()` in `lcd-linuxfb.c`).  The framebuffer may read as all zeros
-  once the backlight is off (the SLCD latches the image), so idle screenshots are
-  unreliable.
+  (`fb_blit_n3pro()` in `lcd-linuxfb.c`).  The panel is scanned straight out of
+  the framebuffer at **60 Hz with no blanking interval** (pixclock 96450 ps,
+  zero sync margins), and the kernel fbdev can neither page-flip
+  (`yres_virtual` is clamped to `yres`; `FBIOPAN_DISPLAY` is a no-op) nor
+  `FBIO_WAITFORVSYNC`.  Writing the visible buffer therefore tears unless it is
+  synchronised: the panel TE signal is wired to a GPIO that the kernel counts
+  as the **`slcd_vsync` interrupt (~60 Hz)**, so `lcd-linuxfb.c` locks onto that
+  counter via `/proc/interrupts` (sleep until the predicted edge, then a ~1 ms
+  tight poll) and blits **in scan order**, which runs ahead of the beam
+  (7 ms/frame vs 35 µs/row) — tear-free.  Only updates ≥ 1/8 of the screen are
+  synchronised; without the sync source the code falls back to unsynchronised
+  writes.  The framebuffer may read as all zeros once the backlight is off
+  (the panel latches the image), so idle screenshots are unreliable.
 - **Audio**: dual AK4493 on ALSA card 0 (`n3pro-ak4493-i2s`).  Digital filter:
   ALSA `AK4493 Digital Filter` (5 modes) + `Digital Filter`.  The output stage
   carries **two JAN6418 subminiature tubes**; *Tube Mode* is the operating mode
