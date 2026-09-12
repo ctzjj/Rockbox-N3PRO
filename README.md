@@ -11,6 +11,10 @@ Rockbox runs as a normal Linux application on top of the stock HiByOS.  The
 boot loader, the kernel and the stock player binary are left untouched, so the
 installation is **fully reversible and cannot brick the device**.
 
+<p align="center">
+  <img src="docs/n3pro-rockbox.jpg" width="380" alt="Rockbox running on the Cayin N3Pro">
+</p>
+
 Download the ready-made image and SD-card payload from the
 [latest release](https://github.com/ctzjj/Rockbox-N3PRO/releases/latest).
 
