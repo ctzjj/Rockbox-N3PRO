@@ -1,5 +1,9 @@
 # Rockbox for the Cayin N3Pro
 
+[![build release artifacts](https://github.com/ctzjj/Rockbox-N3PRO/actions/workflows/release.yml/badge.svg)](https://github.com/ctzjj/Rockbox-N3PRO/actions/workflows/release.yml)
+[![latest release](https://img.shields.io/github/v/release/ctzjj/Rockbox-N3PRO?label=release)](https://github.com/ctzjj/Rockbox-N3PRO/releases/latest)
+[![license](https://img.shields.io/badge/license-GPL--2.0-blue)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+
 A **hosted** Rockbox port for the Cayin N3Pro digital audio player
 (Ingenic X1000 "MIPS XBurst", Linux 3.10, HiByOS).
 
