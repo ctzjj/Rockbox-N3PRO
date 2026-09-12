@@ -40,7 +40,8 @@ in-box WinUSB driver, so the **libusb** adb backend is required
 * Display: 360x480 smart LCD (SLCD); the kernel framebuffer is **32bpp
   XRGB8888** with a 1440-byte stride, and the panel is mounted rotated 180°.
   Rockbox keeps its internal 16bpp RGB565 framebuffer and converts/rotates on
-  update (`firmware/target/hosted/lcd-linuxfb.c`).
+  update, staying ahead of the panel's scan beam for tear-free rendering
+  (`firmware/target/hosted/cayin/n3pro/lcd-n3pro.c`).
 * Audio: dual AK4493 DACs on ALSA card 0 (`n3pro-ak4493-i2s`).  Digital filters
   are the ALSA `AK4493 Digital Filter` (5 modes) and `Digital Filter` controls.
   The output stage also has **two JAN6418 subminiature tubes**; *Tube Mode*
@@ -79,8 +80,11 @@ in-box WinUSB driver, so the **libusb** adb backend is required
 
 ## Files
 
-The target driver lives in `firmware/target/hosted/cayin/n3pro/`, the model
-header is `firmware/export/config/n3pro.h` and the keymap is
+The target driver lives in `firmware/target/hosted/cayin/n3pro/`, including
+**standalone LCD and USB drivers** (`lcd-n3pro.c`, `usb-n3pro.c` — the shared
+`lcd-linuxfb.c` / `usb-hiby.c` stay upstream-clean and are excluded for this
+target in `firmware/SOURCES`).  The model header is
+`firmware/export/config/n3pro.h` and the keymap is
 `apps/keymaps/keymap-n3pro.c`.  Registration is in `tools/configure`,
 `tools/builds.pm`, `firmware/SOURCES`, `apps/SOURCES`,
 `apps/bitmaps/native/SOURCES` and `apps/lang/english.lang`.
