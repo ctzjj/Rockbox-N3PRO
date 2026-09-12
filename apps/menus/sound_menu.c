@@ -160,6 +160,19 @@ MENUITEM_SETTING(power_mode, &global_settings.power_mode, NULL);
               &crossfeed, &crossfeed_direct_gain, &crossfeed_cross_gain,
               &crossfeed_hf_attenuation, &crossfeed_hf_cutoff);
 
+    /* Space'80 Reverb */
+    MENUITEM_SETTING(space80, &global_settings.space80, lowlatency_callback);
+    MENUITEM_SETTING(space80_decay,
+                     &global_settings.space80_decay, lowlatency_callback);
+    MENUITEM_SETTING(space80_freq,
+                     &global_settings.space80_freq, lowlatency_callback);
+    MENUITEM_SETTING(space80_gain,
+                     &global_settings.space80_gain, lowlatency_callback);
+    MENUITEM_SETTING(space80_mix,
+                     &global_settings.space80_mix, lowlatency_callback);
+    MAKE_MENU(space80_menu,ID2P(LANG_SPACE80), NULL, Icon_NOICON,
+              &space80, &space80_decay, &space80_freq, &space80_gain, &space80_mix);
+
 #ifdef HAVE_PITCHCONTROL
 static int timestretch_callback(int action,
                                 const struct menu_item_ex *this_item,
@@ -269,7 +282,7 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
 #ifdef AUDIOHW_HAVE_POWER_MODE
           ,&power_mode
 #endif
-          ,&crossfeed_menu, &equalizer_menu, &dithering_enabled
+          ,&crossfeed_menu, &space80_menu, &equalizer_menu, &dithering_enabled
           ,&surround_menu, &pbe_menu, &afr_enabled
 #ifdef HAVE_PITCHCONTROL
           ,&timestretch_enabled

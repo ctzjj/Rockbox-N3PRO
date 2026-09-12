@@ -13,94 +13,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# This is the root source of truth for Rockbox's translatable strings,
-# contianing all strings for all Rockbox features.  All other languages
-# overlay on top of this one.
-#
-# IMPORTANT NOTES:
-#
-# * If you want to add a new string, add it to the end of this file!
-# * Removing strings will break the numbering of strings in binary lang
-#   and voice files, so instead of removing a unused <phrase>, change the
-#   desc field to "deprecated" (without quotes) and blank the strings.
-#   Do *not* change the targets.
-# * Due to strict run-time checks, binary lang and voice files are not
-#   portable from one device to another.  They may not even be compatible
-#   from one build to another on the same device, especially if phrases
-#   or strings were added (or removed) from this file, or if the features
-#   list for your device have changed.
-#
-# As this file is both the master for the language system, as well as the
-# source for generating english strings, all <source> strings *must* be
-# *identical* to the <dest> strings within the english.lang file. The
-# <source> strings are referenced by other languages when doing updates,
-# while the <dest> strings are used when this file is used to as the
-# source of english strings for a particular target.  In other files,
-# the <dest> string is the translated text.
-#
-# 'Targets' refer to both the unique device name (as specified in the
-# configure file and stored in MODELNAME of the top-level Makefile) and
-# to various common features that are shared between more than one
-# device. If mixed, the feature string must be placed at the top as a
-# default, so it gets overwritten by subsequent device strings.
-# See apps/features.txt for all available features that can be used
-# instead of or in addition to the device name itself.
-#
-# All phrases have a default string, designated with a target
-# of '*' (eg: *: "default text") that will be used if no other target
-# matches the particular device you are building for. If you want to
-# designate a particular string for a specific target, you would write
-# it like:
-#   target: "target-specific string"
-# and locate it below the the default line. If the phrase will not be
-# used for all targets, set the default to none, eg:
-#   *: none
-# to ensure it will not be included when it is not needed.
-#
-# Phrases starting with LANG_ are displayed in the UI, and are usually
-# voiced as well. Phrases starting with VOICE_ are only voiced. They
-# *must* have empty (ie "") <source> and <dest> strings, and non-empty
-# <voice> strings.
-#
-# The individual entries under the <voice> section of a phrase contain
-# the text the speech UI will use to pronounce the phrase.  This is
-# usually the same as the <dest> section, albeit with some limitations.
-# For example, most punctuation and any dynamic strings (ie with with C
-# format specifiers) are not allowed.  If a phrase is not intended to be
-# voiced, you may use either an empty string (ie "") or 'none' under its
-# <voice> section.
-#
-# In <voice> sections, keep in mind that the text will be spoken by TTS
-# engines, so some changes from the <dest> may be necessary for clarity.
-# For example, you may want to separate acronyms into their individual
-# letters so they are spoken separately, or expand abbreviations into
-# their full form.  Some adjustments are made automatically; please see
-# tools/voice-corrections.txt for further details.
-#
-# To validate the contents of a translation, you can use the Rockbox
-# translation site at https://www.rockbox.org/translate/ Alternatively, you
-# can use the command-line 'updatelang' tool as follows:
-#
-#  tools/updatelang apps/lang/english.lang path/to/translation.lang path/to/updated.lang
-#
-# You can then examine the updated file. All problematic areas will be marked with '###'
-#
-####
-# This is the first item, and will be shown when P2STR is passed a NULL pointer
-<phrase>
-  id: LANG_ROCKBOX_TITLE
-  desc: main menu title
-  user: core
-  <source>
-    *: "Rockbox"
-  </source>
-  <dest>
-    *: "Rockbox"
-  </dest>
-  <voice>
-    *: "Rockbox"
-  </voice>
-</phrase>
+# American English language file
 <phrase>
   id: LANG_SET_BOOL_YES
   desc: bool true representation
@@ -277,10 +190,10 @@
     *: "Cancelled"
   </source>
   <dest>
-    *: "Cancelled"
+    *: "Canceled"
   </dest>
   <voice>
-    *: "Cancelled"
+    *: "Canceled"
   </voice>
 </phrase>
 <phrase>
@@ -361,6 +274,20 @@
   </dest>
   <voice>
     *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_ROCKBOX_TITLE
+  desc: main menu title
+  user: core
+  <source>
+    *: "Rockbox"
+  </source>
+  <dest>
+    *: "Rockbox"
+  </dest>
+  <voice>
+    *: "Rockbox"
   </voice>
 </phrase>
 <phrase>
@@ -947,20 +874,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_RESET_EQUALIZER
-  desc: in the equalizer settings menu
-  user: core
-  <source>
-    *: "Reset EQ"
-  </source>
-  <dest>
-    *: "Reset EQ"
-  </dest>
-  <voice>
-    *: "Reset EQ"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_EQUALIZER_ENABLED
   desc: in the equalizer settings menu
   user: core
@@ -1136,10 +1049,10 @@
     *: "Centre Frequency"
   </source>
   <dest>
-    *: "Centre Frequency"
+    *: "Center Frequency"
   </dest>
   <voice>
-    *: "Centre frequency"
+    *: "Center frequency"
   </voice>
 </phrase>
 <phrase>
@@ -1760,10 +1673,10 @@
     *: "Last.fm Logger"
   </source>
   <dest>
-    *: "Last.fm Logger"
+    *: "Last.fm Log"
   </dest>
   <voice>
-    *: "Last.fm Logger"
+    *: "Last.fm Log"
   </voice>
 </phrase>
 <phrase>
@@ -2042,34 +1955,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_DISPLAY_TITLEALBUM_FROMTAGS
-  desc: track display options
-  user: core
-  <source>
-    *: "Title & Album from ID3 tags"
-  </source>
-  <dest>
-    *: "Title & Album from ID3 tags"
-  </dest>
-  <voice>
-    *: "Title and Album from tags"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_DISPLAY_TITLE_FROMTAGS
-  desc: track display options
-  user: core
-  <source>
-    *: "Title from ID3 tags"
-  </source>
-  <dest>
-    *: "Title from ID3 tags"
-  </dest>
-  <voice>
-    *: "Title from tags"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_BUILDING_DATABASE
   desc: splash database building progress
   user: core
@@ -2089,20 +1974,6 @@
   </dest>
   <voice>
     *: "entries found for database"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_RANDOM_SHUFFLE_RANDOM_SELECTIVE_SONGS_SUMMARY
-  desc: a summary splash screen that appear on the database browser when you try to create a playlist from the database browser that exceeds your system limit
-  user: core
-  <source>
-    *: "Selection too big, %d random tracks will be selected"
-  </source>
-  <dest>
-    *: "Selection too big, %d random tracks will be selected"
-  </dest>
-  <voice>
-    *: "Selection too big, fewer random tracks will be selected"
   </voice>
 </phrase>
 <phrase>
@@ -2610,11 +2481,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Background Colour"
+    lcd_color: "Background Color"
   </dest>
   <voice>
     *: none
-    lcd_color: "Background Colour"
+    lcd_color: "Background Color"
   </voice>
 </phrase>
 <phrase>
@@ -2627,11 +2498,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Foreground Colour"
+    lcd_color: "Foreground Color"
   </dest>
   <voice>
     *: none
-    lcd_color: "Foreground Colour"
+    lcd_color: "Foreground Color"
   </voice>
 </phrase>
 <phrase>
@@ -2644,11 +2515,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Reset Colours"
+    lcd_color: "Reset Colors"
   </dest>
   <voice>
     *: none
-    lcd_color: "Reset Colours"
+    lcd_color: "Reset Colors"
   </voice>
 </phrase>
 <phrase>
@@ -2695,7 +2566,7 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Invalid colour"
+    lcd_color: "Invalid color"
   </dest>
   <voice>
     *: none
@@ -3037,20 +2908,6 @@
   </dest>
   <voice>
     *: "Numeric"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_DISPLAY_SPECIAL_CHARACTER
-  desc: Special character (japanese, accents, etc)
-  user: core
-  <source>
-    *: "Special character"
-  </source>
-  <dest>
-    *: "Special character"
-  </dest>
-  <voice>
-    *: "Special character"
   </voice>
 </phrase>
 <phrase>
@@ -5605,7 +5462,7 @@
   </source>
   <dest>
     *: none
-    recording: "Pre-Recording"
+    recording: "Prerecording"
   </dest>
   <voice>
     *: none
@@ -6532,7 +6389,7 @@
     *: "Bitrate"
   </dest>
   <voice>
-    *: "Bit rate"
+    *: "Bitrate"
   </voice>
 </phrase>
 <phrase>
@@ -6547,20 +6404,6 @@
   </dest>
   <voice>
     *: "Album Artist"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_ID3_ALBUMARTISTS
-  desc: in tag viewer
-  user: core
-  <source>
-    *: "Album Artists"
-  </source>
-  <dest>
-    *: "Album Artists"
-  </dest>
-  <voice>
-    *: "Album Artists"
   </voice>
 </phrase>
 <phrase>
@@ -6630,7 +6473,7 @@
     *: "Track Gain"
   </dest>
   <voice>
-    *: "Track gain"
+    *: "Track Gain"
   </voice>
 </phrase>
 <phrase>
@@ -6900,20 +6743,6 @@
   </dest>
   <voice>
     *: "Add to Shortcuts"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_ADD_CURRENT_TO_FAVES
-  desc:
-  user: core
-  <source>
-    *: "Add Current to Shortcuts"
-  </source>
-  <dest>
-    *: "Add Current to Shortcuts"
-  </dest>
-  <voice>
-    *: "Add Current to Shortcuts"
   </voice>
 </phrase>
 <phrase>
@@ -8150,7 +7979,7 @@
     *: ""
   </dest>
   <voice>
-    *: "milli-amp hours"
+    *: "milliamp hours"
   </voice>
 </phrase>
 <phrase>
@@ -9040,11 +8869,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Primary Colour"
+    lcd_color: "Primary Color"
   </dest>
   <voice>
     *: none
-    lcd_color: "Primary Colour"
+    lcd_color: "Primary Color"
   </voice>
 </phrase>
 <phrase>
@@ -9057,11 +8886,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Secondary Colour"
+    lcd_color: "Secondary Color"
   </dest>
   <voice>
     *: none
-    lcd_color: "Secondary Colour"
+    lcd_color: "Secondary Color"
   </voice>
 </phrase>
 <phrase>
@@ -9074,11 +8903,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Text Colour"
+    lcd_color: "Text Color"
   </dest>
   <voice>
     *: none
-    lcd_color: "Text Colour"
+    lcd_color: "Text Color"
   </voice>
 </phrase>
 <phrase>
@@ -9091,11 +8920,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Bar (Solid Colour)"
+    lcd_color: "Bar (Solid Color)"
   </dest>
   <voice>
     *: none
-    lcd_color: "Bar (Solid Colour)"
+    lcd_color: "Bar (Solid Color)"
   </voice>
 </phrase>
 <phrase>
@@ -9108,11 +8937,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Bar (Gradient Colour)"
+    lcd_color: "Bar (Gradient Color)"
   </dest>
   <voice>
     *: none
-    lcd_color: "Bar (Gradient Colour)"
+    lcd_color: "Bar (Gradient Color)"
   </voice>
 </phrase>
 <phrase>
@@ -9153,11 +8982,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Colours"
+    lcd_color: "Colors"
   </dest>
   <voice>
     *: none
-    lcd_color: "Colours"
+    lcd_color: "Colors"
   </voice>
 </phrase>
 <phrase>
@@ -9170,11 +8999,11 @@
   </source>
   <dest>
     *: none
-    lcd_color: "Line Selector Colours"
+    lcd_color: "Line Selector Colors"
   </dest>
   <voice>
     *: none
-    lcd_color: "Line Selector Colours"
+    lcd_color: "Line Selector Colors"
   </voice>
 </phrase>
 <phrase>
@@ -10121,7 +9950,7 @@
     *: "Timestretch"
   </dest>
   <voice>
-    *: "Time stretch"
+    *: "Timestretch"
   </voice>
 </phrase>
 <phrase>
@@ -10371,74 +10200,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_USB_DAC
-  desc: in settings_menu
-  user: core
-  <source>
-    *: none
-    usbdac: "USB-DAC"
-  </source>
-  <dest>
-    *: none
-    usbdac: "USB-DAC"
-  </dest>
-  <voice>
-    *: none
-    usbdac: "USB-DAC"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_WHILE_USB_CHARGE_ONLY
-  desc: in settings_menu
-  user: core
-  <source>
-    *: none
-    usbdac: "While In USB Charge-Only Mode"
-  </source>
-  <dest>
-    *: none
-    usbdac: "While In USB Charge-Only Mode"
-  </dest>
-  <voice>
-    *: none
-    usbdac: "While In USB Charge-Only Mode"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_WHILE_MASS_STORAGE_USB_ONLY
-  desc: in settings_menu
-  user: core
-  <source>
-    *: none
-    usbdac: "While In USB Mass-Storage Mode"
-  </source>
-  <dest>
-    *: none
-    usbdac: "While In USB Mass-Storage Mode"
-  </dest>
-  <voice>
-    *: none
-    usbdac: "While In USB Mass-Storage Mode"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_USB_DAC_ACTIVE
-  desc: for splash
-  user: core
-  <source>
-    *: none
-    usbdac: "USB-DAC Active"
-  </source>
-  <dest>
-    *: none
-    usbdac: "USB-DAC Active"
-  </dest>
-  <voice>
-    *: none
-    usbdac: "USB-DAC Active"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_SCROLLBAR_WIDTH
   desc: in Settings -> General -> Display -> Status-/Scrollbar
   user: core
@@ -10446,10 +10207,10 @@
     *: "Scroll Bar Width"
   </source>
   <dest>
-    *: "Scroll Bar Width"
+    *: "Scrollbar Width"
   </dest>
   <voice>
-    *: "Scroll bar width"
+    *: "Scrollbar width"
   </voice>
 </phrase>
 <phrase>
@@ -10863,20 +10624,6 @@
   </dest>
   <voice>
     *: "of"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_DISC
-  desc: Shown in WPS (for multidisc albums)
-  user: core
-  <source>
-    *: "Disc"
-  </source>
-  <dest>
-    *: "Disc"
-  </dest>
-  <voice>
-    *: "Disc"
   </voice>
 </phrase>
 <phrase>
@@ -11474,10 +11221,10 @@
     *: "Reset Playlist Catalogue Directory"
   </source>
   <dest>
-    *: "Reset Playlist Catalogue Directory"
+    *: "Reset Playlist Catalog Directory"
   </dest>
   <voice>
-    *: "Reset Playlist Catalogue Directory"
+    *: "Reset Playlist Catalog Directory"
   </voice>
 </phrase>
 <phrase>
@@ -11606,10 +11353,10 @@
     *: "Line Separator Colour"
   </source>
   <dest>
-    *: "Line Separator Colour"
+    *: "Line Separator Color"
   </dest>
   <voice>
-    *: "Line Separator Colour"
+    *: "Line Separator Color"
   </voice>
 </phrase>
 <phrase>
@@ -12147,62 +11894,6 @@
     *: none
     dac_power_mode: "Save battery"
     es9218: "Low Gain (1 Vrms)"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TUBE_MODE
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Tube Mode"
-  </source>
-  <dest>
-    *: "Tube Mode"
-  </dest>
-  <voice>
-    *: "Tube Mode"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TUBE_TRANSISTOR
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Transistor (Off)"
-  </source>
-  <dest>
-    *: "Transistor (Off)"
-  </dest>
-  <voice>
-    *: "Transistor"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TUBE_TRIODE
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Triode"
-  </source>
-  <dest>
-    *: "Triode"
-  </dest>
-  <voice>
-    *: "Triode"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TUBE_ULTRALINEAR
-  desc: in sound settings
-  user: core
-  <source>
-    *: "Ultra-linear"
-  </source>
-  <dest>
-    *: "Ultra-linear"
-  </dest>
-  <voice>
-    *: "Ultra linear"
   </voice>
 </phrase>
 <phrase>
@@ -15134,20 +14825,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_ANNOUNCE_STATUS
-  desc: announnnce_status plugin
-  user: core
-  <source>
-    *: "Announce Status"
-  </source>
-  <dest>
-    *: "Announce Status"
-  </dest>
-  <voice>
-    *: "Announce Status"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_REMAIN
   desc: for constructs such as number of tracks remaining etc
   user: core
@@ -15258,20 +14935,6 @@
   </dest>
   <voice>
     *: "Not a plugin"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_SET_CONTEXT_ITEM
-  desc: WPS context item
-  user: core
-  <source>
-    *: "Set Context Item"
-  </source>
-  <dest>
-    *: "Set Context Item"
-  </dest>
-  <voice>
-    *: "Set Context Item"
   </voice>
 </phrase>
 <phrase>
@@ -15520,7 +15183,7 @@
     *: "dAY"
   </source>
   <dest>
-    *: "dAY"
+    *: "AdY"
   </dest>
   <voice>
     *: ""
@@ -16412,7 +16075,7 @@
     *: ""
   </dest>
   <voice>
-    *: "English"
+    *: "American English"
   </voice>
 </phrase>
 <phrase>
@@ -16444,6 +16107,20 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_REMAINING
+  desc: Playing Time
+  user: core
+  <source>
+    *: "Remaining"
+  </source>
+  <dest>
+    *: "Remaining"
+  </dest>
+  <voice>
+    *: "Remaining"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_DISABLE_MAINMENU_SCROLLING
   desc: Disable main menu scrolling
   user: core
@@ -16458,17 +16135,236 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_REMAINING
-  desc: Playing Time
+  id: LANG_RANDOM_SHUFFLE_RANDOM_SELECTIVE_SONGS_SUMMARY
+  desc: a summary splash screen that appear on the database browser when you try to create a playlist from the database browser that exceeds your system limit
   user: core
   <source>
-    *: "Remaining"
+    *: "Selection too big, %d random tracks will be selected"
   </source>
   <dest>
-    *: "Remaining"
+    *: "Selection too big, %d random tracks will be selected"
   </dest>
   <voice>
-    *: "Remaining"
+    *: "Selection too big, fewer random tracks will be selected"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DISPLAY_TITLEALBUM_FROMTAGS
+  desc: track display options
+  user: core
+  <source>
+    *: "Title & Album from ID3 tags"
+  </source>
+  <dest>
+    *: "Title & Album from ID3 tags"
+  </dest>
+  <voice>
+    *: "Title and Album from tags"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DISPLAY_TITLE_FROMTAGS
+  desc: track display options
+  user: core
+  <source>
+    *: "Title from ID3 tags"
+  </source>
+  <dest>
+    *: "Title from ID3 tags"
+  </dest>
+  <voice>
+    *: "Title from tags"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_RESET_EQUALIZER
+  desc: in the equalizer settings menu
+  user: core
+  <source>
+    *: "Reset EQ"
+  </source>
+  <dest>
+    *: "Reset EQ"
+  </dest>
+  <voice>
+    *: "Reset EQ"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DISC
+  desc: Shown in WPS (for multidisc albums)
+  user: core
+  <source>
+    *: "Disc"
+  </source>
+  <dest>
+    *: "Disc"
+  </dest>
+  <voice>
+    *: "Disc"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_VIEW_ALBUMART
+  desc: WPS context menu
+  user: core
+  <source>
+    *: "View Album Art"
+  </source>
+  <dest>
+    *: "View Album Art"
+  </dest>
+  <voice>
+    *: "View Album Art"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_HP_LO_SELECT
+  desc: Output Select
+  user: core
+  <source>
+    *: none
+    erosqnative: "Output Select"
+  </source>
+  <dest>
+    *: none
+    erosqnative: "Output Select"
+  </dest>
+  <voice>
+    *: none
+    erosqnative: "Output Select"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_HEADPHONE
+  desc: in settings_menu
+  user: core
+  <source>
+    *: none
+    erosqnative: "Headphone"
+  </source>
+  <dest>
+    *: none
+    erosqnative: "Headphone"
+  </dest>
+  <voice>
+    *: none
+    erosqnative: "Headphone"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_LINEOUT
+  desc: in settings_menu
+  user: core
+  <source>
+    *: none
+    erosqnative,lineout_poweroff: "Line Out"
+  </source>
+  <dest>
+    *: "Line Out"
+    erosqnative,lineout_poweroff: "Line Out"
+  </dest>
+  <voice>
+    *: "Line Out"
+    erosqnative,lineout_poweroff: "Line Out"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_FONT_LOAD_ERROR
+  desc: Displayed when font loading fails
+  user: core
+  <source>
+    *: "Unable to load font: (%s)"
+  </source>
+  <dest>
+    *: "Unable to load font: (%s)"
+  </dest>
+  <voice>
+    *: "Unable to load font"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_LOGGING
+  desc: playback logging
+  user: core
+  <source>
+    *: "Logging"
+  </source>
+  <dest>
+    *: "Logging"
+  </dest>
+  <voice>
+    *: "logging"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_VIEWLOG
+  desc: view Log
+  user: core
+  <source>
+    *: "View log"
+  </source>
+  <dest>
+    *: "View log"
+  </dest>
+  <voice>
+    *: "view log"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_REPLAY_FINISHED_PLAYLIST
+  desc: Resume playback of finished playlist
+  user: core
+  <source>
+    *: "Playlist finished. Play again?"
+  </source>
+  <dest>
+    *: "Playlist finished. Play again?"
+  </dest>
+  <voice>
+    *: "Playlist finished. Play again?"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_ADD_CURRENT_TO_FAVES
+  desc:
+  user: core
+  <source>
+    *: "Add Current to Shortcuts"
+  </source>
+  <dest>
+    *: "Add Current to Shortcuts"
+  </dest>
+  <voice>
+    *: "Add Current to Shortcuts"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DISPLAY_SPECIAL_CHARACTER
+  desc: Special character (japanese, accents, etc)
+  user: core
+  <source>
+    *: "Special character"
+  </source>
+  <dest>
+    *: "Special character"
+  </dest>
+  <voice>
+    *: "Special character"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_ID3_ALBUMARTISTS
+  desc: in tag viewer
+  user: core
+  <source>
+    *: "Album Artists"
+  </source>
+  <dest>
+    *: "Album Artists"
+  </dest>
+  <voice>
+    *: "Album Artists"
   </voice>
 </phrase>
 <phrase>
@@ -16846,7 +16742,7 @@
     *: "Favourite artists"
   </dest>
   <voice>
-    *: "Favourite artists"
+    *: "Favorite artists"
   </voice>
 </phrase>
 <phrase>
@@ -16860,7 +16756,7 @@
     *: "Favourite albums"
   </dest>
   <voice>
-    *: "Favourite albums"
+    *: "Favorite albums"
   </voice>
 </phrase>
 <phrase>
@@ -16874,7 +16770,7 @@
     *: "Recent favourites"
   </dest>
   <voice>
-    *: "Recent favourites"
+    *: "Recent favorites"
   </voice>
 </phrase>
 <phrase>
@@ -16888,7 +16784,7 @@
     *: "New favourites"
   </dest>
   <voice>
-    *: "New favourites"
+    *: "New favorites"
   </voice>
 </phrase>
 <phrase>
@@ -16902,7 +16798,7 @@
     *: "Forgotten favourites"
   </dest>
   <voice>
-    *: "Forgotten favourites"
+    *: "Forgotten favorites"
   </voice>
 </phrase>
 <phrase>
@@ -16920,17 +16816,17 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_VIEW_ALBUMART
-  desc: WPS context menu
+  id: LANG_SORT_PLAYLISTS
+  desc: playlists sorting setting
   user: core
   <source>
-    *: "View Album Art"
+    *: "Sort Playlists"
   </source>
   <dest>
-    *: "View Album Art"
+    *: "Sort Playlists"
   </dest>
   <voice>
-    *: "View Album Art"
+    *: "sort playlists"
   </voice>
 </phrase>
 <phrase>
@@ -16948,124 +16844,71 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_HP_LO_SELECT
-  desc: Output Select
-  user: core
-  <source>
-    *: none
-    erosqnative: "Output Select"
-  </source>
-  <dest>
-    *: none
-    erosqnative: "Output Select"
-  </dest>
-  <voice>
-    *: none
-    erosqnative: "Output Select"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_HEADPHONE
+  id: LANG_USB_DAC
   desc: in settings_menu
   user: core
   <source>
     *: none
-    erosqnative: "Headphone"
+    usbdac: "USB-DAC"
   </source>
   <dest>
     *: none
-    erosqnative: "Headphone"
+    usbdac: "USB-DAC"
   </dest>
   <voice>
     *: none
-    erosqnative: "Headphone"
+    usbdac: "USB-DAC"
   </voice>
 </phrase>
 <phrase>
-  id: LANG_LINEOUT
+  id: LANG_WHILE_USB_CHARGE_ONLY
   desc: in settings_menu
   user: core
   <source>
     *: none
-    erosqnative,lineout_poweroff: "Line Out"
+    usbdac: "While In USB Charge-Only Mode"
   </source>
   <dest>
     *: none
-    erosqnative,lineout_poweroff: "Line Out"
+    usbdac: "While In USB Charge-Only Mode"
   </dest>
   <voice>
     *: none
-    erosqnative,lineout_poweroff: "Line Out"
+    usbdac: "While In USB Charge-Only Mode"
   </voice>
 </phrase>
 <phrase>
-  id: LANG_FONT_LOAD_ERROR
-  desc: Displayed when font loading fails
+  id: LANG_WHILE_MASS_STORAGE_USB_ONLY
+  desc: in settings_menu
   user: core
   <source>
-    *: "Unable to load font: (%s)"
+    *: none
+    usbdac: "While In USB Mass-Storage Mode"
   </source>
   <dest>
-    *: "Unable to load font: (%s)"
+    *: none
+    usbdac: "While In USB Mass-Storage Mode"
   </dest>
   <voice>
-    *: "Unable to load font"
+    *: none
+    usbdac: "While In USB Mass-Storage Mode"
   </voice>
 </phrase>
 <phrase>
-  id: LANG_LOGGING
-  desc: playback logging
+  id: LANG_USB_DAC_ACTIVE
+  desc: for splash
   user: core
   <source>
-    *: "Logging"
+    *: none
+    usbdac: "USB-DAC Active"
   </source>
   <dest>
-    *: "Logging"
+    *: none
+    usbdac: "USB-DAC Active"
   </dest>
   <voice>
-    *: "logging"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_VIEWLOG
-  desc: view Log
-  user: core
-  <source>
-    *: "View log"
-  </source>
-  <dest>
-    *: "View log"
-  </dest>
-  <voice>
-    *: "view log"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_REPLAY_FINISHED_PLAYLIST
-  desc: Resume playback of finished playlist
-  user: core
-  <source>
-    *: "Playlist finished. Play again?"
-  </source>
-  <dest>
-    *: "Playlist finished. Play again?"
-  </dest>
-  <voice>
-    *: "Playlist finished. Play again?"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_SORT_PLAYLISTS
-  desc: playlists sorting setting
-  user: core
-  <source>
-    *: "Sort Playlists"
-  </source>
-  <dest>
-    *: "Sort Playlists"
-  </dest>
-  <voice>
-    *: "sort playlists"
+    *: none
+    usbdac: "USB-DAC Active"
   </voice>
 </phrase>
 <phrase>
@@ -17083,6 +16926,20 @@
   <voice>
     *: none
     general_purpose_led: "Use LED indicators"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_ANNOUNCE_STATUS
+  desc: announnnce_status plugin
+  user: core
+  <source>
+    *: "Announce Status"
+  </source>
+  <dest>
+    *: "Announce Status"
+  </dest>
+  <voice>
+    *: "Announce Status"
   </voice>
 </phrase>
 <phrase>
@@ -17111,48 +16968,6 @@
   </dest>
   <voice>
     *: "U S B"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_FILE_NOT_FOUND
-  desc: When file does not exist
-  user: core
-  <source>
-    *: "File not found"
-  </source>
-  <dest>
-    *: "File not found"
-  </dest>
-  <voice>
-    *: "File not found"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_SHOW_IN_FILES
-  desc: Reveal item in File Browser
-  user: core
-  <source>
-    *: "Show in Files"
-  </source>
-  <dest>
-    *: "Show in Files"
-  </dest>
-  <voice>
-    *: "Show in Files"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_CHANNEL_SWAP
-  desc: in sound_settings
-  user: core
-  <source>
-    *: "Swap Left & Right"
-  </source>
-  <dest>
-    *: "Swap Left & Right"
-  </dest>
-  <voice>
-    *: "Swap Left & Right"
   </voice>
 </phrase>
 <phrase>
@@ -17223,6 +17038,62 @@
   </dest>
   <voice>
     *: "Finished"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_FILE_NOT_FOUND
+  desc: When file does not exist
+  user: core
+  <source>
+    *: "File not found"
+  </source>
+  <dest>
+    *: "File not found"
+  </dest>
+  <voice>
+    *: "File not found"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SHOW_IN_FILES
+  desc: Reveal item in File Browser
+  user: core
+  <source>
+    *: "Show in Files"
+  </source>
+  <dest>
+    *: "Show in Files"
+  </dest>
+  <voice>
+    *: "Show in Files"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_CHANNEL_SWAP
+  desc: in sound_settings
+  user: core
+  <source>
+    *: "Swap Left & Right"
+  </source>
+  <dest>
+    *: "Swap Left & Right"
+  </dest>
+  <voice>
+    *: "Swap Left & Right"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SET_CONTEXT_ITEM
+  desc: WPS context item
+  user: core
+  <source>
+    *: "Set Context Item"
+  </source>
+  <dest>
+    *: "Set Context Item"
+  </dest>
+  <voice>
+    *: "Set Context Item"
   </voice>
 </phrase>
 <phrase>
