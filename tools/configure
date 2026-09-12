@@ -4251,10 +4251,10 @@ fi
     # These align with
     t_cpu="hosted"
     t_manufacturer="hiby"
-     t_model="ap80max"
-     sysfontbl="24-Terminus"
-     sysfont="20-Terminus"
-     ;;
+    t_model="ap80max"
+    sysfontbl="24-Terminus"
+    sysfont="20-Terminus"
+    ;;
 
     303|n3pro)
     target_id=126
@@ -4281,7 +4281,7 @@ fi
     ;;
 
 
-    *)
+   *)
     echo "Please select a supported target platform!"
     exit 7
     ;;
@@ -4882,6 +4882,9 @@ if test -n "$t_cpu"; then
   elif [ "$application" = "yes" ] && [ "$t_manufacturer" = "game_console" ]; then
     TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted/game_console/lib"
     TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted/game_console/lib/bfile"
+  elif [ "$application" = "yes" ] && [ "$t_manufacturer" = "cayin" ]; then
+    # N3Pro uses its own LCD/USB drivers but shares the HiBy target headers
+    TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted/hiby"
   fi
 
   if [ "$tinyalsa" = "yes" ]; then

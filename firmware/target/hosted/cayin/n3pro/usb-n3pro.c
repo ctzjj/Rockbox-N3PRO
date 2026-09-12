@@ -51,6 +51,11 @@
 #endif
 #include "logf.h"
 
+#ifdef HAVE_MULTIDRIVE
+void startup_rbhome(void);
+void cleanup_rbhome(void);
+#endif
+
 int disk_mount_all(void)
 {
     const char * const dev[] = {"/dev/mmcblk0p1", "/dev/mmcblk0"};
@@ -66,6 +71,9 @@ int disk_mount_all(void)
             if (rval == 0 || errno == -EBUSY)
             {
                 logf("mount good! %d/%d %d %d", i, j, rval, errno);
+#ifdef HAVE_MULTIDRIVE
+                startup_rbhome();
+#endif
                 return 1;
             }
         }
@@ -77,6 +85,10 @@ int disk_mount_all(void)
 
 int disk_unmount_all(void)
 {
+#ifdef HAVE_MULTIDRIVE
+    cleanup_rbhome();
+#endif
+
     if (umount(PIVOT_ROOT) == 0)
     {
         sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/lun/file", "/dev/mmcblk0");
@@ -85,6 +97,9 @@ int disk_unmount_all(void)
     }
 
     logf("umount_all failed! %d", errno);
+#ifdef HAVE_MULTIDRIVE
+    startup_rbhome();
+#endif
     return 0;
 }
 
@@ -148,8 +163,8 @@ static void configure_usb_mode(int mode)
     default:
         sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
         sysfs_set_string(sysfs_functions, "mass_storage");
-        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", USB_VID_STR);
+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", USB_PID_STR);
         break;
     }
 
@@ -178,16 +193,16 @@ static bool enable_usb_audio(void)
          * composite driver, which hides every other function. Windows'
          * in-box WinUSB matches the ADB interface (FF/42/01) on its own. */
         sysfs_set_string(sysfs_functions, "uac_sa,adb");
-        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", USB_VID_STR);
+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", USB_PID_STR);
         break;
 
     case USB_MODE_MASS_STORAGE:
         /* composite: the card is exported AND the host gets a sound card */
         sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
         sysfs_set_string(sysfs_functions, "uac_sa,mass_storage");
-        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", USB_VID_STR);
+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", USB_PID_STR);
         /* Interface Association Descriptor, like the stock gadget / R1 */
         sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0xEF);
         sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 2);
@@ -196,8 +211,8 @@ static bool enable_usb_audio(void)
 
     default:
         sysfs_set_string(sysfs_functions, "uac_sa");
-        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", USB_VID_STR);
+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", USB_PID_STR);
         break;
     }
 

@@ -195,7 +195,7 @@ static void *dac_pump_thread(void *arg)
         ssize_t n = read(dac_fd, rbuf, DAC_READ_BYTES);
         if (n <= 0)
         {
-            usleep(1000);
+            usleep(1000);       /* no host data queued yet */
             continue;
         }
 
@@ -217,12 +217,12 @@ bool usb_dac_start(void)
 {
     static const struct mixer_play_cbs cbs = { .get_more = dac_get_more };
 
+#if defined(CAYIN_N3PRO)
     /* usb_detect() runs on more than one thread; without this guard each
      * of them would open the device and spawn its own pump thread. */
     if (dac_running)
         return true;
 
-#if defined(CAYIN_N3PRO)
     /* The vendor driver's open()/read() block until the host streams, so
      * ALL device I/O is done by the pump thread; this function only sets
      * up the mixer and spawns it and can therefore never wedge the USB
@@ -245,10 +245,9 @@ bool usb_dac_start(void)
      * the hotplug helper can lag behind, so wait briefly for it. This runs
      * on a Rockbox thread, so sleep() yields to the cooperative scheduler
      * instead of stalling every other thread the way usleep() would. */
-    const int dac_open_flags = O_RDWR;
     for (int tries = 50; tries > 0; tries--)
     {
-        dac_fd = open(UAC_SA_DEV, dac_open_flags);
+        dac_fd = open(UAC_SA_DEV, O_RDWR);
         if (dac_fd >= 0)
             break;
         sleep(HZ / 50);     /* 20 ms */

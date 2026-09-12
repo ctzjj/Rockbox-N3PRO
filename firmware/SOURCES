@@ -215,7 +215,7 @@ target/hosted/agptek/rocker_codec.c
 
 #if defined(CAYIN_N3PRO) && !defined(SIMULATOR)
 target/hosted/cayin/n3pro/button-n3pro.c
-target/hosted/cayin/n3pro/debug-n3pro.c
+target/hosted/hiby/debug-hiby.c
 target/hosted/cayin/n3pro/lcd-n3pro.c
 target/hosted/cayin/n3pro/powermgmt-n3pro.c
 target/hosted/cayin/n3pro/usb-n3pro.c
@@ -224,7 +224,6 @@ target/hosted/cayin/n3pro/cayin-n3pro.c
 target/hosted/cayin/n3pro/led-n3pro.c
 target/hosted/hiby/hibylinux_codec.c
 target/hosted/hiby/usb-dac-hiby.c
-#endif
 #endif
 #endif
 

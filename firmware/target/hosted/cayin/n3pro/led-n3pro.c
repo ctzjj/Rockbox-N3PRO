@@ -18,12 +18,12 @@
  *
  ****************************************************************************/
 #include <stdbool.h>
-#include <string.h>
 #include <unistd.h>
 #include "config.h"
 #include "sysfs.h"
 #include "settings.h"
 #include "power.h"
+#include "powermgmt.h"
 #include "kernel.h"
 #include "playback.h"
 #include "audio.h"
@@ -116,19 +116,15 @@ void led_hw_set_mode(bool mode)
 void led_n3pro_tick(void)
 {
     static long last = 0;
-    char status[16] = {0};
 
     if (TIME_BEFORE(current_tick, last + HZ))
         return;
     last = current_tick;
 
-    sysfs_get_string("/sys/class/power_supply/battery/status", status,
-                     sizeof(status));
-
-    if (strncmp(status, "Charging", 8) == 0) {
-        set_led(N3PRO_LED_RED_BREATHING);
-    } else if (strncmp(status, "Full", 4) == 0) {
-        set_led(N3PRO_LED_RED_SOLID);
+    if (charging_state()) {
+        /* The fuel gauge reports 100% once the charger tops the cell off. */
+        set_led(battery_level() >= 100 ? N3PRO_LED_RED_SOLID
+                                       : N3PRO_LED_RED_BREATHING);
     } else {
         /* Like the stock firmware: lit only while audio is playing (and only
          * if the user enabled the LED indicators), with the colour chosen by

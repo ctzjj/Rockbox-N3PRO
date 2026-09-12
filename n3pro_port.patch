@@ -460,18 +460,6 @@ index 4c2f0d58b0..1e779f448b 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-diff --git a/apps/menus/settings_menu.c b/apps/menus/settings_menu.c
-index 1879ada8fe..97c536faad 100644
---- a/apps/menus/settings_menu.c
-+++ b/apps/menus/settings_menu.c
-@@ -493,6 +493,7 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
- #endif
-          );
- 
-+
- /*    SYSTEM MENU                  */
- /***********************************/
- 
 diff --git a/apps/menus/sound_menu.c b/apps/menus/sound_menu.c
 index 61d16f4cb1..be464b2dce 100644
 --- a/apps/menus/sound_menu.c
@@ -7714,7 +7702,7 @@ index 449ff6bd76..0f369b3dd2 100644
          {
              /* save last choice */
 diff --git a/firmware/SOURCES b/firmware/SOURCES
-index 8b524edcc4..495f49200c 100644
+index 8b524edcc4..e7513f4d8a 100644
 --- a/firmware/SOURCES
 +++ b/firmware/SOURCES
 @@ -161,7 +161,9 @@ target/hosted/lc-unix.c
@@ -7727,13 +7715,13 @@ index 8b524edcc4..495f49200c 100644
  target/hosted/power-linux.c
  #endif
  
-@@ -211,6 +213,21 @@ target/hosted/agptek/rocker_codec.c
+@@ -211,6 +213,20 @@ target/hosted/agptek/rocker_codec.c
  #endif
  #endif
  
 +#if defined(CAYIN_N3PRO) && !defined(SIMULATOR)
 +target/hosted/cayin/n3pro/button-n3pro.c
-+target/hosted/cayin/n3pro/debug-n3pro.c
++target/hosted/hiby/debug-hiby.c
 +target/hosted/cayin/n3pro/lcd-n3pro.c
 +target/hosted/cayin/n3pro/powermgmt-n3pro.c
 +target/hosted/cayin/n3pro/usb-n3pro.c
@@ -7744,12 +7732,11 @@ index 8b524edcc4..495f49200c 100644
 +target/hosted/hiby/usb-dac-hiby.c
 +#endif
 +#endif
-+#endif
 +
  #if defined(SURFANS_F28) && !defined(SIMULATOR)
  target/hosted/surfans/button-f28.c
  target/hosted/surfans/debug-f28.c
-@@ -233,7 +250,7 @@ target/hosted/xduoo/xduoolinux_codec.c
+@@ -233,7 +249,7 @@ target/hosted/xduoo/xduoolinux_codec.c
  target/hosted/button-devinput.c
  #endif
  
@@ -7835,10 +7822,10 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..4ce37616af
+index 0000000000..28ca335247
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,89 @@
 +/*
 + * This config file is for the Cayin N3Pro
 + */
@@ -7846,9 +7833,6 @@ index 0000000000..4ce37616af
 +/* For Rolo and boot loader */
 +#define MODEL_NUMBER 126
 +#define MODEL_NAME   "Cayin N3Pro"
-+
-+#define PIVOT_ROOT "/mnt/sd_0"
-+#define MULTIDRIVE_DIR "/mnt/usb"
 +
 +/* LCD dimensions */
 +/* 360x480 portrait touchscreen */
@@ -7860,8 +7844,9 @@ index 0000000000..4ce37616af
 +#define HAVE_LCD_SLEEP
 +#define LCD_SLEEP_TIMEOUT (2*HZ)
 +
-+/* Internal Rockbox depth stays 16bpp/RGB565 (like R1).  The N3Pro panel is a
-+ * 32-bit Ingenic SLCD, so lcd-linuxfb converts 16bpp->XRGB8888 at blit time. */
++/* Internal Rockbox depth stays 16bpp/RGB565 (like R1).  The N3Pro panel
++ * framebuffer is fixed at 32bpp XRGB8888 by the vendor kernel, so
++ * lcd-n3pro.c converts 16bpp->XRGB8888 at blit time. */
 +#define LCD_DEPTH  16
 +#define LCD_PIXELFORMAT RGB565
 +
@@ -7913,11 +7898,6 @@ index 0000000000..4ce37616af
 +#define BATTERY_CAPACITY_MIN 4000  /* min. capacity selectable */
 +#define BATTERY_CAPACITY_MAX 4000 /* max. capacity selectable */
 +#define BATTERY_CAPACITY_INC 0   /* capacity increment */
-+
-+#define MIN_BRIGHTNESS_SETTING      1
-+#define MAX_BRIGHTNESS_SETTING      255
-+#define BRIGHTNESS_STEP             5
-+#define DEFAULT_BRIGHTNESS_SETTING  255
 +
 +/* ROLO */
 +#define BOOTFILE_EXT "n3pro"
@@ -8008,14 +7988,6 @@ index c7d510dc2f..48f071a7dd 100644
  #if defined(AUDIOHW_HAVE_EQ)
  int sound_enum_hw_eq_band_setting(unsigned int band,
                                    unsigned int band_setting)
-diff --git a/firmware/target/hosted/cayin/n3pro/adc-target.h b/firmware/target/hosted/cayin/n3pro/adc-target.h
-new file mode 100644
-index 0000000000..f33b4009e5
---- /dev/null
-+++ b/firmware/target/hosted/cayin/n3pro/adc-target.h
-@@ -0,0 +1,2 @@
-+/* Cayin N3Pro has no ADC keyboard: buttons come via gpio-keys (evdev) and
-+ * the touchscreen via GT9XX.  Nothing to define here. */
 diff --git a/firmware/target/hosted/cayin/n3pro/button-n3pro.c b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
 new file mode 100644
 index 0000000000..5158da6c2e
@@ -8223,10 +8195,10 @@ index 0000000000..961cdf087c
 +#endif /* _BUTTON_TARGET_H_ */
 diff --git a/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c
 new file mode 100644
-index 0000000000..80df87338b
+index 0000000000..968185a308
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c
-@@ -0,0 +1,187 @@
+@@ -0,0 +1,121 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -8237,12 +8209,8 @@ index 0000000000..80df87338b
 + *
 + * Cayin N3Pro hardware-specific controls.
 + *
-+ * Everything below was recovered from the stock player and kernel:
++ * Recovered from the stock player and kernel:
 + *   /sys/devices/platform/cayin-n3pro.0/timbre_select  "transistor" | "tube"
-+ *   /sys/devices/platform/cayin-n3pro.0/power_output   "standard" | "high_resistant"
-+ *   /sys/devices/platform/cayin-n3pro.0/output_gain    "output_gain_l|m|h"
-+ *   /sys/devices/platform/cayin-n3pro.0/line_out_gain  "lo_gain_l|m|h"
-+ *   /sys/devices/platform/cayin-n3pro.0/dsd_gain
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of the GNU General Public License
@@ -8262,29 +8230,10 @@ index 0000000000..80df87338b
 +#include "cayin-n3pro.h"
 +
 +#define TIMBRE_PATH      CAYIN_N3PRO_SYSFS_BASE "/timbre_select"
-+#define POWER_PATH       CAYIN_N3PRO_SYSFS_BASE "/power_output"
-+#define OUT_GAIN_PATH    CAYIN_N3PRO_SYSFS_BASE "/output_gain"
-+#define LO_GAIN_PATH     CAYIN_N3PRO_SYSFS_BASE "/line_out_gain"
-+#define DSD_GAIN_PATH    CAYIN_N3PRO_SYSFS_BASE "/dsd_gain"
 +
 +static const char * const timbre_names[] =
 +{
 +    "transistor", "tube"
-+};
-+
-+static const char * const power_names[] =
-+{
-+    "standard", "high_resistant"
-+};
-+
-+static const char * const out_gain_names[] =
-+{
-+    "output_gain_l", "output_gain_m", "output_gain_h"
-+};
-+
-+static const char * const lo_gain_names[] =
-+{
-+    "lo_gain_l", "lo_gain_m", "lo_gain_h"
 +};
 +
 +void cayin_set_timbre(int mode)
@@ -8292,49 +8241,6 @@ index 0000000000..80df87338b
 +    if (mode < CAYIN_TIMBRE_TRANSISTOR || mode > CAYIN_TIMBRE_TUBE)
 +        return;
 +    sysfs_set_string(TIMBRE_PATH, timbre_names[mode]);
-+}
-+
-+int cayin_get_timbre(void)
-+{
-+    char buf[16];
-+    if (!sysfs_get_string(TIMBRE_PATH, buf, sizeof(buf)))
-+        return CAYIN_TIMBRE_TRANSISTOR;
-+    return (buf[0] == 't' && buf[1] == 'u') ? CAYIN_TIMBRE_TUBE
-+                                            : CAYIN_TIMBRE_TRANSISTOR;
-+}
-+
-+void cayin_set_power_output(int mode)
-+{
-+    if (mode < CAYIN_POWER_STANDARD || mode > CAYIN_POWER_HIGH_RESISTANT)
-+        return;
-+    sysfs_set_string(POWER_PATH, power_names[mode]);
-+}
-+
-+void cayin_set_output_gain(int gain)
-+{
-+    if (gain < CAYIN_GAIN_LOW || gain > CAYIN_GAIN_HIGH)
-+        return;
-+    sysfs_set_string(OUT_GAIN_PATH, out_gain_names[gain]);
-+}
-+
-+void cayin_set_line_out_gain(int gain)
-+{
-+    if (gain < CAYIN_GAIN_LOW || gain > CAYIN_GAIN_HIGH)
-+        return;
-+    sysfs_set_string(LO_GAIN_PATH, lo_gain_names[gain]);
-+}
-+
-+void cayin_set_dsd_gain(int gain)
-+{
-+    char buf[8];
-+    /* Best-effort: values not yet confirmed on hardware. */
-+    if (gain < 0)
-+        gain = 0;
-+    if (gain > 6)
-+        gain = 6;
-+    buf[0] = '0' + gain;
-+    buf[1] = '\0';
-+    sysfs_set_string(DSD_GAIN_PATH, buf);
 +}
 +
 +/* ---- electron-tube power management ---------------------------------- */
@@ -8416,10 +8322,10 @@ index 0000000000..80df87338b
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/cayin-n3pro.h b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.h
 new file mode 100644
-index 0000000000..669f9e918d
+index 0000000000..a3dcf4c575
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.h
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,64 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -8454,24 +8360,8 @@ index 0000000000..669f9e918d
 +    CAYIN_TIMBRE_TUBE,             /* "tube" (triode / ultra-linear) */
 +};
 +
-+/* Power rating mode (power_output) */
-+enum cayin_power_output
-+{
-+    CAYIN_POWER_STANDARD = 0,      /* "standard" */
-+    CAYIN_POWER_HIGH_RESISTANT,    /* "high_resistant" */
-+};
-+
-+/* Playback / line-out / DSD gain steps */
-+enum cayin_gain
-+{
-+    CAYIN_GAIN_LOW = 0,
-+    CAYIN_GAIN_MID,
-+    CAYIN_GAIN_HIGH,
-+};
-+
-+/* Timbre (electron tube) mode */
++/* Timbre (electron tube) stage selector */
 +void cayin_set_timbre(int mode);
-+int  cayin_get_timbre(void);
 +
 +/* Output ports, as reported by hiby_get_outputs().  The values match the
 + * stock player's routing table for the AK4493 "Output Port Switch" mixer
@@ -8480,16 +8370,6 @@ index 0000000000..669f9e918d
 +#define CAYIN_OUTPUT_LINEOUT  1
 +#define CAYIN_OUTPUT_HEADSET  2
 +#define CAYIN_OUTPUT_BALANCED 3
-+
-+/* Power rating mode */
-+void cayin_set_power_output(int mode);
-+
-+/* Headphone (output_gain) and line-out (line_out_gain) gain */
-+void cayin_set_output_gain(int gain);
-+void cayin_set_line_out_gain(int gain);
-+
-+/* DSD output gain */
-+void cayin_set_dsd_gain(int gain);
 +
 +/* Electron-tube (2x JAN6418) power management, driven by the playback state:
 + * the tubes are powered only while audio is playing on the 3.5 mm
@@ -8506,18 +8386,10 @@ index 0000000000..669f9e918d
 +/* RGB indicator (LP5562 pattern engine), polled from the button tick. */
 +void led_n3pro_tick(void);
 +
-+/* Re-apply the USB Audio setting once PCM is up (usb-hiby.c). */
++/* Re-apply the USB Audio setting once PCM is up (usb-n3pro.c). */
 +void cayin_usb_retry(void);
 +
 +#endif /* _CAYIN_N3PRO_H_ */
-diff --git a/firmware/target/hosted/cayin/n3pro/debug-n3pro.c b/firmware/target/hosted/cayin/n3pro/debug-n3pro.c
-new file mode 100644
-index 0000000000..3677651826
---- /dev/null
-+++ b/firmware/target/hosted/cayin/n3pro/debug-n3pro.c
-@@ -0,0 +1,2 @@
-+/* Reuse the generic Agptek/HiBy debug screen (battery, buttons, touch, PCM). */
-+#include "../../agptek/debug-agptek.c"
 diff --git a/firmware/target/hosted/cayin/n3pro/lcd-n3pro.c b/firmware/target/hosted/cayin/n3pro/lcd-n3pro.c
 new file mode 100644
 index 0000000000..596673e901
@@ -8787,56 +8659,12 @@ index 0000000000..596673e901
 +        redraw();
 +    }
 +}
-diff --git a/firmware/target/hosted/cayin/n3pro/lcd-target.h b/firmware/target/hosted/cayin/n3pro/lcd-target.h
-new file mode 100644
-index 0000000000..0dab04cc69
---- /dev/null
-+++ b/firmware/target/hosted/cayin/n3pro/lcd-target.h
-@@ -0,0 +1,38 @@
-+/***************************************************************************
-+ *             __________               __   ___.
-+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
-+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
-+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
-+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
-+ *                     \/            \/     \/    \/            \/
-+ *
-+ * Copyright (C) 2016 Amaury Pouly
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or (at your option) any later version.
-+ *
-+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
-+ * KIND, either express or implied.
-+ *
-+ ****************************************************************************/
-+
-+#ifndef __LCD_TARGET_H__
-+#define __LCD_TARGET_H__
-+
-+/* hibyos needs special ioctl() to redraw updated framebuffer content */
-+#define LCD_OPTIMIZED_UPDATE
-+#define LCD_OPTIMIZED_UPDATE_RECT
-+
-+extern fb_data *framebuffer;
-+
-+#ifdef FB_STRIDE_MISMATCH
-+#define LCD_FRAMEBUF_ADDR(col, row) \
-+    (framebuffer + (row)*FB_STRIDE_MISMATCH + (col) + FB_STRIDE_XOFFSET)
-+#else
-+#define LCD_FRAMEBUF_ADDR(col, row) (framebuffer + (row)*LCD_WIDTH + (col))
-+#endif
-+
-+extern void lcd_set_active(bool active);
-+#endif /* __LCD_TARGET_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/led-n3pro.c b/firmware/target/hosted/cayin/n3pro/led-n3pro.c
 new file mode 100644
-index 0000000000..d626fa985b
+index 0000000000..812921c658
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/led-n3pro.c
-@@ -0,0 +1,153 @@
+@@ -0,0 +1,149 @@
 +/***************************************************************************
 + *             __________               __   ___
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -8857,12 +8685,12 @@ index 0000000000..d626fa985b
 + *
 + ****************************************************************************/
 +#include <stdbool.h>
-+#include <string.h>
 +#include <unistd.h>
 +#include "config.h"
 +#include "sysfs.h"
 +#include "settings.h"
 +#include "power.h"
++#include "powermgmt.h"
 +#include "kernel.h"
 +#include "playback.h"
 +#include "audio.h"
@@ -8955,19 +8783,15 @@ index 0000000000..d626fa985b
 +void led_n3pro_tick(void)
 +{
 +    static long last = 0;
-+    char status[16] = {0};
 +
 +    if (TIME_BEFORE(current_tick, last + HZ))
 +        return;
 +    last = current_tick;
 +
-+    sysfs_get_string("/sys/class/power_supply/battery/status", status,
-+                     sizeof(status));
-+
-+    if (strncmp(status, "Charging", 8) == 0) {
-+        set_led(N3PRO_LED_RED_BREATHING);
-+    } else if (strncmp(status, "Full", 4) == 0) {
-+        set_led(N3PRO_LED_RED_SOLID);
++    if (charging_state()) {
++        /* The fuel gauge reports 100% once the charger tops the cell off. */
++        set_led(battery_level() >= 100 ? N3PRO_LED_RED_SOLID
++                                       : N3PRO_LED_RED_BREATHING);
 +    } else {
 +        /* Like the stock firmware: lit only while audio is playing (and only
 +         * if the user enabled the LED indicators), with the colour chosen by
@@ -9294,46 +9118,12 @@ index 0000000000..41dce1e91f
 +{
 +    3485, 3780, 3836, 3857, 3890, 3930, 3986, 4028, 4125, 4237, 4376
 +};
-diff --git a/firmware/target/hosted/cayin/n3pro/system-target.h b/firmware/target/hosted/cayin/n3pro/system-target.h
-new file mode 100644
-index 0000000000..830f19fde4
---- /dev/null
-+++ b/firmware/target/hosted/cayin/n3pro/system-target.h
-@@ -0,0 +1,28 @@
-+/***************************************************************************
-+ *             __________               __   ___.
-+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
-+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
-+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
-+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
-+ *                     \/            \/     \/    \/            \/
-+ *
-+ * Copyright (C) 2017 Marcin Bukat
-+ * Copyright (C) 2016 Amaury Pouly
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or (at your option) any later version.
-+ *
-+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
-+ * KIND, either express or implied.
-+ *
-+ ****************************************************************************/
-+#ifndef __SYSTEM_TARGET_H__
-+#define __SYSTEM_TARGET_H__
-+
-+#include "kernel-unix.h"
-+#include "system-hosted.h"
-+
-+#define NEED_GENERIC_BYTESWAPS
-+#endif /* __SYSTEM_TARGET_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/usb-n3pro.c b/firmware/target/hosted/cayin/n3pro/usb-n3pro.c
 new file mode 100644
-index 0000000000..1df5b596b6
+index 0000000000..7ffc8b6996
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/usb-n3pro.c
-@@ -0,0 +1,342 @@
+@@ -0,0 +1,357 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -9387,6 +9177,11 @@ index 0000000000..1df5b596b6
 +#endif
 +#include "logf.h"
 +
++#ifdef HAVE_MULTIDRIVE
++void startup_rbhome(void);
++void cleanup_rbhome(void);
++#endif
++
 +int disk_mount_all(void)
 +{
 +    const char * const dev[] = {"/dev/mmcblk0p1", "/dev/mmcblk0"};
@@ -9402,6 +9197,9 @@ index 0000000000..1df5b596b6
 +            if (rval == 0 || errno == -EBUSY)
 +            {
 +                logf("mount good! %d/%d %d %d", i, j, rval, errno);
++#ifdef HAVE_MULTIDRIVE
++                startup_rbhome();
++#endif
 +                return 1;
 +            }
 +        }
@@ -9413,6 +9211,10 @@ index 0000000000..1df5b596b6
 +
 +int disk_unmount_all(void)
 +{
++#ifdef HAVE_MULTIDRIVE
++    cleanup_rbhome();
++#endif
++
 +    if (umount(PIVOT_ROOT) == 0)
 +    {
 +        sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/lun/file", "/dev/mmcblk0");
@@ -9421,6 +9223,9 @@ index 0000000000..1df5b596b6
 +    }
 +
 +    logf("umount_all failed! %d", errno);
++#ifdef HAVE_MULTIDRIVE
++    startup_rbhome();
++#endif
 +    return 0;
 +}
 +
@@ -9484,8 +9289,8 @@ index 0000000000..1df5b596b6
 +    default:
 +        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
 +        sysfs_set_string(sysfs_functions, "mass_storage");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", USB_VID_STR);
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", USB_PID_STR);
 +        break;
 +    }
 +
@@ -9514,16 +9319,16 @@ index 0000000000..1df5b596b6
 +         * composite driver, which hides every other function. Windows'
 +         * in-box WinUSB matches the ADB interface (FF/42/01) on its own. */
 +        sysfs_set_string(sysfs_functions, "uac_sa,adb");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", USB_VID_STR);
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", USB_PID_STR);
 +        break;
 +
 +    case USB_MODE_MASS_STORAGE:
 +        /* composite: the card is exported AND the host gets a sound card */
 +        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
 +        sysfs_set_string(sysfs_functions, "uac_sa,mass_storage");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", USB_VID_STR);
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", USB_PID_STR);
 +        /* Interface Association Descriptor, like the stock gadget / R1 */
 +        sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0xEF);
 +        sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 2);
@@ -9532,8 +9337,8 @@ index 0000000000..1df5b596b6
 +
 +    default:
 +        sysfs_set_string(sysfs_functions, "uac_sa");
-+        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
-+        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", USB_VID_STR);
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", USB_PID_STR);
 +        break;
 +    }
 +
@@ -9805,7 +9610,7 @@ index 4cb445887d..410a0bb353 100644
 +#endif
  
 diff --git a/firmware/target/hosted/hiby/usb-dac-hiby.c b/firmware/target/hosted/hiby/usb-dac-hiby.c
-index 469dc640b9..6b2b1a949f 100644
+index 469dc640b9..38ab40e9be 100644
 --- a/firmware/target/hosted/hiby/usb-dac-hiby.c
 +++ b/firmware/target/hosted/hiby/usb-dac-hiby.c
 @@ -37,6 +37,7 @@
@@ -9896,16 +9701,7 @@ index 469dc640b9..6b2b1a949f 100644
      while (dac_running)
      {
          unsigned int head = dac_head;
-@@ -128,7 +195,7 @@ static void *dac_pump_thread(void *arg)
-         ssize_t n = read(dac_fd, rbuf, DAC_READ_BYTES);
-         if (n <= 0)
-         {
--            usleep(1000);       /* no host data queued yet */
-+            usleep(1000);
-             continue;
-         }
- 
-@@ -143,19 +210,45 @@ static void *dac_pump_thread(void *arg)
+@@ -143,12 +210,37 @@ static void *dac_pump_thread(void *arg)
      }
  
      return NULL;
@@ -9916,12 +9712,12 @@ index 469dc640b9..6b2b1a949f 100644
  {
      static const struct mixer_play_cbs cbs = { .get_more = dac_get_more };
  
++#if defined(CAYIN_N3PRO)
 +    /* usb_detect() runs on more than one thread; without this guard each
 +     * of them would open the device and spawn its own pump thread. */
 +    if (dac_running)
 +        return true;
 +
-+#if defined(CAYIN_N3PRO)
 +    /* The vendor driver's open()/read() block until the host streams, so
 +     * ALL device I/O is done by the pump thread; this function only sets
 +     * up the mixer and spawns it and can therefore never wedge the USB
@@ -9943,16 +9739,7 @@ index 469dc640b9..6b2b1a949f 100644
      /* The node is created asynchronously when the UDC binds; during boot
       * the hotplug helper can lag behind, so wait briefly for it. This runs
       * on a Rockbox thread, so sleep() yields to the cooperative scheduler
-      * instead of stalling every other thread the way usleep() would. */
-+    const int dac_open_flags = O_RDWR;
-     for (int tries = 50; tries > 0; tries--)
-     {
--        dac_fd = open(UAC_SA_DEV, O_RDWR);
-+        dac_fd = open(UAC_SA_DEV, dac_open_flags);
-         if (dac_fd >= 0)
-             break;
-         sleep(HZ / 50);     /* 20 ms */
-@@ -192,6 +285,7 @@ bool usb_dac_start(void)
+@@ -192,6 +284,7 @@ bool usb_dac_start(void)
          dac_fd = -1;
          return false;
      }
@@ -9960,7 +9747,7 @@ index 469dc640b9..6b2b1a949f 100644
  
      mixer_channel_set_amplitude(PCM_MIXER_CHAN_USBAUDIO, MIX_AMP_UNITY);
      mixer_channel_play_data(PCM_MIXER_CHAN_USBAUDIO, &cbs, NULL, 0);
-@@ -203,6 +297,14 @@ void usb_dac_stop(void)
+@@ -203,6 +296,14 @@ void usb_dac_stop(void)
      if (!dac_running)
          return;
  
@@ -9975,7 +9762,7 @@ index 469dc640b9..6b2b1a949f 100644
      dac_running = false;
      pthread_join(dac_thread, NULL);
      mixer_channel_stop(PCM_MIXER_CHAN_USBAUDIO);
-@@ -212,6 +314,7 @@ void usb_dac_stop(void)
+@@ -212,6 +313,7 @@ void usb_dac_stop(void)
          close(dac_fd);
          dac_fd = -1;
      }
@@ -9983,6 +9770,24 @@ index 469dc640b9..6b2b1a949f 100644
  }
  
  bool usb_audio_get_active(void)
+diff --git a/firmware/target/hosted/sdl/sim-ui-defines.h b/firmware/target/hosted/sdl/sim-ui-defines.h
+index 5a08b27adf..61963a1926 100644
+--- a/firmware/target/hosted/sdl/sim-ui-defines.h
++++ b/firmware/target/hosted/sdl/sim-ui-defines.h
+@@ -532,6 +532,13 @@
+ #define UI_LCD_POSX                 100
+ #define UI_LCD_POSY                 100
+ 
++#elif defined(CAYIN_N3PRO)
++#define UI_TITLE                    "Cayin N3Pro"
++#define UI_WIDTH                    500
++#define UI_HEIGHT                   760
++#define UI_LCD_POSX                 70
++#define UI_LCD_POSY                 140
++
+ #elif defined(SIMULATOR)
+ #error no UI defines
+ #endif
 diff --git a/firmware/usb.c b/firmware/usb.c
 index b41facb39d..9551988683 100644
 --- a/firmware/usb.c
@@ -10023,19 +9828,13 @@ index 3adf0f2e38..0fbddea8b0 100644
  
  sub manualname {
 diff --git a/tools/configure b/tools/configure
-index 7f3628b540..92755d5400 100755
+index 7f3628b540..ff30867d37 100755
 --- a/tools/configure
 +++ b/tools/configure
-@@ -4251,13 +4251,37 @@ fi
-     # These align with
-     t_cpu="hosted"
-     t_manufacturer="hiby"
--    t_model="ap80max"
-+     t_model="ap80max"
-+     sysfontbl="24-Terminus"
-+     sysfont="20-Terminus"
-+     ;;
-+
+@@ -4256,6 +4256,30 @@ fi
+     sysfont="20-Terminus"
+     ;;
+ 
 +    303|n3pro)
 +    target_id=126
 +    application=yes
@@ -10056,16 +9855,23 @@ index 7f3628b540..92755d5400 100755
 +    t_cpu="hosted"
 +    t_manufacturer="cayin"
 +    t_model="n3pro"
-     sysfontbl="24-Terminus"
-     sysfont="20-Terminus"
-     ;;
++    sysfontbl="24-Terminus"
++    sysfont="20-Terminus"
++    ;;
++
  
- 
--   *)
-+    *)
+    *)
      echo "Please select a supported target platform!"
-     exit 7
-     ;;
+@@ -4858,6 +4882,9 @@ if test -n "$t_cpu"; then
+   elif [ "$application" = "yes" ] && [ "$t_manufacturer" = "game_console" ]; then
+     TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted/game_console/lib"
+     TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted/game_console/lib/bfile"
++  elif [ "$application" = "yes" ] && [ "$t_manufacturer" = "cayin" ]; then
++    # N3Pro uses its own LCD/USB drivers but shares the HiBy target headers
++    TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted/hiby"
+   fi
+ 
+   if [ "$tinyalsa" = "yes" ]; then
 diff --git a/wps/WPSLIST b/wps/WPSLIST
 index d9438bb77b..5918aeb85b 100644
 --- a/wps/WPSLIST

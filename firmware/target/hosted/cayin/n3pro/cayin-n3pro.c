@@ -8,12 +8,8 @@
  *
  * Cayin N3Pro hardware-specific controls.
  *
- * Everything below was recovered from the stock player and kernel:
+ * Recovered from the stock player and kernel:
  *   /sys/devices/platform/cayin-n3pro.0/timbre_select  "transistor" | "tube"
- *   /sys/devices/platform/cayin-n3pro.0/power_output   "standard" | "high_resistant"
- *   /sys/devices/platform/cayin-n3pro.0/output_gain    "output_gain_l|m|h"
- *   /sys/devices/platform/cayin-n3pro.0/line_out_gain  "lo_gain_l|m|h"
- *   /sys/devices/platform/cayin-n3pro.0/dsd_gain
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -33,29 +29,10 @@
 #include "cayin-n3pro.h"
 
 #define TIMBRE_PATH      CAYIN_N3PRO_SYSFS_BASE "/timbre_select"
-#define POWER_PATH       CAYIN_N3PRO_SYSFS_BASE "/power_output"
-#define OUT_GAIN_PATH    CAYIN_N3PRO_SYSFS_BASE "/output_gain"
-#define LO_GAIN_PATH     CAYIN_N3PRO_SYSFS_BASE "/line_out_gain"
-#define DSD_GAIN_PATH    CAYIN_N3PRO_SYSFS_BASE "/dsd_gain"
 
 static const char * const timbre_names[] =
 {
     "transistor", "tube"
-};
-
-static const char * const power_names[] =
-{
-    "standard", "high_resistant"
-};
-
-static const char * const out_gain_names[] =
-{
-    "output_gain_l", "output_gain_m", "output_gain_h"
-};
-
-static const char * const lo_gain_names[] =
-{
-    "lo_gain_l", "lo_gain_m", "lo_gain_h"
 };
 
 void cayin_set_timbre(int mode)
@@ -63,49 +40,6 @@ void cayin_set_timbre(int mode)
     if (mode < CAYIN_TIMBRE_TRANSISTOR || mode > CAYIN_TIMBRE_TUBE)
         return;
     sysfs_set_string(TIMBRE_PATH, timbre_names[mode]);
-}
-
-int cayin_get_timbre(void)
-{
-    char buf[16];
-    if (!sysfs_get_string(TIMBRE_PATH, buf, sizeof(buf)))
-        return CAYIN_TIMBRE_TRANSISTOR;
-    return (buf[0] == 't' && buf[1] == 'u') ? CAYIN_TIMBRE_TUBE
-                                            : CAYIN_TIMBRE_TRANSISTOR;
-}
-
-void cayin_set_power_output(int mode)
-{
-    if (mode < CAYIN_POWER_STANDARD || mode > CAYIN_POWER_HIGH_RESISTANT)
-        return;
-    sysfs_set_string(POWER_PATH, power_names[mode]);
-}
-
-void cayin_set_output_gain(int gain)
-{
-    if (gain < CAYIN_GAIN_LOW || gain > CAYIN_GAIN_HIGH)
-        return;
-    sysfs_set_string(OUT_GAIN_PATH, out_gain_names[gain]);
-}
-
-void cayin_set_line_out_gain(int gain)
-{
-    if (gain < CAYIN_GAIN_LOW || gain > CAYIN_GAIN_HIGH)
-        return;
-    sysfs_set_string(LO_GAIN_PATH, lo_gain_names[gain]);
-}
-
-void cayin_set_dsd_gain(int gain)
-{
-    char buf[8];
-    /* Best-effort: values not yet confirmed on hardware. */
-    if (gain < 0)
-        gain = 0;
-    if (gain > 6)
-        gain = 6;
-    buf[0] = '0' + gain;
-    buf[1] = '\0';
-    sysfs_set_string(DSD_GAIN_PATH, buf);
 }
 
 /* ---- electron-tube power management ---------------------------------- */

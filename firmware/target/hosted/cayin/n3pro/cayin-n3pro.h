@@ -32,24 +32,8 @@ enum cayin_timbre
     CAYIN_TIMBRE_TUBE,             /* "tube" (triode / ultra-linear) */
 };
 
-/* Power rating mode (power_output) */
-enum cayin_power_output
-{
-    CAYIN_POWER_STANDARD = 0,      /* "standard" */
-    CAYIN_POWER_HIGH_RESISTANT,    /* "high_resistant" */
-};
-
-/* Playback / line-out / DSD gain steps */
-enum cayin_gain
-{
-    CAYIN_GAIN_LOW = 0,
-    CAYIN_GAIN_MID,
-    CAYIN_GAIN_HIGH,
-};
-
-/* Timbre (electron tube) mode */
+/* Timbre (electron tube) stage selector */
 void cayin_set_timbre(int mode);
-int  cayin_get_timbre(void);
 
 /* Output ports, as reported by hiby_get_outputs().  The values match the
  * stock player's routing table for the AK4493 "Output Port Switch" mixer
@@ -58,16 +42,6 @@ int  cayin_get_timbre(void);
 #define CAYIN_OUTPUT_LINEOUT  1
 #define CAYIN_OUTPUT_HEADSET  2
 #define CAYIN_OUTPUT_BALANCED 3
-
-/* Power rating mode */
-void cayin_set_power_output(int mode);
-
-/* Headphone (output_gain) and line-out (line_out_gain) gain */
-void cayin_set_output_gain(int gain);
-void cayin_set_line_out_gain(int gain);
-
-/* DSD output gain */
-void cayin_set_dsd_gain(int gain);
 
 /* Electron-tube (2x JAN6418) power management, driven by the playback state:
  * the tubes are powered only while audio is playing on the 3.5 mm
@@ -84,7 +58,7 @@ void cayin_tube_tick(int out_ps);
 /* RGB indicator (LP5562 pattern engine), polled from the button tick. */
 void led_n3pro_tick(void);
 
-/* Re-apply the USB Audio setting once PCM is up (usb-hiby.c). */
+/* Re-apply the USB Audio setting once PCM is up (usb-n3pro.c). */
 void cayin_usb_retry(void);
 
 #endif /* _CAYIN_N3PRO_H_ */

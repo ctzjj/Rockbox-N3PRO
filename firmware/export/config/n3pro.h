@@ -6,9 +6,6 @@
 #define MODEL_NUMBER 126
 #define MODEL_NAME   "Cayin N3Pro"
 
-#define PIVOT_ROOT "/mnt/sd_0"
-#define MULTIDRIVE_DIR "/mnt/usb"
-
 /* LCD dimensions */
 /* 360x480 portrait touchscreen */
 #define LCD_WIDTH  360
@@ -19,8 +16,9 @@
 #define HAVE_LCD_SLEEP
 #define LCD_SLEEP_TIMEOUT (2*HZ)
 
-/* Internal Rockbox depth stays 16bpp/RGB565 (like R1).  The N3Pro panel is a
- * 32-bit Ingenic SLCD, so lcd-linuxfb converts 16bpp->XRGB8888 at blit time. */
+/* Internal Rockbox depth stays 16bpp/RGB565 (like R1).  The N3Pro panel
+ * framebuffer is fixed at 32bpp XRGB8888 by the vendor kernel, so
+ * lcd-n3pro.c converts 16bpp->XRGB8888 at blit time. */
 #define LCD_DEPTH  16
 #define LCD_PIXELFORMAT RGB565
 
@@ -72,11 +70,6 @@
 #define BATTERY_CAPACITY_MIN 4000  /* min. capacity selectable */
 #define BATTERY_CAPACITY_MAX 4000 /* max. capacity selectable */
 #define BATTERY_CAPACITY_INC 0   /* capacity increment */
-
-#define MIN_BRIGHTNESS_SETTING      1
-#define MAX_BRIGHTNESS_SETTING      255
-#define BRIGHTNESS_STEP             5
-#define DEFAULT_BRIGHTNESS_SETTING  255
 
 /* ROLO */
 #define BOOTFILE_EXT "n3pro"

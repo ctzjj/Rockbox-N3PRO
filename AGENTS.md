@@ -22,8 +22,7 @@ firmware/target/hosted/cayin/n3pro/                 the N3Pro target driver
                                                       mass storage / charge / ADB / USB-DAC)
     powermgmt-n3pro.c                               battery curves (see "Battery")
     led-n3pro.c                                     RGB LED (LP5562 pattern engine)
-    debug-n3pro.c lcd-target.h system-target.h adc-target.h
-    cayin-n3pro.c/.h                                tube / filter / gain housekeeping
+    cayin-n3pro.c/.h                                tube / output routing housekeeping
     n3pro_patcher.sh                                unpack + inject + pack a .upt
 apps/keymaps/keymap-n3pro.c                         keymap (scroll wheel + HOME)
 wps/cabbiev2.360x480x16.wps, wps/cabbiev2/*-360x480x16.bmp
@@ -34,7 +33,10 @@ n3pro_port.patch                                    ALL of the port as a unified
 The LCD and USB drivers are **standalone per-target files**, selected in
 `firmware/SOURCES` (the shared `lcd-linuxfb.c` / `usb-hiby.c` are excluded for
 `CAYIN_N3PRO` there, exactly like the R1/R3ProII exclusions) — the shared files
-themselves are **byte-identical to upstream**.
+themselves are **byte-identical to upstream**.  The generic debug screen and the
+`lcd-target.h` / `system-target.h` / `adc-target.h` headers come from the shared
+HiBy directory (`tools/configure` adds `-I target/hosted/hiby` for this target,
+like the existing `game_console` include-path precedent).
 
 Everything outside `firmware/target/hosted/cayin/n3pro/`, `n3pro.h`,
 `keymap-n3pro.c` and the WPS assets is a **change to shared Rockbox code** and
