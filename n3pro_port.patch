@@ -12298,7 +12298,7 @@ index 5a0f4f83e3..d7c3d3a4d1 100644
      /** Hardware EQ tone controls **/
      struct hw_eq_band
 diff --git a/apps/settings_list.c b/apps/settings_list.c
-index 24edac9bb7..4149320a4b 100644
+index 24edac9bb7..d70ef3d006 100644
 --- a/apps/settings_list.c
 +++ b/apps/settings_list.c
 @@ -648,6 +648,15 @@ static void crossfeed_cross_set(int val)
@@ -12351,20 +12351,20 @@ index 24edac9bb7..4149320a4b 100644
 +                  "space80 enabled", dsp_set_space80_enable),
 +    INT_SETTING_NOWRAP(F_SOUNDSETTING, space80_decay,
 +                       LANG_SPACE80_DECAY, 40,
-+                       "space80 decay", UNIT_PERCENT, 0, 100,
-+                       5, NULL, NULL, space80_set),
++                       "space80 decay", UNIT_PERCENT, 100, 0,
++                       -5, NULL, NULL, space80_set),
 +    INT_SETTING_NOWRAP(F_SOUNDSETTING, space80_freq,
 +                       LANG_SPACE80_FREQ, 25,
-+                       "space80 freq", UNIT_PERCENT, 0, 100,
-+                       5, NULL, NULL, space80_set),
++                       "space80 freq", UNIT_PERCENT, 100, 0,
++                       -5, NULL, NULL, space80_set),
 +    INT_SETTING_NOWRAP(F_SOUNDSETTING, space80_gain,
 +                       LANG_SPACE80_GAIN, 50,
-+                       "space80 gain", UNIT_PERCENT, 0, 100,
-+                       5, NULL, NULL, space80_set),
++                       "space80 gain", UNIT_PERCENT, 100, 0,
++                       -5, NULL, NULL, space80_set),
 +    INT_SETTING_NOWRAP(F_SOUNDSETTING, space80_mix,
 +                       LANG_SPACE80_MIX, 40,
-+                       "space80 mix", UNIT_PERCENT, 0, 100,
-+                       5, NULL, NULL, space80_set),
++                       "space80 mix", UNIT_PERCENT, 100, 0,
++                       -5, NULL, NULL, space80_set),
 +
      /* equalizer */
      OFFON_SETTING(F_EQSETTING, eq_enabled, LANG_EQUALIZER_ENABLED, false,
