@@ -109,11 +109,14 @@ void cayin_set_dsd_gain(int gain)
 }
 
 /* ---- electron-tube power management ---------------------------------- */
-/* The tube is powered only while audio is actually playing and is switched
- * off again TUBE_OFF_DELAY after playback stops/pauses.  Kept entirely in
- * the N3Pro target so no shared code is involved.  The triode/ultra-linear
- * wiring is only accepted by the hardware while the tube supply is on, so
- * we always power up first and apply the wiring right after.              */
+/* The tube is powered only while audio is actually playing on the 3.5 mm
+ * single-ended headphone output and is switched off again TUBE_OFF_DELAY
+ * after playback stops/pauses or another jack is selected.  Kept entirely
+ * in the N3Pro target so no shared code is involved.  The triode/
+ * ultra-linear wiring is only accepted by the hardware while the tube
+ * supply is on, so we always power up first and apply the wiring right
+ * after.  Line out and the 4.4 mm balanced output are hard-wired to the
+ * transistor stage (stock firmware does the same).                        */
 
 #define TUBE_OFF_DELAY   (10*HZ)
 
@@ -143,7 +146,7 @@ void cayin_tube_set_mode(int mode)
         tube_power(false);
 }
 
-void cayin_tube_tick(void)
+void cayin_tube_tick(int out_ps)
 {
     int st = audio_status();
     bool playing = (st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE);
@@ -156,7 +159,8 @@ void cayin_tube_tick(void)
         return;
     }
 
-    if (playing)
+    /* JAN6418 tube buffer sits in the single-ended headphone path only. */
+    if (playing && out_ps == CAYIN_OUTPUT_HEADSET)
     {
         /* Resume cancels a pending power-off so a quick pause/resume does
          * not bounce the tube on and off. */

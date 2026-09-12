@@ -70,6 +70,26 @@ int hiby_has_valid_output(void) {
 
     if (!hw_init) return ps;
 
+#if defined(CAYIN_N3PRO)
+    /* The N3Pro has three separate output jacks, each with its own switch
+     * device.  The returned values (and the value written to the AK4493
+     * "Output Port Switch" mixer control by hiby_set_output()) match the
+     * stock player's routing table:
+     *   0 = spdif, 1 = lineout, 2 = headset, 3 = balance, 4 = i2s.
+     * The balanced jack takes precedence, then headset, then line out. */
+    const char * const sysfs_hs_switch  = "/sys/class/switch/headset/state";
+    const char * const sysfs_lo_switch  = "/sys/class/switch/lineout/state";
+    const char * const sysfs_bal_switch = "/sys/class/switch/balance/state";
+
+    if (sysfs_get_int(sysfs_hs_switch, &status) && status)
+        ps = 2; // headset
+
+    if (ps == 0 && sysfs_get_int(sysfs_lo_switch, &status) && status)
+        ps = 1; // line out
+
+    if (sysfs_get_int(sysfs_bal_switch, &status) && status)
+        ps = 3; // balanced output
+#else
     const char * const sysfs_hs_switch = "/sys/class/switch/headset/state";
     const char * const sysfs_bal_switch = "/sys/class/switch/balance/state";
 
@@ -78,6 +98,7 @@ int hiby_has_valid_output(void) {
 
     if (sysfs_get_int(sysfs_bal_switch, &status) && status)
         ps = 3; // balanced output
+#endif
 
     return ps;
 }

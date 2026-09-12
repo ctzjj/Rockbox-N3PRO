@@ -51,6 +51,14 @@ enum cayin_gain
 void cayin_set_timbre(int mode);
 int  cayin_get_timbre(void);
 
+/* Output ports, as reported by hiby_get_outputs().  The values match the
+ * stock player's routing table for the AK4493 "Output Port Switch" mixer
+ * control: 0 = spdif, 1 = lineout, 2 = headset, 3 = balance, 4 = i2s. */
+#define CAYIN_OUTPUT_NONE     0
+#define CAYIN_OUTPUT_LINEOUT  1
+#define CAYIN_OUTPUT_HEADSET  2
+#define CAYIN_OUTPUT_BALANCED 3
+
 /* Power rating mode */
 void cayin_set_power_output(int mode);
 
@@ -62,13 +70,16 @@ void cayin_set_line_out_gain(int gain);
 void cayin_set_dsd_gain(int gain);
 
 /* Electron-tube (2x JAN6418) power management, driven by the playback state:
- * the tubes are powered only while audio is playing and are switched off
- * again 10s after playback stops/pauses (saves power and tube life).  The
- * triode / ultra-linear wiring is only programmable while the tubes are
- * powered.
+ * the tubes are powered only while audio is playing on the 3.5 mm
+ * single-ended headphone output and are switched off again 10s after
+ * playback stops/pauses or another output (line out / 4.4 balanced) is
+ * selected (saves power and tube life).  Line out and the balanced output
+ * are always driven by the transistor stage, exactly like the stock
+ * firmware.  The triode / ultra-linear wiring is only programmable while
+ * the tubes are powered.
  *   mode: 0 = transistor (off), 1 = triode, 2 = ultra-linear            */
 void cayin_tube_set_mode(int mode);
-void cayin_tube_tick(void);
+void cayin_tube_tick(int out_ps);
 
 /* RGB indicator (LP5562 pattern engine), polled from the button tick. */
 void led_n3pro_tick(void);

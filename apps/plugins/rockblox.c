@@ -593,6 +593,23 @@
 #define PREVIEW_X 258
 #define PREVIEW_Y 480
 
+#elif (LCD_WIDTH == 360) && (LCD_HEIGHT == 480)
+
+/* 10x20 board of 22px blocks = 220x440, leaving a 140px label column */
+#define BLOCK_WIDTH 22
+#define BLOCK_HEIGHT 22
+#define BOARD_X 8
+#define BOARD_Y 20
+#define LABEL_X 240
+#define SCORE_Y 44
+#define LEVEL_Y 116
+#define LINES_Y 188
+#define HIGH_LABEL_X   240
+#define HIGH_SCORE_Y   256
+#define HIGH_LEVEL_Y   316
+#define PREVIEW_X 240
+#define PREVIEW_Y 384
+
 #elif (LCD_WIDTH == 360) && (LCD_HEIGHT == 400)
 
 #define BLOCK_WIDTH 19

@@ -108,8 +108,8 @@ bool headphones_inserted(void)
     if (!TIME_BEFORE(current_tick, last + HZ/4))
     {
         last = current_tick;
-        /* Electron-tube power follows the playback state. */
-        cayin_tube_tick();
+        /* Electron-tube power follows the playback state and is only
+         * allowed on the single-ended headphone output. */
         /* The generic LED core never calls the charging hooks. */
         led_n3pro_tick();
         /* Re-apply the USB Audio setting once the PCM mixer is up (the
@@ -117,9 +117,11 @@ bool headphones_inserted(void)
         cayin_usb_retry();
         /* hiby_get_outputs() also programs the AK4493 "Output Port Switch";
          * without this the DAC output port is left unrouted -> no sound.
-         * The N3Pro exposes both a headset (2) and a balanced (3) switch. */
+         * The N3Pro exposes three jacks: headset (2), lineout (1) and
+         * balanced (3), each with its own switch. */
         int ps = hiby_get_outputs();
-        present = (ps == 2 || ps == 3);
+        present = (ps != CAYIN_OUTPUT_NONE);
+        cayin_tube_tick(ps);
     }
     return present;
 #endif

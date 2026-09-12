@@ -723,6 +723,24 @@ CONFIG_KEYPAD == MROBE500_PAD
 #define LIVES_X 10
 #define MAX_Y 18
 
+#elif (LCD_WIDTH == 360) && (LCD_HEIGHT == 480)
+
+/* Cayin N3Pro
+ */
+#define ARCADISH_GRAPHICS
+#define PLAYFIELD_X 32
+#define SHIP_Y (PLAYFIELD_Y - 3 * SHIP_HEIGHT)
+#define ALIEN_START_Y (UFO_Y + 3 * ALIEN_HEIGHT)
+/* Redefine SCORE_Y */
+#undef SCORE_Y
+#define SCORE_Y 80
+#define SCORENUM_X (PLAYFIELD_X + NUMBERS_WIDTH)
+#define SCORENUM_Y SCORE_Y + (2 * (FONT_HEIGHT + 1) + 1)
+#define HISCORENUM_X (LCD_WIDTH - PLAYFIELD_X - 1 - 6 * NUMBERS_WIDTH - 5 * NUM_SPACING)
+#define SHIELD_Y (PLAYFIELD_Y - 6 * SHIP_HEIGHT)
+#define LIVES_X 10
+#define MAX_Y 24
+
 #else
     #error INVADROX: Unsupported LCD type
 #endif

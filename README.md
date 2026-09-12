@@ -28,6 +28,7 @@ Download the ready-made image and SD-card payload from the
 | RGB status LED (charge + playback, colour by sample rate) | working |
 | Battery gauge | working (kernel fuel gauge) |
 | Backlight / sleep | working |
+| Plugins (full set: Main Menu Config, lrcplayer, games, puzzles, ...) | working |
 
 \* verified on Windows; in the ADB composite the adb interface uses the
 in-box WinUSB driver, so the **libusb** adb backend is required
@@ -46,8 +47,11 @@ in-box WinUSB driver, so the **libusb** adb backend is required
   selects how they run: transistor (tubes powered off), **triode** or
   **ultra-linear** (the two wiring/tap configurations of the same tubes).  It is
   a two-step operation: power the tubes via the sysfs `timbre_select`, then
-  select the wiring through the `Timbre Tube Mode` ALSA control.  The tubes are
-  powered only while playing and switched off 10 s after pause.
+   select the wiring through the `Timbre Tube Mode` ALSA control.  The tubes are
+   powered only while playing **from the 3.5 mm headphone jack** and switched off
+   10 s after pause; the line-out and 4.4 mm balanced outputs always use the
+   transistor stage (as in the stock firmware).  Insert detection works on all
+   three jacks (headphone / line-out / balanced) and routes the DAC accordingly.
 * Volume: a rotary encoder (`sa-ring-keys`) emitting `KEY_LEFT`/`KEY_RIGHT`; each
   detent is a press+release microseconds apart, so it is wired to Rockbox's
   scroll-wheel mechanism (`HAVE_SCROLLWHEEL`).

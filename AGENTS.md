@@ -47,6 +47,15 @@ must obey the rules below.
    `apps/settings{,_list}.c`, `apps/settings.h`, `apps/menus/{sound,settings}_menu.c`,
    `firmware/{sound.c,export/sound.h,export/audiohw.h,export/audiohw_settings.h,export/config.h}`,
    `bootloader/hibyos_linux.c`, `firmware/export/usb.h`.
+   The plugin set is enabled for this target by adding `CAYIN_N3PRO` to the
+   existing keypad exception in `apps/plugins/SOURCES.app_build` and
+   `SUBDIRS.app_build` (next to R1 / R3ProII / AP80Max), which builds the full
+   `SOURCES` list plus the sub-directory plugins (games/demos/viewers, Simon
+   Tatham's puzzles, ...).  `apps/plugins/lib/keymaps.h` also needs
+   `CAYIN_N3PRO_PAD` in the `HAVE_TOUCHSCREEN` `BTN_*` exclusion list, and the
+   new 360×480 resolution assets are in `apps/plugins/bitmaps/{native,mono}/SOURCES`
+   with small layout blocks in `rockblox.c`, `bubbles.c`, `invadrox.c` and
+   `wormlet.c` (`superdom`/`jewels` only needed the bitmap condition).
    `usb-hiby.c` is also compiled for AGPtEK Rocker / Aigo Eros Q / Surfans F28 /
    Xduoo X20 / X3II — and `usb-dac-hiby.c` for R1/R3ProII/AP80Max.  Breaking
    their `#else` path is the easiest way to regress other players.
@@ -91,6 +100,11 @@ mkdir build-n3pro build-n3pro-bl
 
 - app output: `rockbox.n3pro`, bootloader output: `bootloader.n3pro`.
 - `make zip` (without `full`) omits the fonts — do not ship that one.
+- If a hosted build ever fails to link sub-directory plugins (e.g. the
+  `sgt-*.rock` puzzles) with `cannot open map file …` or `undefined reference to
+  plugin_start`, a stale `build-n3pro/make.dep` is shadowing the sub-dir pattern
+  rules: `rm build-n3pro/make.dep` and rebuild.  A fresh build directory is not
+  affected.
 
 ## Packaging the firmware image
 
@@ -148,7 +162,17 @@ adb shell "sync; reboot"                                # UMS gadget is up
   wiring/tap configurations).  It is a **two-step** operation: power the tubes
   via sysfs `timbre_select` first, then select triode/ultra-linear with the gated
   ALSA control `Timbre Tube Mode`.  `cayin-n3pro.c` powers the tubes only while
-  playing and switches them off 10 s after pause (via the button tick).
+  playing **on the 3.5 mm single-ended headphone output** and switches them off
+  10 s after pause (via the button tick); line out and the 4.4 mm balanced output
+  force the transistor stage, exactly like the stock firmware.
+- **Jacks / output routing**: the N3Pro has three separate output jacks, each
+  with its own `/sys/class/switch/{headset,lineout,balance}/state` switch.
+  `hiby_has_valid_output()` (`hibylinux_codec.c`) reads all three and returns the
+  value written to the AK4493 `Output Port Switch` mixer control, using the stock
+  player's own mapping: `0 spdif, 1 lineout, 2 headset, 3 balance, 4 i2s`
+  (recovered from the routing table embedded in `hiby_player`).  Priority:
+  balanced > headset > line out.  Note the kernel's `get` for that control always
+  returns 0, so it can only be verified by routing/looking at the mute GPIOs.
 - **Volume**: rotary encoder `sa-ring-keys` emitting `KEY_LEFT`/`KEY_RIGHT`; each
   detent is a press+release ~20 µs apart, so it is wired to the scroll wheel
   (`HAVE_SCROLLWHEEL`), not to plain buttons.
