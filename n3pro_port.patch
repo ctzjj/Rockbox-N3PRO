@@ -1,3 +1,4 @@
+# rockbox-base: 10ec9bd530c852631ce126795cacf20e7578017f
 diff --git a/apps/SOURCES b/apps/SOURCES
 index f81261f766..6a0127b9da 100644
 --- a/apps/SOURCES

@@ -1,0 +1,137 @@
+name: "Build release artifacts"
+
+# Builds the N3Pro port whenever a release is published, or on demand.
+# The build uses the exact toolchain the port is developed with
+# (mipsel-rockbox-linux-gnu, GCC 9.5.0), stored as an asset of the
+# internal "toolchain-v1" prerelease.
+#
+# Optional flashable image: attach the *stock* firmware as an asset named
+# "stock-update.upt" to the release before publishing; it is turned into
+# n3pro_rockbox.upt and removed again after the build.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload artifacts to (empty = build check only)"
+        default: ""
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  TOOLCHAIN_URL: "https://github.com/ctzjj/Rockbox-N3PRO/releases/download/toolchain-v1/rockbox-toolchain-mipsel.tar.xz"
+  TOOLCHAIN_MD5: "d79ee6d6ca89186fb72d893c0ffd72f7"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Install host tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q zip p7zip-full genisoimage mtd-utils python3-pip
+          python3 -m pip install --user --break-system-packages ubireader ||
+            python3 -m pip install --user ubireader
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Checkout port repository
+        uses: actions/checkout@v4
+
+      - name: Restore toolchain cache
+        id: tc
+        uses: actions/cache@v4
+        with:
+          path: ~/rockbox-toolchain
+          key: toolchain-mipsel-v1
+
+      - name: Download toolchain
+        if: steps.tc.outputs.cache-hit != 'true'
+        run: |
+          curl -fL --retry 3 -o /tmp/tc.tar.xz "$TOOLCHAIN_URL"
+          echo "$TOOLCHAIN_MD5  /tmp/tc.tar.xz" | md5sum -c -
+          tar -xJf /tmp/tc.tar.xz -C "$HOME"
+
+      - name: Put toolchain on PATH
+        run: echo "$HOME/rockbox-toolchain/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch Rockbox source and apply the port patch
+        run: |
+          # The base commit is recorded in the patch header by the
+          # collection script, so rebasing the port only means
+          # regenerating n3pro_port.patch.
+          BASE=$(sed -n 's/^# rockbox-base: //p' n3pro_port.patch | head -1)
+          [ -n "$BASE" ] || { echo "::error::no '# rockbox-base:' header in n3pro_port.patch"; exit 1; }
+          echo "building against rockbox $BASE"
+          git clone --quiet https://git.rockbox.org/rockbox rockbox
+          git -C rockbox checkout --quiet "$BASE"
+          git -C rockbox apply --check ../n3pro_port.patch
+          git -C rockbox apply ../n3pro_port.patch
+
+      - name: Build application and the SD payload zip
+        run: |
+          mkdir build && cd build
+          ../rockbox/tools/configure --target=n3pro --type=N
+          make -j"$(nproc)" > /dev/null
+          make fullzip
+          mv rockbox-full.zip ../rockbox-n3pro.zip
+          md5sum ../rockbox-n3pro.zip
+
+      - name: Build bootloader
+        run: |
+          mkdir build-bl && cd build-bl
+          ../rockbox/tools/configure --target=n3pro --type=B
+          make -j"$(nproc)" bootloader.n3pro > /dev/null
+          cp bootloader.n3pro ../bootloader.n3pro
+          md5sum ../bootloader.n3pro
+
+      - name: Build the flashable image (if the stock firmware was attached)
+        id: upt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ inputs.tag || github.event.release.tag_name }}"
+          if [ -n "$TAG" ] &&
+             gh release download "$TAG" -R "${{ github.repository }}" \
+                --pattern 'stock-update.upt' -O /tmp/stock.upt; then
+            cd "$GITHUB_WORKSPACE"
+            mv /tmp/stock.upt stock-update.upt
+            rockbox/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh \
+                stock-update.upt bootloader.n3pro
+            mv update_rb.upt n3pro_rockbox.upt
+            rm stock-update.upt
+            md5sum n3pro_rockbox.upt
+          else
+            echo "no stock-update.upt asset; skipping the .upt image"
+          fi
+
+      - name: Keep artifacts from manual runs
+        if: ${{ !inputs.tag && !github.event.release }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: n3pro-build-${{ github.run_number }}
+          path: |
+            rockbox-n3pro.zip
+            bootloader.n3pro
+            n3pro_rockbox.upt
+          if-no-files-found: ignore
+
+      - name: Upload artifacts to the release
+        if: ${{ inputs.tag || github.event.release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ inputs.tag || github.event.release.tag_name }}"
+          cd "$GITHUB_WORKSPACE"
+          files="rockbox-n3pro.zip bootloader.n3pro"
+          [ -f n3pro_rockbox.upt ] && files="$files n3pro_rockbox.upt"
+          gh release upload "$TAG" $files --clobber -R "${{ github.repository }}"
+          if gh release view "$TAG" -R "${{ github.repository }}" --json assets \
+             -q '.[].name' | grep -qx 'stock-update.upt'; then
+            gh release delete-asset "$TAG" stock-update.upt -y \
+               -R "${{ github.repository }}" || true
+          fi
