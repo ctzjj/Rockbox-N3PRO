@@ -1,0 +1,16 @@
+# Keep every text file LF in the repository and in the working tree.
+# This port is consumed on Linux (CI + n3pro_patcher.sh) and the generated
+# unified patch must stay byte-exact, so never let git rewrite line endings.
+* text=auto eol=lf
+
+# The port patch is generated with LF; treat it as text but force LF.
+n3pro_port.patch text eol=lf
+
+# Binary assets: no conversion, no text diffs.
+*.bmp binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+*.upt binary
+*.7z binary
