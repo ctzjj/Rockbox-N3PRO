@@ -32,6 +32,9 @@ buffering.c
 voice_thread.c
 rbcodec_helpers.c
 menus/main_menu.c
+#ifdef CAYIN_N3PRO
+menus/n3pro_bluetooth_menu.c
+#endif
 menus/playback_menu.c
 menus/playlist_menu.c
 #ifdef HAVE_RECORDING
@@ -54,6 +57,9 @@ screens.c
 settings.c
 settings_list.c
 shortcuts.c
+#ifdef CAYIN_N3PRO
+n3pro_bluetooth.c
+#endif
 status.c
 cuesheet.c
 talk.c

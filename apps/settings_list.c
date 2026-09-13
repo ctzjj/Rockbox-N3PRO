@@ -1081,6 +1081,13 @@ static void hp_lo_select_apply(int arg)
 const struct settings_list settings[] = {
 /* system_status settings .resume.cfg */
     SYSTEM_STATUS_SOUND(F_NO_WRAP, volume, LANG_VOLUME, "volume", SOUND_VOLUME),
+#ifdef CAYIN_N3PRO
+    /* Independent bluetooth output volume; stays in config.cfg. */
+    INT_SETTING_NOWRAP(0, bt_volume, LANG_BLUETOOTH, -300, "bt volume",
+                       UNIT_INT, -1020, 0, 5, NULL, NULL, NULL),
+    OFFON_SETTING(0, bt_volume_set, LANG_BLUETOOTH, false, "bt volume set",
+                  NULL),
+#endif
 #ifdef HAVE_PITCHCONTROL
     SYSTEM_STATUS(F_SOUNDSETTING, resume_pitch, PITCH_SPEED_100, "pitch"),
     SYSTEM_STATUS(F_SOUNDSETTING, resume_speed, PITCH_SPEED_100, "speed"),

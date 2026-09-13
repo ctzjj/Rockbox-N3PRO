@@ -918,6 +918,12 @@ struct user_settings
     int play_frequency; /* core audio output frequency selection */
 #endif
     int volume_limit; /* maximum volume limit */
+#ifdef CAYIN_N3PRO
+    /* Separate volume for the bluetooth output (centibels); the active
+     * output's level is swapped with global_status.volume on route change. */
+    int bt_volume;
+    bool bt_volume_set; /* false until derived from the wired volume */
+#endif
 
 #ifdef HAVE_PERCEPTUAL_VOLUME
     int volume_adjust_mode;

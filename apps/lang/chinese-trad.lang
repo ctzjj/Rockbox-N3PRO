@@ -11380,3 +11380,409 @@
     swcodec: "乾濕度混合"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_BLUETOOTH
+  desc: in the main menu
+  user: core
+  <source>
+    *: "Bluetooth"
+  </source>
+  <dest>
+    *: "藍牙"
+  </dest>
+  <voice>
+    *: "Bluetooth"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_STATUS
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Status"
+  </source>
+  <dest>
+    *: "狀態"
+  </dest>
+  <voice>
+    *: "Status"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DEVICES
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Devices"
+  </source>
+  <dest>
+    *: "裝置"
+  </dest>
+  <voice>
+    *: "Devices"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DISCONNECT
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Disconnect"
+  </source>
+  <dest>
+    *: "中斷連線"
+  </dest>
+  <voice>
+    *: "Disconnect"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_SCAN
+  desc: in the bluetooth device list
+  user: core
+  <source>
+    *: "Scan for new devices"
+  </source>
+  <dest>
+    *: "搜尋新裝置"
+  </dest>
+  <voice>
+    *: "Scan for new devices"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECT
+  desc: in the bluetooth device menu
+  user: core
+  <source>
+    *: "Connect"
+  </source>
+  <dest>
+    *: "連線"
+  </dest>
+  <voice>
+    *: "Connect"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DELETE
+  desc: in the bluetooth device menu
+  user: core
+  <source>
+    *: "Delete"
+  </source>
+  <dest>
+    *: "刪除"
+  </dest>
+  <voice>
+    *: "Delete"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECTING
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Connecting..."
+  </source>
+  <dest>
+    *: "正在連線…"
+  </dest>
+  <voice>
+    *: "Connecting..."
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_SCANNING
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Scanning..."
+  </source>
+  <dest>
+    *: "正在搜尋…"
+  </dest>
+  <voice>
+    *: "Scanning..."
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_LOADING
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Loading devices..."
+  </source>
+  <dest>
+    *: "正在載入裝置…"
+  </dest>
+  <voice>
+    *: "Loading devices..."
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_NO_DEVICES
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "No devices"
+  </source>
+  <dest>
+    *: "找不到裝置"
+  </dest>
+  <voice>
+    *: "No devices"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_UNAVAILABLE
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "BT unavailable"
+  </source>
+  <dest>
+    *: "藍牙無法使用"
+  </dest>
+  <voice>
+    *: "BT unavailable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECTED
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "BT connected"
+  </source>
+  <dest>
+    *: "藍牙已連線"
+  </dest>
+  <voice>
+    *: "BT connected"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECT_FAILED
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "BT connect failed"
+  </source>
+  <dest>
+    *: "藍牙連線失敗"
+  </dest>
+  <voice>
+    *: "BT connect failed"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_PAIR_FAILED
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "BT pair failed"
+  </source>
+  <dest>
+    *: "藍牙配對失敗"
+  </dest>
+  <voice>
+    *: "BT pair failed"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_NO_ROUTE
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "BT connected, no audio route"
+  </source>
+  <dest>
+    *: "已連線，但無法輸出音訊"
+  </dest>
+  <voice>
+    *: "BT connected, no audio route"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DELETED
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Device deleted"
+  </source>
+  <dest>
+    *: "裝置已刪除"
+  </dest>
+  <voice>
+    *: "Device deleted"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DISCONNECTED
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Disconnected (BT off)"
+  </source>
+  <dest>
+    *: "已中斷（藍牙關閉）"
+  </dest>
+  <voice>
+    *: "Disconnected (BT off)"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECTED_MARK
+  desc: in the bluetooth device list
+  user: core
+  <source>
+    *: "(Connected)"
+  </source>
+  <dest>
+    *: "(已連線)"
+  </dest>
+  <voice>
+    *: "(Connected)"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DEVICE_LOCAL
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Device: Local"
+  </source>
+  <dest>
+    *: "裝置：本機"
+  </dest>
+  <voice>
+    *: "Device: Local"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_MAC
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "MAC"
+  </source>
+  <dest>
+    *: "MAC 位址"
+  </dest>
+  <voice>
+    *: "MAC"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_LINK
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Link"
+  </source>
+  <dest>
+    *: "連結"
+  </dest>
+  <voice>
+    *: "Link"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_A2DP_PCM
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "A2DP PCM"
+  </source>
+  <dest>
+    *: "A2DP PCM"
+  </dest>
+  <voice>
+    *: "A2DP PCM"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CODEC
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Codec"
+  </source>
+  <dest>
+    *: "編碼"
+  </dest>
+  <voice>
+    *: "Codec"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_OUTPUT
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Output"
+  </source>
+  <dest>
+    *: "輸出"
+  </dest>
+  <voice>
+    *: "Output"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RADIO
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Radio"
+  </source>
+  <dest>
+    *: "射頻"
+  </dest>
+  <voice>
+    *: "Radio"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_READY
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Ready"
+  </source>
+  <dest>
+    *: "就緒"
+  </dest>
+  <voice>
+    *: "Ready"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_NOT_READY
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Not ready"
+  </source>
+  <dest>
+    *: "未就緒"
+  </dest>
+  <voice>
+    *: "Not ready"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_LOCAL
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Local"
+  </source>
+  <dest>
+    *: "本機"
+  </dest>
+  <voice>
+    *: "Local"
+  </voice>
+</phrase>

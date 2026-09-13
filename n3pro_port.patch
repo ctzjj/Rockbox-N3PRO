@@ -1,9 +1,29 @@
 # rockbox-base: 10ec9bd530c852631ce126795cacf20e7578017f
 diff --git a/apps/SOURCES b/apps/SOURCES
-index f81261f766..6a0127b9da 100644
+index f81261f766..8b47693a4e 100644
 --- a/apps/SOURCES
 +++ b/apps/SOURCES
-@@ -306,4 +306,6 @@ keymaps/keymap-3ds.c
+@@ -32,6 +32,9 @@ buffering.c
+ voice_thread.c
+ rbcodec_helpers.c
+ menus/main_menu.c
++#ifdef CAYIN_N3PRO
++menus/n3pro_bluetooth_menu.c
++#endif
+ menus/playback_menu.c
+ menus/playlist_menu.c
+ #ifdef HAVE_RECORDING
+@@ -54,6 +57,9 @@ screens.c
+ settings.c
+ settings_list.c
+ shortcuts.c
++#ifdef CAYIN_N3PRO
++n3pro_bluetooth.c
++#endif
+ status.c
+ cuesheet.c
+ talk.c
+@@ -306,4 +312,6 @@ keymaps/keymap-3ds.c
  keymaps/keymap-hibyr3proii.c
  #elif CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD
  keymaps/keymap-hidizsap80max.c
@@ -643,10 +663,10 @@ index 3d046e9351..db2335d937 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..e66ac73ee5 100644
+index 3c8be16c72..c627f2b771 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,145 @@
+@@ -17168,3 +17168,551 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -792,11 +812,417 @@ index 3c8be16c72..e66ac73ee5 100644
 +    swcodec: "干湿度混合"
 +  </voice>
 +</phrase>
++<phrase>
++  id: LANG_BLUETOOTH
++  desc: in the main menu
++  user: core
++  <source>
++    *: "Bluetooth"
++  </source>
++  <dest>
++    *: "蓝牙"
++  </dest>
++  <voice>
++    *: "Bluetooth"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_STATUS
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Status"
++  </source>
++  <dest>
++    *: "状态"
++  </dest>
++  <voice>
++    *: "Status"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DEVICES
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Devices"
++  </source>
++  <dest>
++    *: "设备"
++  </dest>
++  <voice>
++    *: "Devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DISCONNECT
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Disconnect"
++  </source>
++  <dest>
++    *: "断开连接"
++  </dest>
++  <voice>
++    *: "Disconnect"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_SCAN
++  desc: in the bluetooth device list
++  user: core
++  <source>
++    *: "Scan for new devices"
++  </source>
++  <dest>
++    *: "搜索新设备"
++  </dest>
++  <voice>
++    *: "Scan for new devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECT
++  desc: in the bluetooth device menu
++  user: core
++  <source>
++    *: "Connect"
++  </source>
++  <dest>
++    *: "连接"
++  </dest>
++  <voice>
++    *: "Connect"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DELETE
++  desc: in the bluetooth device menu
++  user: core
++  <source>
++    *: "Delete"
++  </source>
++  <dest>
++    *: "删除"
++  </dest>
++  <voice>
++    *: "Delete"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Connecting..."
++  </source>
++  <dest>
++    *: "正在连接…"
++  </dest>
++  <voice>
++    *: "Connecting..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_SCANNING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Scanning..."
++  </source>
++  <dest>
++    *: "正在搜索…"
++  </dest>
++  <voice>
++    *: "Scanning..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LOADING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Loading devices..."
++  </source>
++  <dest>
++    *: "正在加载设备…"
++  </dest>
++  <voice>
++    *: "Loading devices..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NO_DEVICES
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "No devices"
++  </source>
++  <dest>
++    *: "没有找到设备"
++  </dest>
++  <voice>
++    *: "No devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_UNAVAILABLE
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT unavailable"
++  </source>
++  <dest>
++    *: "蓝牙不可用"
++  </dest>
++  <voice>
++    *: "BT unavailable"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "BT connected"
++  </source>
++  <dest>
++    *: "蓝牙已连接"
++  </dest>
++  <voice>
++    *: "BT connected"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECT_FAILED
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT connect failed"
++  </source>
++  <dest>
++    *: "蓝牙连接失败"
++  </dest>
++  <voice>
++    *: "BT connect failed"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_PAIR_FAILED
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT pair failed"
++  </source>
++  <dest>
++    *: "蓝牙配对失败"
++  </dest>
++  <voice>
++    *: "BT pair failed"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NO_ROUTE
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT connected, no audio route"
++  </source>
++  <dest>
++    *: "已连接，但无法输出音频"
++  </dest>
++  <voice>
++    *: "BT connected, no audio route"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DELETED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Device deleted"
++  </source>
++  <dest>
++    *: "设备已删除"
++  </dest>
++  <voice>
++    *: "Device deleted"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DISCONNECTED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Disconnected (BT off)"
++  </source>
++  <dest>
++    *: "已断开（蓝牙关闭）"
++  </dest>
++  <voice>
++    *: "Disconnected (BT off)"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTED_MARK
++  desc: in the bluetooth device list
++  user: core
++  <source>
++    *: "(Connected)"
++  </source>
++  <dest>
++    *: "(已连接)"
++  </dest>
++  <voice>
++    *: "(Connected)"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DEVICE_LOCAL
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Device: Local"
++  </source>
++  <dest>
++    *: "设备：本地"
++  </dest>
++  <voice>
++    *: "Device: Local"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_MAC
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "MAC"
++  </source>
++  <dest>
++    *: "MAC 地址"
++  </dest>
++  <voice>
++    *: "MAC"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LINK
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Link"
++  </source>
++  <dest>
++    *: "链路"
++  </dest>
++  <voice>
++    *: "Link"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_A2DP_PCM
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "A2DP PCM"
++  </source>
++  <dest>
++    *: "A2DP PCM"
++  </dest>
++  <voice>
++    *: "A2DP PCM"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CODEC
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Codec"
++  </source>
++  <dest>
++    *: "编码"
++  </dest>
++  <voice>
++    *: "Codec"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_OUTPUT
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Output"
++  </source>
++  <dest>
++    *: "输出"
++  </dest>
++  <voice>
++    *: "Output"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RADIO
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Radio"
++  </source>
++  <dest>
++    *: "射频"
++  </dest>
++  <voice>
++    *: "Radio"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_READY
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Ready"
++  </source>
++  <dest>
++    *: "就绪"
++  </dest>
++  <voice>
++    *: "Ready"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NOT_READY
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Not ready"
++  </source>
++  <dest>
++    *: "未就绪"
++  </dest>
++  <voice>
++    *: "Not ready"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LOCAL
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Local"
++  </source>
++  <dest>
++    *: "本地"
++  </dest>
++  <voice>
++    *: "Local"
++  </voice>
++</phrase>
 diff --git a/apps/lang/chinese-trad.lang b/apps/lang/chinese-trad.lang
-index 2ffee1e338..14ec1b28a8 100644
+index 2ffee1e338..b999ab8fc6 100644
 --- a/apps/lang/chinese-trad.lang
 +++ b/apps/lang/chinese-trad.lang
-@@ -11238,3 +11238,145 @@
+@@ -11238,3 +11238,551 @@
      ibassodx50,ibassodx90: "CPU頻率管理器"
    </voice>
  </phrase>
@@ -940,6 +1366,412 @@ index 2ffee1e338..14ec1b28a8 100644
 +  <voice>
 +    *: none
 +    swcodec: "乾濕度混合"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BLUETOOTH
++  desc: in the main menu
++  user: core
++  <source>
++    *: "Bluetooth"
++  </source>
++  <dest>
++    *: "藍牙"
++  </dest>
++  <voice>
++    *: "Bluetooth"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_STATUS
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Status"
++  </source>
++  <dest>
++    *: "狀態"
++  </dest>
++  <voice>
++    *: "Status"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DEVICES
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Devices"
++  </source>
++  <dest>
++    *: "裝置"
++  </dest>
++  <voice>
++    *: "Devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DISCONNECT
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Disconnect"
++  </source>
++  <dest>
++    *: "中斷連線"
++  </dest>
++  <voice>
++    *: "Disconnect"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_SCAN
++  desc: in the bluetooth device list
++  user: core
++  <source>
++    *: "Scan for new devices"
++  </source>
++  <dest>
++    *: "搜尋新裝置"
++  </dest>
++  <voice>
++    *: "Scan for new devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECT
++  desc: in the bluetooth device menu
++  user: core
++  <source>
++    *: "Connect"
++  </source>
++  <dest>
++    *: "連線"
++  </dest>
++  <voice>
++    *: "Connect"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DELETE
++  desc: in the bluetooth device menu
++  user: core
++  <source>
++    *: "Delete"
++  </source>
++  <dest>
++    *: "刪除"
++  </dest>
++  <voice>
++    *: "Delete"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Connecting..."
++  </source>
++  <dest>
++    *: "正在連線…"
++  </dest>
++  <voice>
++    *: "Connecting..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_SCANNING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Scanning..."
++  </source>
++  <dest>
++    *: "正在搜尋…"
++  </dest>
++  <voice>
++    *: "Scanning..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LOADING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Loading devices..."
++  </source>
++  <dest>
++    *: "正在載入裝置…"
++  </dest>
++  <voice>
++    *: "Loading devices..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NO_DEVICES
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "No devices"
++  </source>
++  <dest>
++    *: "找不到裝置"
++  </dest>
++  <voice>
++    *: "No devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_UNAVAILABLE
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT unavailable"
++  </source>
++  <dest>
++    *: "藍牙無法使用"
++  </dest>
++  <voice>
++    *: "BT unavailable"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "BT connected"
++  </source>
++  <dest>
++    *: "藍牙已連線"
++  </dest>
++  <voice>
++    *: "BT connected"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECT_FAILED
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT connect failed"
++  </source>
++  <dest>
++    *: "藍牙連線失敗"
++  </dest>
++  <voice>
++    *: "BT connect failed"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_PAIR_FAILED
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT pair failed"
++  </source>
++  <dest>
++    *: "藍牙配對失敗"
++  </dest>
++  <voice>
++    *: "BT pair failed"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NO_ROUTE
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT connected, no audio route"
++  </source>
++  <dest>
++    *: "已連線，但無法輸出音訊"
++  </dest>
++  <voice>
++    *: "BT connected, no audio route"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DELETED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Device deleted"
++  </source>
++  <dest>
++    *: "裝置已刪除"
++  </dest>
++  <voice>
++    *: "Device deleted"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DISCONNECTED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Disconnected (BT off)"
++  </source>
++  <dest>
++    *: "已中斷（藍牙關閉）"
++  </dest>
++  <voice>
++    *: "Disconnected (BT off)"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTED_MARK
++  desc: in the bluetooth device list
++  user: core
++  <source>
++    *: "(Connected)"
++  </source>
++  <dest>
++    *: "(已連線)"
++  </dest>
++  <voice>
++    *: "(Connected)"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DEVICE_LOCAL
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Device: Local"
++  </source>
++  <dest>
++    *: "裝置：本機"
++  </dest>
++  <voice>
++    *: "Device: Local"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_MAC
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "MAC"
++  </source>
++  <dest>
++    *: "MAC 位址"
++  </dest>
++  <voice>
++    *: "MAC"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LINK
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Link"
++  </source>
++  <dest>
++    *: "連結"
++  </dest>
++  <voice>
++    *: "Link"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_A2DP_PCM
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "A2DP PCM"
++  </source>
++  <dest>
++    *: "A2DP PCM"
++  </dest>
++  <voice>
++    *: "A2DP PCM"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CODEC
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Codec"
++  </source>
++  <dest>
++    *: "編碼"
++  </dest>
++  <voice>
++    *: "Codec"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_OUTPUT
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Output"
++  </source>
++  <dest>
++    *: "輸出"
++  </dest>
++  <voice>
++    *: "Output"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RADIO
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Radio"
++  </source>
++  <dest>
++    *: "射頻"
++  </dest>
++  <voice>
++    *: "Radio"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_READY
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Ready"
++  </source>
++  <dest>
++    *: "就緒"
++  </dest>
++  <voice>
++    *: "Ready"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NOT_READY
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Not ready"
++  </source>
++  <dest>
++    *: "未就緒"
++  </dest>
++  <voice>
++    *: "Not ready"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LOCAL
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Local"
++  </source>
++  <dest>
++    *: "本機"
++  </dest>
++  <voice>
++    *: "Local"
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/czech.lang b/apps/lang/czech.lang
@@ -1413,7 +2245,7 @@ index 55028062cd..ae85f0a296 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..0a821fb606 100644
+index 4c2f0d58b0..05c50ad286 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -1479,7 +2311,7 @@ index 4c2f0d58b0..0a821fb606 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,89 @@
+@@ -17231,3 +17287,495 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -1567,6 +2399,412 @@ index 4c2f0d58b0..0a821fb606 100644
 +  <voice>
 +    *: none
 +    swcodec: "Dry / Wet Mix"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BLUETOOTH
++  desc: in the main menu
++  user: core
++  <source>
++    *: "Bluetooth"
++  </source>
++  <dest>
++    *: "Bluetooth"
++  </dest>
++  <voice>
++    *: "Bluetooth"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_STATUS
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Status"
++  </source>
++  <dest>
++    *: "Status"
++  </dest>
++  <voice>
++    *: "Status"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DEVICES
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Devices"
++  </source>
++  <dest>
++    *: "Devices"
++  </dest>
++  <voice>
++    *: "Devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DISCONNECT
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Disconnect"
++  </source>
++  <dest>
++    *: "Disconnect"
++  </dest>
++  <voice>
++    *: "Disconnect"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_SCAN
++  desc: in the bluetooth device list
++  user: core
++  <source>
++    *: "Scan for new devices"
++  </source>
++  <dest>
++    *: "Scan for new devices"
++  </dest>
++  <voice>
++    *: "Scan for new devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECT
++  desc: in the bluetooth device menu
++  user: core
++  <source>
++    *: "Connect"
++  </source>
++  <dest>
++    *: "Connect"
++  </dest>
++  <voice>
++    *: "Connect"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DELETE
++  desc: in the bluetooth device menu
++  user: core
++  <source>
++    *: "Delete"
++  </source>
++  <dest>
++    *: "Delete"
++  </dest>
++  <voice>
++    *: "Delete"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Connecting..."
++  </source>
++  <dest>
++    *: "Connecting..."
++  </dest>
++  <voice>
++    *: "Connecting..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_SCANNING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Scanning..."
++  </source>
++  <dest>
++    *: "Scanning..."
++  </dest>
++  <voice>
++    *: "Scanning..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LOADING
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Loading devices..."
++  </source>
++  <dest>
++    *: "Loading devices..."
++  </dest>
++  <voice>
++    *: "Loading devices..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NO_DEVICES
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "No devices"
++  </source>
++  <dest>
++    *: "No devices"
++  </dest>
++  <voice>
++    *: "No devices"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_UNAVAILABLE
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT unavailable"
++  </source>
++  <dest>
++    *: "BT unavailable"
++  </dest>
++  <voice>
++    *: "BT unavailable"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "BT connected"
++  </source>
++  <dest>
++    *: "BT connected"
++  </dest>
++  <voice>
++    *: "BT connected"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECT_FAILED
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT connect failed"
++  </source>
++  <dest>
++    *: "BT connect failed"
++  </dest>
++  <voice>
++    *: "BT connect failed"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_PAIR_FAILED
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT pair failed"
++  </source>
++  <dest>
++    *: "BT pair failed"
++  </dest>
++  <voice>
++    *: "BT pair failed"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NO_ROUTE
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "BT connected, no audio route"
++  </source>
++  <dest>
++    *: "BT connected, no audio route"
++  </dest>
++  <voice>
++    *: "BT connected, no audio route"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DELETED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Device deleted"
++  </source>
++  <dest>
++    *: "Device deleted"
++  </dest>
++  <voice>
++    *: "Device deleted"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DISCONNECTED
++  desc: bluetooth status
++  user: core
++  <source>
++    *: "Disconnected (BT off)"
++  </source>
++  <dest>
++    *: "Disconnected (BT off)"
++  </dest>
++  <voice>
++    *: "Disconnected (BT off)"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CONNECTED_MARK
++  desc: in the bluetooth device list
++  user: core
++  <source>
++    *: "(Connected)"
++  </source>
++  <dest>
++    *: "(Connected)"
++  </dest>
++  <voice>
++    *: "(Connected)"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_DEVICE_LOCAL
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Device: Local"
++  </source>
++  <dest>
++    *: "Device: Local"
++  </dest>
++  <voice>
++    *: "Device: Local"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_MAC
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "MAC"
++  </source>
++  <dest>
++    *: "MAC"
++  </dest>
++  <voice>
++    *: "MAC"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LINK
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Link"
++  </source>
++  <dest>
++    *: "Link"
++  </dest>
++  <voice>
++    *: "Link"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_A2DP_PCM
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "A2DP PCM"
++  </source>
++  <dest>
++    *: "A2DP PCM"
++  </dest>
++  <voice>
++    *: "A2DP PCM"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_CODEC
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Codec"
++  </source>
++  <dest>
++    *: "Codec"
++  </dest>
++  <voice>
++    *: "Codec"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_OUTPUT
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Output"
++  </source>
++  <dest>
++    *: "Output"
++  </dest>
++  <voice>
++    *: "Output"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RADIO
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Radio"
++  </source>
++  <dest>
++    *: "Radio"
++  </dest>
++  <voice>
++    *: "Radio"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_READY
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Ready"
++  </source>
++  <dest>
++    *: "Ready"
++  </dest>
++  <voice>
++    *: "Ready"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_NOT_READY
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Not ready"
++  </source>
++  <dest>
++    *: "Not ready"
++  </dest>
++  <voice>
++    *: "Not ready"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_LOCAL
++  desc: in the bluetooth status
++  user: core
++  <source>
++    *: "Local"
++  </source>
++  <dest>
++    *: "Local"
++  </dest>
++  <voice>
++    *: "Local"
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/espanol.lang b/apps/lang/espanol.lang
@@ -4953,6 +6191,42 @@ index 231f45ad22..7c94c254d8 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
+diff --git a/apps/menus/exported_menus.h b/apps/menus/exported_menus.h
+index b7e95298d4..274b67ffd8 100644
+--- a/apps/menus/exported_menus.h
++++ b/apps/menus/exported_menus.h
+@@ -42,6 +42,9 @@ extern const struct menu_item_ex
+         audiohw_eq_tone_controls,   /* audiohw_eq_menu.c */
+ #endif
+         radio_settings_menu,        /* radio_menu.c     */
++#ifdef CAYIN_N3PRO
++        n3pro_bluetooth_root_item,  /* n3pro_bluetooth_menu.c */
++#endif
+         theme_menu;                 /* theme_menu.c     */
+ 
+ struct browse_folder_info {
+diff --git a/apps/menus/n3pro_bluetooth_menu.c b/apps/menus/n3pro_bluetooth_menu.c
+new file mode 100644
+index 0000000000..2376e7d44d
+--- /dev/null
++++ b/apps/menus/n3pro_bluetooth_menu.c
+@@ -0,0 +1,16 @@
++/***************************************************************************
++ * Bluetooth audio menu root item (Cayin N3Pro hosted port).
++ ****************************************************************************/
++#include "config.h"
++
++#ifdef CAYIN_N3PRO
++
++#include "menu.h"
++#include "lang.h"
++#include "settings.h"
++#include "n3pro_bluetooth.h"
++
++MENUITEM_FUNCTION(n3pro_bluetooth_root_item, 0, ID2P(LANG_BLUETOOTH),
++                  n3pro_bluetooth_menu, NULL, Icon_Submenu);
++
++#endif /* CAYIN_N3PRO */
 diff --git a/apps/menus/sound_menu.c b/apps/menus/sound_menu.c
 index 61d16f4cb1..66c70ad054 100644
 --- a/apps/menus/sound_menu.c
@@ -5006,6 +6280,1215 @@ index 61d16f4cb1..66c70ad054 100644
            ,&surround_menu, &pbe_menu, &afr_enabled
  #ifdef HAVE_PITCHCONTROL
            ,&timestretch_enabled
+diff --git a/apps/n3pro_bluetooth.c b/apps/n3pro_bluetooth.c
+new file mode 100644
+index 0000000000..3401bb82b1
+--- /dev/null
++++ b/apps/n3pro_bluetooth.c
+@@ -0,0 +1,1188 @@
++/***************************************************************************
++ * Bluetooth audio (A2DP source) for the Cayin N3Pro hosted port.
++ *
++ * Follows the HiBy R1 port's design: everything runs synchronously on the
++ * menu thread -- there is no background thread and no link watcher.  The
++ * stock HiByOS bluetooth stack is driven through the vendor /var/run/
++ * sys_server socket (BT:LIST / BT:SCAN / BT:PAIR / BT:CONNECT / ...), and
++ * the A2DP audio is played through the stock ALSA plugin by writing its
++ * peer address into /etc/asound.conf and re-opening the playback PCM.
++ ****************************************************************************/
++#include "config.h"
++
++#ifdef CAYIN_N3PRO
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <ctype.h>
++#include <unistd.h>
++#include <sys/socket.h>
++#include <sys/time.h>
++#include <sys/un.h>
++#include <sys/stat.h>
++
++#include "kernel.h"
++#include "audio.h"
++#include "menu.h"
++#include "splash.h"
++#include "lang.h"
++#include "settings.h"
++#include "sound.h"
++#include "gui/list.h"
++#include "pcm-alsa.h"
++#include "n3pro-bt-pcm.h"
++
++/* str() yields const unsigned char *; keep the string call sites simple. */
++static const char *bt_str(int id)
++{
++    return (const char *)str(id);
++}
++
++#define BT_MAX_DEVICES 32
++#define BT_NAME_LEN 80
++#define BT_LOCAL_PLAYBACK_DEVICE "plughw:0,0"
++#define BT_ASOUND_CONF "/etc/asound.conf"
++#define BT_AUDIO_CONF "/etc/bluetooth/audio.conf"
++#define BT_SYS_SOCKET "/var/run/sys_server"
++#define BT_LIST_FILE "/data/bt_list.txt"
++#define BT_SCAN_FILE "/data/bt_scan.txt"
++#define BT_SYS_REPLY_MAX 128
++#define BT_DEVICE_PICK_CANCEL (-1)
++#define BT_DEVICE_PICK_SCAN (-2)
++
++struct bt_device
++{
++    char mac[18];
++    char name[BT_NAME_LEN];
++    bool paired;
++};
++
++struct bt_device_menu_data
++{
++    struct bt_device *devices;
++    int count;
++    bool include_scan_item;
++    char connected_mac[18];
++};
++
++static char bt_selected_mac[18];
++
++static bool bt_is_connected(const char *mac);
++static bool bt_prepare_stack(void);
++static void bt_connect_device(const struct bt_device *device);
++
++static int bt_simplelist_ok_cancel(int action, struct gui_synclist *lists)
++{
++    (void)lists;
++    if (action == ACTION_STD_OK)
++        return ACTION_STD_CANCEL;
++    return action;
++}
++
++static const char *bt_action_name_cb(int selected_item, void *data,
++    char *buffer, size_t buffer_len)
++{
++    static const unsigned short ids[] =
++    {
++        LANG_BT_STATUS, LANG_BT_DEVICES, LANG_BT_DISCONNECT
++    };
++    (void)data;
++
++    if (selected_item < 0 || selected_item >= 3)
++    {
++        buffer[0] = '\0';
++        return buffer;
++    }
++    snprintf(buffer, buffer_len, "%s", bt_str(ids[selected_item]));
++    return buffer;
++}
++
++static const char *bt_device_name_cb(int selected_item, void *data,
++    char *buffer, size_t buffer_len)
++{
++    struct bt_device_menu_data *ctx = data;
++
++    if (ctx->include_scan_item)
++    {
++        if (selected_item == 0)
++        {
++            snprintf(buffer, buffer_len, "%s", bt_str(LANG_BT_SCAN));
++            return buffer;
++        }
++        selected_item--;
++    }
++
++    if (selected_item < 0 || selected_item >= ctx->count)
++    {
++        buffer[0] = '\0';
++        return buffer;
++    }
++
++    if (ctx->connected_mac[0] &&
++        !strcasecmp(ctx->devices[selected_item].mac, ctx->connected_mac))
++    {
++        snprintf(buffer, buffer_len, "%s  %s",
++                 ctx->devices[selected_item].name,
++                 bt_str(LANG_BT_CONNECTED_MARK));
++        return buffer;
++    }
++
++    snprintf(buffer, buffer_len, "%s", ctx->devices[selected_item].name);
++    return buffer;
++}
++
++static void bt_trim(char *s)
++{
++    size_t len;
++
++    if (!s)
++        return;
++
++    len = strlen(s);
++    while (len > 0 && (s[len - 1] == '\n' || s[len - 1] == '\r' ||
++                       isspace((unsigned char)s[len - 1])))
++        s[--len] = '\0';
++}
++
++static bool bt_has_mac_pattern(const char *p, char sep)
++{
++    int i;
++
++    for (i = 0; i < 17; i++)
++    {
++        if ((i % 3) == 2)
++        {
++            if (p[i] != sep)
++                return false;
++        }
++        else if (!isxdigit((unsigned char)p[i]))
++        {
++            return false;
++        }
++    }
++
++    return true;
++}
++
++static bool bt_extract_mac_from_line(const char *line, char *mac_out, size_t mac_out_len)
++{
++    size_t i, len;
++
++    if (!line || mac_out_len < 18)
++        return false;
++
++    len = strlen(line);
++    if (len < 17)
++        return false;
++
++    for (i = 0; i + 17 <= len; i++)
++    {
++        char sep = line[i + 2];
++        if (sep != ':' && sep != '_')
++            continue;
++        if (!bt_has_mac_pattern(&line[i], sep))
++            continue;
++
++        snprintf(mac_out, mac_out_len, "%c%c:%c%c:%c%c:%c%c:%c%c:%c%c",
++            toupper((unsigned char)line[i + 0]), toupper((unsigned char)line[i + 1]),
++            toupper((unsigned char)line[i + 3]), toupper((unsigned char)line[i + 4]),
++            toupper((unsigned char)line[i + 6]), toupper((unsigned char)line[i + 7]),
++            toupper((unsigned char)line[i + 9]), toupper((unsigned char)line[i + 10]),
++            toupper((unsigned char)line[i + 12]), toupper((unsigned char)line[i + 13]),
++            toupper((unsigned char)line[i + 15]), toupper((unsigned char)line[i + 16]));
++        return true;
++    }
++
++    return false;
++}
++
++static int bt_add_device_unique_ex(struct bt_device *devices, int count, int max_devices,
++    const char *mac, const char *name, bool paired)
++{
++    int i;
++
++    if (!mac || !mac[0] || count >= max_devices)
++        return count;
++
++    for (i = 0; i < count; i++)
++    {
++        if (!strcasecmp(devices[i].mac, mac))
++        {
++            if (paired)
++                devices[i].paired = true;
++            if (name && name[0] &&
++                (!devices[i].name[0] || !strcasecmp(devices[i].name, devices[i].mac)))
++            {
++                snprintf(devices[i].name, sizeof(devices[i].name), "%s", name);
++            }
++            return count;
++        }
++    }
++
++    snprintf(devices[count].mac, sizeof(devices[count].mac), "%s", mac);
++    if (name && name[0])
++        snprintf(devices[count].name, sizeof(devices[count].name), "%s", name);
++    else
++        snprintf(devices[count].name, sizeof(devices[count].name), "%s", mac);
++    devices[count].paired = paired;
++
++    return count + 1;
++}
++
++static int bt_device_sort_cmp(const void *a, const void *b)
++{
++    const struct bt_device *da = a;
++    const struct bt_device *db = b;
++
++    if (da->paired != db->paired)
++        return da->paired ? -1 : 1;
++
++    return strcasecmp(da->name, db->name);
++}
++
++static int bt_sys_command(const char *command, char *reply, size_t reply_size)
++{
++    struct sockaddr_un addr;
++    struct timeval tv_send = { .tv_sec = 1, .tv_usec = 0 };
++    struct timeval tv_recv = { .tv_sec = 2, .tv_usec = 0 };
++    int fd = -1;
++    ssize_t n;
++
++    if (!command || !command[0])
++        return -1;
++
++    if (reply && reply_size > 0)
++        reply[0] = '\0';
++
++    fd = socket(AF_UNIX, SOCK_STREAM, 0);
++    if (fd < 0)
++        return -1;
++
++    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv_send, sizeof(tv_send));
++    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv_recv, sizeof(tv_recv));
++
++    memset(&addr, 0, sizeof(addr));
++    addr.sun_family = AF_UNIX;
++    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", BT_SYS_SOCKET);
++
++    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
++    {
++        close(fd);
++        return -1;
++    }
++
++    if (send(fd, command, strlen(command), 0) < 0)
++    {
++        close(fd);
++        return -1;
++    }
++
++    if (reply && reply_size > 1)
++    {
++        n = recv(fd, reply, reply_size - 1, 0);
++        if (n < 0)
++        {
++            close(fd);
++            return -1;
++        }
++
++        reply[n] = '\0';
++        bt_trim(reply);
++    }
++
++    close(fd);
++    return 0;
++}
++
++static bool bt_sys_reply_ok(const char *reply, const char *command_prefix)
++{
++    char ok_reply[48];
++    char wait_reply[48];
++
++    if (!reply || !reply[0])
++        return false;
++
++    if (!strcasecmp(reply, "OK") || !strcasecmp(reply, "WAITINIT"))
++        return true;
++
++    if (strstr(reply, "FAIL"))
++        return false;
++
++    if (!command_prefix || !command_prefix[0])
++        return false;
++
++    snprintf(ok_reply, sizeof(ok_reply), "%s:OK", command_prefix);
++    snprintf(wait_reply, sizeof(wait_reply), "%s:WAITINIT", command_prefix);
++
++    if (strstr(reply, ok_reply))
++        return true;
++    if (strstr(reply, wait_reply))
++        return true;
++
++    return false;
++}
++
++static bool bt_json_get_string_value(const char *line, const char *key,
++                                     char *out, size_t out_len)
++{
++    const char *start;
++    const char *colon;
++    const char *q1;
++    const char *q2;
++    size_t len;
++
++    if (!line || !key || !out || out_len == 0)
++        return false;
++
++    start = strstr(line, key);
++    if (!start)
++        return false;
++
++    colon = strchr(start, ':');
++    if (!colon)
++        return false;
++
++    q1 = strchr(colon, '"');
++    if (!q1)
++        return false;
++    q1++;
++
++    q2 = strchr(q1, '"');
++    if (!q2)
++        return false;
++
++    len = (size_t)(q2 - q1);
++    if (len >= out_len)
++        len = out_len - 1;
++    memcpy(out, q1, len);
++    out[len] = '\0';
++    return true;
++}
++
++static bool bt_json_get_int_value(const char *line, const char *key, int *value)
++{
++    const char *start;
++    const char *colon;
++    const char *p;
++
++    if (!line || !key || !value)
++        return false;
++
++    start = strstr(line, key);
++    if (!start)
++        return false;
++
++    colon = strchr(start, ':');
++    if (!colon)
++        return false;
++
++    p = colon + 1;
++    while (*p == ' ' || *p == '\t')
++        p++;
++
++    if (!isdigit((unsigned char)*p) && *p != '-')
++        return false;
++
++    *value = atoi(p);
++    return true;
++}
++
++static bool bt_get_file_stamp(const char *path, long *mtime, long *size)
++{
++    struct stat st;
++
++    if (!path || !mtime || !size)
++        return false;
++
++    if (stat(path, &st) < 0)
++        return false;
++
++    *mtime = (long)st.st_mtime;
++    *size = (long)st.st_size;
++    return true;
++}
++
++static int bt_load_devices_from_json_file(const char *path,
++                                          struct bt_device *devices,
++                                          int max_devices,
++                                          bool *ready)
++{
++    FILE *fp;
++    char line[512];
++    char mac[18] = "";
++    char name[BT_NAME_LEN] = "";
++    int paired = 0;
++    int count = 0;
++    bool has_device_key = false;
++
++    if (ready)
++        *ready = false;
++
++    fp = fopen(path, "r");
++    if (!fp)
++        return 0;
++
++    while (fgets(line, sizeof(line), fp))
++    {
++        if (strstr(line, "\"DEVICE\""))
++            has_device_key = true;
++
++        if (strstr(line, "\"MAC\""))
++            bt_extract_mac_from_line(line, mac, sizeof(mac));
++
++        if (bt_json_get_string_value(line, "\"Name\"", name, sizeof(name)))
++            bt_trim(name);
++
++        bt_json_get_int_value(line, "\"Paired\"", &paired);
++
++        if (mac[0] && strchr(line, '}'))
++        {
++            count = bt_add_device_unique_ex(devices, count, max_devices,
++                                            mac, name, paired != 0);
++            mac[0] = '\0';
++            name[0] = '\0';
++            paired = 0;
++        }
++    }
++
++    fclose(fp);
++
++    if (ready)
++        *ready = has_device_key;
++
++    return count;
++}
++
++static int bt_load_devices_from_bt_list_file(struct bt_device *devices, int max_devices,
++                                             bool *ready)
++{
++    return bt_load_devices_from_json_file(BT_LIST_FILE, devices, max_devices, ready);
++}
++
++static int bt_merge_devices_from_bt_scan_file(struct bt_device *devices, int count,
++                                              int max_devices, bool *ready)
++{
++    static struct bt_device scanned[BT_MAX_DEVICES];
++    int scanned_count;
++    int i;
++
++    scanned_count = bt_load_devices_from_json_file(BT_SCAN_FILE, scanned,
++                                                   BT_MAX_DEVICES, ready);
++    for (i = 0; i < scanned_count; i++)
++    {
++        count = bt_add_device_unique_ex(devices, count, max_devices,
++                                        scanned[i].mac, scanned[i].name,
++                                        scanned[i].paired);
++    }
++
++    return count;
++}
++
++static int bt_load_devices_via_sys_list(struct bt_device *devices, int max_devices)
++{
++    char reply[BT_SYS_REPLY_MAX];
++    long old_mtime = 0;
++    long old_size = 0;
++    bool had_old_stamp = false;
++    bool ready = false;
++    bool changed = false;
++    int count = 0;
++    int waited = 0;
++
++    had_old_stamp = bt_get_file_stamp(BT_LIST_FILE, &old_mtime, &old_size);
++    if (bt_sys_command("BT:LIST", reply, sizeof(reply)) < 0)
++        return 0;
++
++    while (waited < HZ * 3)
++    {
++        long mtime = 0;
++        long size = 0;
++
++        count = bt_load_devices_from_bt_list_file(devices, max_devices, &ready);
++
++        if (bt_get_file_stamp(BT_LIST_FILE, &mtime, &size))
++        {
++            if (!had_old_stamp || mtime != old_mtime || size != old_size)
++                changed = true;
++        }
++
++        if (ready && (changed || waited >= HZ))
++            break;
++
++        sleep(HZ / 5);
++        waited += HZ / 5;
++    }
++
++    if (count > 1)
++        qsort(devices, count, sizeof(devices[0]), bt_device_sort_cmp);
++    return count;
++}
++
++/* sys_server's BT:SCAN only echoes the already-cached devices on this
++ * firmware (the inquiry never reports the neighbourhood), so drive the
++ * vendor discovery helper directly: it runs a full ~10 s inquiry and
++ * writes the JSON list itself. */
++static int bt_scan_and_merge_devices(struct bt_device *devices, int count, int max_devices)
++{
++    bool ready = false;
++
++    system("/usr/bin/bt-adapter -d -p " BT_SCAN_FILE " >/dev/null 2>&1");
++
++    count = bt_merge_devices_from_bt_scan_file(devices, count, max_devices, &ready);
++
++    if (count > 1)
++        qsort(devices, count, sizeof(devices[0]), bt_device_sort_cmp);
++    return count;
++}
++
++/* MAC of the currently linked device (there is at most one on this
++ * player), used to flag it in the device list. */
++static bool bt_current_connection(char *mac_out, size_t mac_out_len)
++{
++    FILE *fp;
++    char line[256];
++    bool found = false;
++
++    if (!mac_out || mac_out_len < 18)
++        return false;
++    mac_out[0] = '\0';
++
++    fp = popen("/usr/bin/hcitool con 2>/dev/null", "r");
++    if (fp)
++    {
++        while (fgets(line, sizeof(line), fp))
++        {
++            if (bt_extract_mac_from_line(line, mac_out, mac_out_len))
++            {
++                found = true;
++                break;
++            }
++        }
++        pclose(fp);
++    }
++
++    return found;
++}
++
++static int bt_choose_device(const char *title, struct bt_device *devices, int count,
++                            bool include_scan_item)
++{
++    struct bt_device_menu_data data;
++    struct simplelist_info info;
++    int total_count = count + (include_scan_item ? 1 : 0);
++
++    if (total_count <= 0)
++    {
++        splash(HZ, bt_str(LANG_BT_NO_DEVICES));
++        return BT_DEVICE_PICK_CANCEL;
++    }
++
++    data.devices = devices;
++    data.count = count;
++    data.include_scan_item = include_scan_item;
++    bt_current_connection(data.connected_mac, sizeof(data.connected_mac));
++
++    simplelist_info_init(&info, (char *)title, total_count, &data);
++    info.get_name = bt_device_name_cb;
++    info.action_callback = bt_simplelist_ok_cancel;
++    info.selection = -1;
++    info.title_icon = Icon_Submenu;
++
++    simplelist_show_list(&info);
++    if (info.selection < 0 || info.selection >= total_count)
++        return BT_DEVICE_PICK_CANCEL;
++
++    if (include_scan_item && info.selection == 0)
++        return BT_DEVICE_PICK_SCAN;
++
++    return include_scan_item ? info.selection - 1 : info.selection;
++}
++
++static void bt_set_selected_mac(const char *mac)
++{
++    if (mac && mac[0])
++        snprintf(bt_selected_mac, sizeof(bt_selected_mac), "%s", mac);
++    else
++        bt_selected_mac[0] = '\0';
++}
++
++static void bt_kick_audio_if_playing(void)
++{
++    int status = audio_status();
++    if ((status & AUDIO_STATUS_PLAY) && !(status & AUDIO_STATUS_PAUSE))
++    {
++        audio_pause();
++        sleep(HZ / 4);
++        audio_resume();
++    }
++}
++
++/* Write the peer the stock bluetooth ALSA plugin must stream to.  The
++ * vendor player rewrites this file at runtime, so we do the same. */
++static void bt_write_asound(const char *mac)
++{
++    FILE *f = fopen(BT_ASOUND_CONF, "w");
++
++    if (!f)
++        return;
++
++    fprintf(f, "pcm.bluetooth {\n");
++    fprintf(f, "    type bluetooth\n");
++    fprintf(f, "    device \"%s\"\n", mac);
++    fprintf(f, "    profile \"a2dp\"\n");
++    fprintf(f, "}\n");
++
++    /* The AK4493 hardware volume does not touch the bluetooth path, so
++     * wrap the plugin in a userspace softvol whose "Bluetooth Vol" mixer
++     * control is driven by audiohw_set_volume() while this route is up. */
++    fprintf(f, "pcm.%s {\n", N3PRO_BT_DEVICE);
++    fprintf(f, "    type softvol\n");
++    fprintf(f, "    slave.pcm {\n");
++    fprintf(f, "        type bluetooth\n");
++    fprintf(f, "        device \"%s\"\n", mac);
++    fprintf(f, "        profile \"a2dp\"\n");
++    fprintf(f, "    }\n");
++    fprintf(f, "    control {\n");
++    fprintf(f, "        name \"Bluetooth Vol\"\n");
++    fprintf(f, "        card 0\n");
++    fprintf(f, "    }\n");
++    /* The audible window of a digital attenuation is about 50 dB; use it
++     * all so the volume steps do not bunch up in the top few dB. */
++    fprintf(f, "    min_dB -50.0\n");
++    fprintf(f, "    max_dB 0.0\n");
++    fprintf(f, "}\n");
++
++    fclose(f);
++}
++
++/* High bitrate first (same idea as the R1 port): keep the best codec the
++ * earphone actually accepts.  The stock ALSA plugin reads DefaultCodec from
++ * /etc/bluetooth/audio.conf when it opens the PCM, so a codec change means
++ * rewriting that file and renegotiating the A2DP transport. */
++static const char *const bt_codec_pref[] =
++{
++    "LDAC_HQ", "APTX", "AAC", "SBC", NULL
++};
++
++static void bt_set_codec(const char *codec)
++{
++    char cmd[64];
++
++    snprintf(cmd, sizeof(cmd), "/usr/bin/bt_codec %s >/dev/null 2>&1", codec);
++    system(cmd);
++}
++
++/* Walk the preference list: set the codec, renegotiate the link and probe
++ * the plugin.  The first codec whose transport comes up wins. */
++static const char *bt_pick_codec(const char *mac)
++{
++    char cmd[96];
++    int i, t;
++
++    for (i = 0; bt_codec_pref[i] != NULL; i++)
++    {
++        bt_set_codec(bt_codec_pref[i]);
++
++        snprintf(cmd, sizeof(cmd), "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
++        system(cmd);
++        sleep(HZ / 4);
++        snprintf(cmd, sizeof(cmd), "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
++        system(cmd);
++
++        for (t = 0; t < 10; t++)
++        {
++            if (pcm_alsa_bt_probe() == 0)
++                return bt_codec_pref[i];
++            sleep(HZ / 5);
++        }
++    }
++
++    return NULL;
++}
++
++/* Rockbox has a single volume, so the bluetooth and wired outputs each keep
++ * a level (global_settings.bt_volume / global_status.volume) and swap them
++ * when the output changes.  The bluetooth level is derived from the wired
++ * one the first time; nothing is ever forced on the earpiece. */
++static bool bt_vol_on_bt = false;
++
++static void bt_vol_swap(void)
++{
++    int t;
++
++    if (!global_settings.bt_volume_set)
++    {
++        global_settings.bt_volume = global_status.volume;
++        global_settings.bt_volume_set = true;
++    }
++
++    t = global_status.volume;
++    sound_set_volume(global_settings.bt_volume);
++    global_settings.bt_volume = t;
++    settings_save();
++}
++
++static void bt_vol_enter_bt(void)
++{
++    if (bt_vol_on_bt)
++        return;
++
++    bt_vol_swap();
++    bt_vol_on_bt = true;
++}
++
++static void bt_vol_enter_local(void)
++{
++    if (!bt_vol_on_bt)
++        return;
++
++    bt_vol_swap();
++    bt_vol_on_bt = false;
++}
++
++static void bt_route_to_local(bool show_message)
++{
++    pcm_alsa_switch_playback_device(BT_LOCAL_PLAYBACK_DEVICE);
++    bt_kick_audio_if_playing();
++    bt_vol_enter_local();
++    if (show_message)
++        splash(HZ, "Output: Local");
++}
++
++static void bt_route_log(const char *msg)
++{
++    FILE *f = fopen("/mnt/sd_0/.rockbox/bt_route.log", "a");
++
++    if (!f)
++        return;
++
++    fputs(msg, f);
++    fputc('\n', f);
++    fclose(f);
++}
++
++static bool bt_route_to_bluetooth(const char *mac)
++{
++    char line[96];
++    int rc;
++
++    if (!mac || !mac[0])
++        return false;
++
++    bt_write_asound(mac);
++    snprintf(line, sizeof(line), "route: mac=%s asound written", mac);
++    bt_route_log(line);
++
++    /* Pick the highest codec the earphone supports; on success the A2DP
++     * transport is already up, so no extra wait is needed. */
++    if (!bt_pick_codec(mac))
++    {
++        bt_route_log("route: codec pick failed");
++        bt_route_to_local(false);
++        return false;
++    }
++
++    bt_route_log("route: codec ok");
++
++    rc = pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE);
++    snprintf(line, sizeof(line), "route: switch rc=%d active=%d",
++             rc, pcm_alsa_is_bluetooth_active());
++    bt_route_log(line);
++
++    if (rc == 0)
++    {
++        /* Switch to the independent bluetooth volume (the softvol follows
++         * it); the earpiece volume is left alone. */
++        bt_vol_enter_bt();
++        bt_kick_audio_if_playing();
++        return true;
++    }
++
++    bt_route_to_local(false);
++    return false;
++}
++
++static bool bt_is_connected(const char *mac)
++{
++    if (!mac || !*mac)
++        return false;
++
++    return bt_selected_mac[0] && !strcmp(mac, bt_selected_mac) &&
++           pcm_alsa_is_bluetooth_active();
++}
++
++static const char *bt_get_codec(void)
++{
++    static char codec[16];
++    FILE *f = fopen(BT_AUDIO_CONF, "r");
++    char line[256];
++
++    codec[0] = '\0';
++    if (!f)
++        return "Unknown";
++
++    while (fgets(line, sizeof(line), f))
++    {
++        char *p = strstr(line, "DefaultCodec");
++        if (p)
++        {
++            char *eq = strchr(p, '=');
++            if (eq)
++            {
++                char *v = eq + 1;
++                size_t n = 0;
++                while (*v == ' ' || *v == '\t')
++                    v++;
++                while (v[n] && v[n] != '\n' && v[n] != '\r' && n + 1 < sizeof(codec))
++                {
++                    codec[n] = v[n];
++                    n++;
++                }
++                codec[n] = '\0';
++            }
++            break;
++        }
++    }
++
++    fclose(f);
++    return codec[0] ? codec : "Unknown";
++}
++
++/* The stock HiByOS control daemon is started by /etc/init.d/S50sys_server,
++ * but it does not survive the hand-off into Rockbox on this player, so it
++ * is (re)started on demand before the first BT command. */
++static void bt_ensure_sys_server(void)
++{
++    char reply[BT_SYS_REPLY_MAX];
++
++    if (bt_sys_command("BT:STATUS", reply, sizeof(reply)) == 0)
++        return;
++
++    system("(setsid /usr/bin/sys_server >/dev/null 2>&1 &)");
++    sleep(HZ / 2);
++}
++
++static bool bt_prepare_stack(void)
++{
++    char reply[BT_SYS_REPLY_MAX];
++    int i;
++
++    bt_ensure_sys_server();
++
++    system("bt_enable >/dev/null 2>&1");
++
++    for (i = 0; i < 12; i++)
++    {
++        reply[0] = '\0';
++        if (bt_sys_command("BT:LIST", reply, sizeof(reply)) == 0 &&
++            bt_sys_reply_ok(reply, "BT:LIST"))
++            return true;
++
++        reply[0] = '\0';
++        bt_sys_command("BT:ON", reply, sizeof(reply));
++
++        sleep(HZ / 5);
++    }
++
++    return false;
++}
++
++static const char *bt_device_action_name_cb(int selected_item, void *data,
++    char *buffer, size_t buffer_len)
++{
++    static const unsigned short ids[] = { LANG_BT_CONNECT, LANG_BT_DELETE };
++    (void)data;
++
++    if (selected_item < 0 || selected_item >= 2)
++    {
++        buffer[0] = '\0';
++        return buffer;
++    }
++
++    snprintf(buffer, buffer_len, "%s", bt_str(ids[selected_item]));
++    return buffer;
++}
++
++static void bt_delete_device(const char *mac)
++{
++    char cmd[96];
++    char reply[BT_SYS_REPLY_MAX];
++
++    if (!mac || !mac[0])
++        return;
++
++    snprintf(cmd, sizeof(cmd), "BT:UNPAIR:%s", mac);
++    if (bt_sys_command(cmd, reply, sizeof(reply)) != 0 ||
++        !bt_sys_reply_ok(reply, "BT:UNPAIR"))
++    {
++        snprintf(cmd, sizeof(cmd),
++                 "/usr/bin/bt-device -r %s >/dev/null 2>&1", mac);
++        system(cmd);
++    }
++
++    splash(HZ, bt_str(LANG_BT_DELETED));
++}
++
++/* Per-device action menu: pick Connect or Delete (unpair). */
++static void bt_device_menu(struct bt_device *devices, int *count, int idx)
++{
++    struct simplelist_info info;
++
++    simplelist_info_init(&info, (char *)devices[idx].name, 2, NULL);
++    info.get_name = bt_device_action_name_cb;
++    info.action_callback = bt_simplelist_ok_cancel;
++    info.selection = -1;
++    info.title_icon = Icon_Submenu;
++
++    simplelist_show_list(&info);
++
++    if (info.selection == 0)
++    {
++        bt_connect_device(&devices[idx]);
++    }
++    else if (info.selection == 1)
++    {
++        bt_delete_device(devices[idx].mac);
++        memmove(&devices[idx], &devices[idx + 1],
++                (size_t)(*count - idx - 1) * sizeof(devices[0]));
++        (*count)--;
++    }
++}
++
++static void bt_show_devices(void)
++{
++    static struct bt_device devices[BT_MAX_DEVICES];
++    int count;
++    int idx;
++
++    if (!bt_prepare_stack())
++    {
++        splash(HZ * 2, bt_str(LANG_BT_UNAVAILABLE));
++        return;
++    }
++
++    splash(0, bt_str(LANG_BT_LOADING));
++    count = bt_load_devices_via_sys_list(devices, BT_MAX_DEVICES);
++    if (count <= 0)
++    {
++        splash(0, bt_str(LANG_BT_SCANNING));
++        count = bt_scan_and_merge_devices(devices, count, BT_MAX_DEVICES);
++    }
++
++    while (1)
++    {
++        idx = bt_choose_device("Devices", devices, count, true);
++        if (idx == BT_DEVICE_PICK_SCAN)
++        {
++            splash(0, bt_str(LANG_BT_SCANNING));
++            count = bt_scan_and_merge_devices(devices, count, BT_MAX_DEVICES);
++            if (count <= 0)
++                splash(HZ, bt_str(LANG_BT_NO_DEVICES));
++            continue;
++        }
++
++        if (idx < 0 || idx >= count)
++            return;
++
++        bt_device_menu(devices, &count, idx);
++    }
++}
++
++static void bt_connect_device(const struct bt_device *device)
++{
++    const char *mac;
++    char cmd[96];
++    char reply[BT_SYS_REPLY_MAX];
++    int ctl_rc;
++    bool routed;
++    bool connect_reply_ok;
++    bool pair_reply_ok = true;
++
++    if (!device || !device->mac[0])
++        return;
++
++    mac = device->mac;
++    splash(0, bt_str(LANG_BT_CONNECTING));
++
++    if (!bt_prepare_stack())
++    {
++        splash(HZ * 2, bt_str(LANG_BT_UNAVAILABLE));
++        return;
++    }
++
++    if (!device->paired)
++    {
++        snprintf(cmd, sizeof(cmd), "BT:PAIR:%s", mac);
++        ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
++        pair_reply_ok = (ctl_rc == 0) && bt_sys_reply_ok(reply, "BT:PAIR");
++        if (pair_reply_ok)
++            sleep(HZ / 2);
++    }
++
++    snprintf(cmd, sizeof(cmd), "BT:CONNECT:%s", mac);
++    ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
++    connect_reply_ok = (ctl_rc == 0) && bt_sys_reply_ok(reply, "BT:CONNECT");
++
++    if (!pair_reply_ok && !device->paired)
++    {
++        splash(HZ * 2, bt_str(LANG_BT_PAIR_FAILED));
++        return;
++    }
++
++    if (!connect_reply_ok)
++    {
++        splash(HZ * 2, bt_str(LANG_BT_CONNECT_FAILED));
++        return;
++    }
++
++    bt_set_selected_mac(mac);
++
++    routed = bt_route_to_bluetooth(mac);
++    if (!routed)
++    {
++        snprintf(cmd, sizeof(cmd), "BT:CONNECT:%s", mac);
++        ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
++        if (ctl_rc == 0 && bt_sys_reply_ok(reply, "BT:CONNECT"))
++        {
++            sleep(HZ / 2);
++            routed = bt_route_to_bluetooth(mac);
++        }
++    }
++
++    if (routed)
++        splash(HZ, bt_str(LANG_BT_CONNECTED));
++    else
++        splash(HZ * 2, bt_str(LANG_BT_NO_ROUTE));
++}
++
++static bool bt_radio_on(void)
++{
++    FILE *fp;
++    char line[256];
++    bool on = false;
++
++    fp = popen("/usr/sbin/hciconfig hci0 2>/dev/null", "r");
++    if (fp)
++    {
++        while (fgets(line, sizeof(line), fp))
++        {
++            if (strstr(line, "UP RUNNING"))
++            {
++                on = true;
++                break;
++            }
++        }
++        pclose(fp);
++    }
++
++    return on;
++}
++
++/* Power the controller down as well: leaving it up after a disconnect
++ * keeps the radio (and the earbuds' link) alive and drains the battery.
++ * sys_server's BT:OFF answers OK but does not actually drop the adapter
++ * on this firmware, so the vendor helper is driven directly. */
++static void bt_power_off(void)
++{
++    char reply[BT_SYS_REPLY_MAX];
++    int i;
++
++    bt_sys_command("BT:OFF", reply, sizeof(reply));
++    system("/usr/bin/bt_disable >/dev/null 2>&1");
++
++    for (i = 0; i < 5 && bt_radio_on(); i++)
++        sleep(HZ / 10);
++
++    if (bt_radio_on())
++        system("/usr/sbin/hciconfig hci0 down >/dev/null 2>&1");
++}
++
++static void bt_disconnect(void)
++{
++    char cmd[96];
++    char reply[BT_SYS_REPLY_MAX];
++
++    if (bt_selected_mac[0])
++    {
++        snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
++        bt_sys_command(cmd, reply, sizeof(reply));
++    }
++
++    bt_route_to_local(false);
++    bt_set_selected_mac(NULL);
++    bt_power_off();
++    splash(HZ, bt_str(LANG_BT_DISCONNECTED));
++}
++
++static void bt_show_status(void)
++{
++    struct simplelist_info info;
++
++    simplelist_info_init(&info, bt_str(LANG_BT_STATUS), 0, NULL);
++    simplelist_reset_lines();
++
++    if (bt_selected_mac[0])
++    {
++        simplelist_addline("%s: %s", bt_str(LANG_BT_MAC), bt_selected_mac);
++        simplelist_addline("%s: %s", bt_str(LANG_BT_LINK),
++                           bt_is_connected(bt_selected_mac)
++                               ? bt_str(LANG_ON) : bt_str(LANG_OFF));
++        simplelist_addline("%s: %s", bt_str(LANG_BT_A2DP_PCM),
++                           pcm_alsa_bt_probe() == 0
++                               ? bt_str(LANG_BT_READY) : bt_str(LANG_BT_NOT_READY));
++        simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC), bt_get_codec());
++    }
++    else
++    {
++        simplelist_addline("%s", bt_str(LANG_BT_DEVICE_LOCAL));
++    }
++
++    simplelist_addline("%s: %s", bt_str(LANG_BT_OUTPUT),
++                       pcm_alsa_is_bluetooth_active()
++                           ? bt_str(LANG_BLUETOOTH) : bt_str(LANG_BT_LOCAL));
++    simplelist_addline("%s: %s", bt_str(LANG_BT_RADIO),
++                       bt_radio_on() ? bt_str(LANG_ON) : bt_str(LANG_OFF));
++
++    info.count = simplelist_get_line_count();
++    simplelist_show_list(&info);
++}
++
++int n3pro_bluetooth_menu(void)
++{
++    int action = -1;
++
++    while (true)
++    {
++        struct simplelist_info info;
++
++        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
++        info.get_name = bt_action_name_cb;
++        info.action_callback = bt_simplelist_ok_cancel;
++        info.selection = -1;
++        info.title_icon = Icon_Submenu;
++
++        simplelist_show_list(&info);
++        action = info.selection;
++        if (action < 0)
++            break;
++
++        switch (action)
++        {
++            case 0:
++                bt_show_status();
++                break;
++            case 1:
++                bt_show_devices();
++                break;
++            case 2:
++                bt_disconnect();
++                break;
++            default:
++                break;
++        }
++    }
++    return 0;
++}
++
++#endif /* CAYIN_N3PRO */
+diff --git a/apps/n3pro_bluetooth.h b/apps/n3pro_bluetooth.h
+new file mode 100644
+index 0000000000..6eef4e342d
+--- /dev/null
++++ b/apps/n3pro_bluetooth.h
+@@ -0,0 +1,9 @@
++/***************************************************************************
++ * Bluetooth audio menu entry (Cayin N3Pro hosted port).
++ ****************************************************************************/
++#ifndef __N3PRO_BLUETOOTH_H__
++#define __N3PRO_BLUETOOTH_H__
++
++int n3pro_bluetooth_menu(void);
++
++#endif /* __N3PRO_BLUETOOTH_H__ */
 diff --git a/apps/plugin.c b/apps/plugin.c
 index 51b4478421..dbe4187d1e 100644
 --- a/apps/plugin.c
@@ -12242,6 +14725,20 @@ index cb00fef74f..22d146962e 100644
              /* Three pages of eight lines. Page two is page one shifted, cell
               * for cell; page three completes Latin-1 and adds the accented
               * letters common to the other European locales. The space bar
+diff --git a/apps/root_menu.c b/apps/root_menu.c
+index a546432d85..afb293e45a 100644
+--- a/apps/root_menu.c
++++ b/apps/root_menu.c
+@@ -556,6 +556,9 @@ static struct menu_table menu_table[] = {
+     { "radio", &fm },
+ #endif
+     { "playlists", &playlists },
++#ifdef CAYIN_N3PRO
++    { "bluetooth", &n3pro_bluetooth_root_item },
++#endif
+     { "plugins", &rocks_browser },
+     { "system_menu", &system_menu_ },
+     { "shortcuts", &shortcut_menu },
 diff --git a/apps/settings.c b/apps/settings.c
 index f9b170a52d..2e1e8ec3e5 100644
 --- a/apps/settings.c
@@ -12270,7 +14767,7 @@ index f9b170a52d..2e1e8ec3e5 100644
      dsp_eq_enable(global_settings.eq_enabled);
      dsp_set_eq_precut(global_settings.eq_precut);
 diff --git a/apps/settings.h b/apps/settings.h
-index 5a0f4f83e3..d7c3d3a4d1 100644
+index 5a0f4f83e3..16a335156a 100644
 --- a/apps/settings.h
 +++ b/apps/settings.h
 @@ -401,6 +401,13 @@ struct user_settings
@@ -12298,8 +14795,21 @@ index 5a0f4f83e3..d7c3d3a4d1 100644
  #ifdef AUDIOHW_HAVE_EQ
      /** Hardware EQ tone controls **/
      struct hw_eq_band
+@@ -907,6 +918,12 @@ struct user_settings
+     int play_frequency; /* core audio output frequency selection */
+ #endif
+     int volume_limit; /* maximum volume limit */
++#ifdef CAYIN_N3PRO
++    /* Separate volume for the bluetooth output (centibels); the active
++     * output's level is swapped with global_status.volume on route change. */
++    int bt_volume;
++    bool bt_volume_set; /* false until derived from the wired volume */
++#endif
+ 
+ #ifdef HAVE_PERCEPTUAL_VOLUME
+     int volume_adjust_mode;
 diff --git a/apps/settings_list.c b/apps/settings_list.c
-index 24edac9bb7..d70ef3d006 100644
+index 24edac9bb7..ad1652c559 100644
 --- a/apps/settings_list.c
 +++ b/apps/settings_list.c
 @@ -648,6 +648,15 @@ static void crossfeed_cross_set(int val)
@@ -12318,7 +14828,21 @@ index 24edac9bb7..d70ef3d006 100644
  static void surround_set_factor(int val)
  {
      (void)val;
-@@ -1199,7 +1208,10 @@ const struct settings_list settings[] = {
+@@ -1072,6 +1081,13 @@ static void hp_lo_select_apply(int arg)
+ const struct settings_list settings[] = {
+ /* system_status settings .resume.cfg */
+     SYSTEM_STATUS_SOUND(F_NO_WRAP, volume, LANG_VOLUME, "volume", SOUND_VOLUME),
++#ifdef CAYIN_N3PRO
++    /* Independent bluetooth output volume; stays in config.cfg. */
++    INT_SETTING_NOWRAP(0, bt_volume, LANG_BLUETOOTH, -300, "bt volume",
++                       UNIT_INT, -1020, 0, 5, NULL, NULL, NULL),
++    OFFON_SETTING(0, bt_volume_set, LANG_BLUETOOTH, false, "bt volume set",
++                  NULL),
++#endif
+ #ifdef HAVE_PITCHCONTROL
+     SYSTEM_STATUS(F_SOUNDSETTING, resume_pitch, PITCH_SPEED_100, "pitch"),
+     SYSTEM_STATUS(F_SOUNDSETTING, resume_speed, PITCH_SPEED_100, "speed"),
+@@ -1199,7 +1215,10 @@ const struct settings_list settings[] = {
  
  #ifdef AUDIOHW_HAVE_FILTER_ROLL_OFF
      CHOICE_SETTING(F_SOUNDSETTING, roll_off, LANG_FILTER_ROLL_OFF, 0,
@@ -12330,7 +14854,7 @@ index 24edac9bb7..d70ef3d006 100644
                     "roll_off", "linear fast,linear slow,minimum fast,minimum slow,apodizing 1,apodizing 2,hybrid fast,brick wall", sound_set_filter_roll_off,
                     8, ID2P(LANG_FILTER_LINEAR_FAST), ID2P(LANG_FILTER_LINEAR_SLOW), ID2P(LANG_FILTER_MINIMUM_FAST), ID2P(LANG_FILTER_MINIMUM_SLOW),
                     ID2P(LANG_FILTER_APODIZING_1), ID2P(LANG_FILTER_APODIZING_2), ID2P(LANG_FILTER_HYBRID_FAST), ID2P(LANG_FILTER_BRICK_WALL)),
-@@ -1225,6 +1237,12 @@ const struct settings_list settings[] = {
+@@ -1225,6 +1244,12 @@ const struct settings_list settings[] = {
                     2, ID2P(LANG_DAC_POWER_HIGH), ID2P(LANG_DAC_POWER_LOW)),
  #endif
  
@@ -12343,7 +14867,7 @@ index 24edac9bb7..d70ef3d006 100644
      /* playback */
      OFFON_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, playlist_shuffle,
                    LANG_SHUFFLE, false, "shuffle", shuffle_playlist_callback),
-@@ -1964,6 +1982,26 @@ const struct settings_list settings[] = {
+@@ -1964,6 +1989,26 @@ const struct settings_list settings[] = {
                         "crossfeed hf cutoff", UNIT_HERTZ, 500, 2000, 100,
                         NULL, NULL, crossfeed_cross_set),
  
@@ -13534,6 +16058,279 @@ index 0000000000..a25dcfbfc2
 +    }
 +}
 +#endif
+diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
+new file mode 100644
+index 0000000000..e9a00e332c
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
+@@ -0,0 +1,227 @@
++/***************************************************************************
++ * N3Pro dynamic PCM routing hooks for the shared hosted ALSA backend.
++ *
++ * Included directly by firmware/target/hosted/pcm-alsa.c for CAYIN_N3PRO,
++ * following the same pattern as the HiBy R1 port's pcm-alsa-hiby-hooks.h:
++ *
++ *   - a single poll thread pumps the playback PCM (the stock HiByOS
++ *     bluetooth plugin has no SIGIO support, and running both a SIGIO
++ *     handler and the poll thread races the kernel PCM wait queues);
++ *   - pcm_alsa_switch_playback_device() re-opens the PCM on another
++ *     device from the menu thread while Rockbox keeps running;
++ *   - the bluetooth PCM is opened against a private config tree parsed
++ *     from /etc/asound.conf, which the vendor player rewrites at runtime
++ *     (alsa-lib caches the global config, so the file alone is not enough).
++ ****************************************************************************/
++#ifndef __N3PRO_BT_PCM_HOOKS_H__
++#define __N3PRO_BT_PCM_HOOKS_H__
++
++#include <errno.h>
++#include <string.h>
++#include <unistd.h>
++
++#include "n3pro-bt-pcm.h"
++
++/* Defined later in pcm-alsa.c. */
++static void open_hwdev(const char *device, snd_pcm_stream_t mode);
++static void pcm_pump_locked(snd_pcm_t *h);
++static int set_hwparams(snd_pcm_t *handle, unsigned long sampr);
++static int set_swparams(snd_pcm_t *handle);
++
++/* Name of the "type bluetooth" PCM entry the vendor player writes into
++ * /etc/asound.conf lives in n3pro-bt-pcm.h (N3PRO_BT_DEVICE). */
++
++/* The plugin talks to bluetoothd over D-Bus, so the pump only has to be
++ * fast enough to keep its buffer topped up. */
++#define N3PRO_POLL_INTERVAL_US 4000
++
++static pthread_t n3pro_poll_thread;
++static volatile bool n3pro_poll_run = false;
++static bool n3pro_poll_started = false;
++static bool n3pro_mtx_init = false;
++/* Config tree backing the currently open bluetooth handle, and a separate
++ * one for the (handle-less) readiness probe so probing never frees the
++ * tree a live handle still references. */
++static snd_config_t *n3pro_bt_cfg = NULL;
++static snd_config_t *n3pro_probe_cfg = NULL;
++
++static void n3pro_pcm_mutex_init_once(void)
++{
++    pthread_mutexattr_t attr;
++
++    if (n3pro_mtx_init)
++        return;
++
++    pthread_mutexattr_init(&attr);
++    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
++    pthread_mutex_init(&pcm_mtx, &attr);
++    pthread_mutexattr_destroy(&attr);
++    n3pro_mtx_init = true;
++}
++
++static bool n3pro_pcm_is_bt_device(const char *device)
++{
++    return device && !strcmp(device, N3PRO_BT_DEVICE);
++}
++
++/* Open the bluetooth PCM through a private config tree parsed from
++ * /etc/asound.conf.  The tree is kept alive in *slot for as long as the
++ * handle references it. */
++static int n3pro_bt_open_ex(snd_pcm_t **pcm, snd_pcm_stream_t mode,
++                            snd_config_t **slot)
++{
++    snd_config_t *top = NULL;
++    snd_input_t *in = NULL;
++    int err;
++
++    if (*slot)
++    {
++        snd_config_delete(*slot);
++        *slot = NULL;
++    }
++
++    err = snd_config_top(&top);
++    if (err >= 0)
++        err = snd_input_stdio_open(&in, "/etc/asound.conf", "r");
++    if (err >= 0)
++    {
++        err = snd_config_load(top, in);
++        snd_input_close(in);
++    }
++    if (err >= 0)
++        err = snd_pcm_open_lconf(pcm, N3PRO_BT_DEVICE, mode, 0, top);
++
++    if (err >= 0)
++        *slot = top;
++    else if (top)
++        snd_config_delete(top);
++
++    return err;
++}
++
++static int n3pro_bt_open(snd_pcm_t **pcm, snd_pcm_stream_t mode)
++{
++    return n3pro_bt_open_ex(pcm, mode, &n3pro_bt_cfg);
++}
++
++/* Non-destructive readiness probe: the plugin refuses the open with -240
++ * until the A2DP transport is really up, so the caller retries this until
++ * it succeeds and only then switches the engine. */
++int pcm_alsa_bt_probe(void)
++{
++    snd_pcm_t *pcm = NULL;
++    int err = n3pro_bt_open_ex(&pcm, SND_PCM_STREAM_PLAYBACK, &n3pro_probe_cfg);
++
++    if (err >= 0)
++        snd_pcm_close(pcm);
++
++    return err;
++}
++
++/* Whether the engine is currently routed to the bluetooth output. */
++bool pcm_alsa_is_bluetooth_active(void)
++{
++    return current_alsa_device &&
++           !strcmp(current_alsa_device, N3PRO_BT_DEVICE);
++}
++
++/* Re-use the current handle when the same device is requested and it is
++ * still alive (matches the R1 port's hiby_pcm_keep_hwdev()). */
++static bool n3pro_pcm_keep_hwdev(const char *device, snd_pcm_stream_t mode)
++{
++    (void)mode;
++
++    if (!(handle && current_alsa_device &&
++          !strcmp(current_alsa_device, device)))
++        return false;
++
++    return snd_pcm_state(handle) != SND_PCM_STATE_DISCONNECTED;
++}
++
++/* Re-apply the current sample rate on a freshly opened handle (called with
++ * pcm_mtx held, from the switch). */
++static void n3pro_pcm_reapply_nolock(unsigned int rate)
++{
++    if (!handle || rate == 0)
++        return;
++
++    snd_pcm_drop(handle);
++    last_sample_rate = rate;
++    set_hwparams(handle, rate);
++    set_swparams(handle);
++}
++
++static void *n3pro_poll_thread_fn(void *arg)
++{
++    (void)arg;
++
++    while (n3pro_poll_run)
++    {
++        snd_pcm_t *h = handle;
++
++        if (h && pthread_mutex_trylock(&pcm_mtx) == 0)
++        {
++            pcm_pump_locked(h);
++            pthread_mutex_unlock(&pcm_mtx);
++        }
++
++        usleep(N3PRO_POLL_INTERVAL_US);
++    }
++
++    return NULL;
++}
++
++/* Stop (and join) the pump before the handle is closed: the poll thread
++ * reads the global handle without the lock, so it must not be running
++ * while snd_pcm_close() frees it.  Re-started by n3pro_pcm_after_open(). */
++static void n3pro_pcm_stop_poll(void)
++{
++    if (!n3pro_poll_started)
++        return;
++
++    n3pro_poll_run = false;
++    pthread_join(n3pro_poll_thread, NULL);
++    n3pro_poll_started = false;
++}
++
++/* Start the pump once, for the whole runtime. */
++static void n3pro_pcm_after_open(void)
++{
++    n3pro_pcm_mutex_init_once();
++
++    if (n3pro_poll_started)
++        return;
++
++    n3pro_poll_run = true;
++    if (pthread_create(&n3pro_poll_thread, NULL, n3pro_poll_thread_fn, NULL) == 0)
++        n3pro_poll_started = true;
++    else
++        n3pro_poll_run = false;
++}
++
++int pcm_alsa_switch_playback_device(const char *device)
++{
++    unsigned int rate;
++    bool ok;
++
++    if (!device || !*device)
++        return -1;
++
++    n3pro_pcm_mutex_init_once();
++    pthread_mutex_lock(&pcm_mtx);
++
++    /* open_hwdev() resets last_sample_rate; keep the rate so the new
++     * handle can be reconfigured in place. */
++    rate = last_sample_rate ? last_sample_rate : real_sample_rate;
++
++    open_hwdev(device, SND_PCM_STREAM_PLAYBACK);
++    n3pro_pcm_reapply_nolock(rate);
++
++    ok = handle != NULL && current_alsa_device &&
++         !strcmp(current_alsa_device, device);
++
++    pthread_mutex_unlock(&pcm_mtx);
++    return ok ? 0 : -1;
++}
++
++#endif /* __N3PRO_BT_PCM_HOOKS_H__ */
+diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm.h
+new file mode 100644
+index 0000000000..bfb24176bd
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm.h
+@@ -0,0 +1,34 @@
++/***************************************************************************
++ * N3Pro dynamic PCM output routing (hosted ALSA backend)
++ *
++ * The stock HiByOS ALSA plugin (libasound_module_pcm_bluetooth.so) plays
++ * A2DP through an ordinary "type bluetooth" PCM whose peer address is
++ * written to /etc/asound.conf at runtime.  This is the N3Pro counterpart
++ * of the HiBy R1 port's pcm-alsa-hiby helper: the playback PCM can be
++ * re-opened against a different device while Rockbox keeps running.
++ ****************************************************************************/
++#ifndef __N3PRO_BT_PCM_H__
++#define __N3PRO_BT_PCM_H__
++
++#include <stdbool.h>
++
++/* Name of the playback PCM entry written into /etc/asound.conf at runtime.
++ * It is a "softvol" wrapper around the stock "type bluetooth" PCM so the
++ * volume buttons can attenuate the digital stream (the AK4493 hardware
++ * volume does not affect the bluetooth path).  The wrapped entry itself is
++ * still named pcm.bluetooth. */
++#define N3PRO_BT_DEVICE "btvol"
++
++/* Re-open the playback PCM on the given ALSA device.  Runs on the caller's
++ * thread (menu thread only).  Returns 0 on success, <0 on failure. */
++int pcm_alsa_switch_playback_device(const char *device);
++
++/* Returns 0 when the stock bluetooth PCM can be opened right now (the
++ * A2DP transport is up); <0 while it is still coming up.  Does not change
++ * the active output. */
++int pcm_alsa_bt_probe(void);
++
++/* True while the engine is routed to the bluetooth output. */
++bool pcm_alsa_is_bluetooth_active(void);
++
++#endif /* __N3PRO_BT_PCM_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh b/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh
 new file mode 100755
 index 0000000000..e5e57baab8
@@ -14214,21 +17011,27 @@ index 0000000000..7ffc8b6996
 +    _usb_init = true;
 +}
 diff --git a/firmware/target/hosted/hiby/hibylinux_codec.c b/firmware/target/hosted/hiby/hibylinux_codec.c
-index 4cb445887d..410a0bb353 100644
+index 4cb445887d..44fa7554c6 100644
 --- a/firmware/target/hosted/hiby/hibylinux_codec.c
 +++ b/firmware/target/hosted/hiby/hibylinux_codec.c
-@@ -35,6 +35,10 @@
+@@ -35,6 +35,16 @@
  
  #include "logf.h"
  
 +#if defined(CAYIN_N3PRO)
 +#include "cayin-n3pro.h"    /* shared electron-tube power management */
++#include "settings.h"
++#include "sound.h"
++#include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
++#include <alsa/asoundlib.h>
++#include <stdio.h>
++#include <stdarg.h>
 +#endif
 +
  int hiby_has_valid_output(void);
  
  static int hw_init = 0;
-@@ -52,7 +56,11 @@ void audiohw_mute(int mute)
+@@ -52,7 +62,11 @@ void audiohw_mute(int mute)
  
      muted = mute;
  
@@ -14240,7 +17043,7 @@ index 4cb445887d..410a0bb353 100644
  }
  
  int hiby_has_valid_output(void) {
-@@ -62,6 +70,26 @@ int hiby_has_valid_output(void) {
+@@ -62,6 +76,26 @@ int hiby_has_valid_output(void) {
  
      if (!hw_init) return ps;
  
@@ -14267,7 +17070,7 @@ index 4cb445887d..410a0bb353 100644
      const char * const sysfs_hs_switch = "/sys/class/switch/headset/state";
      const char * const sysfs_bal_switch = "/sys/class/switch/balance/state";
  
-@@ -70,6 +98,7 @@ int hiby_has_valid_output(void) {
+@@ -70,6 +104,7 @@ int hiby_has_valid_output(void) {
  
      if (sysfs_get_int(sysfs_bal_switch, &status) && status)
          ps = 3; // balanced output
@@ -14275,7 +17078,7 @@ index 4cb445887d..410a0bb353 100644
  
      return ps;
  }
-@@ -109,12 +138,18 @@ void audiohw_preinit(void)
+@@ -109,12 +144,18 @@ void audiohw_preinit(void)
      hw_init = 1;
  
      audiohw_mute(false);  /* No need ? */
@@ -14294,7 +17097,131 @@ index 4cb445887d..410a0bb353 100644
  }
  
  void audiohw_close(void)
-@@ -151,13 +186,46 @@ void audiohw_set_volume(int vol_l, int vol_r)
+@@ -129,6 +170,109 @@ void audiohw_set_frequency(int fsel)
+     (void)fsel;
+ }
+ 
++#if defined(CAYIN_N3PRO)
++static void n3pro_btvol_log(const char *fmt, ...)
++{
++    FILE *f = fopen("/mnt/sd_0/.rockbox/btvol.log", "a");
++    va_list ap;
++
++    if (!f)
++        return;
++
++    va_start(ap, fmt);
++    vfprintf(f, fmt, ap);
++    va_end(ap);
++    fputc('\n', f);
++    fclose(f);
++}
++
++/* The bluetooth route bypasses the AK4493 DAC, so the hardware volume has
++ * no effect on it.  Drive the userspace softvol control wrapped around the
++ * vendor PCM instead, mapping the volume/volume_limit span onto whatever
++ * raw range the softvol entry was created with (min_dB/max_dB in the
++ * generated asound.conf, 5 steps per dB). */
++static void n3pro_set_bt_volume(int vol_cb)
++{
++    int min_vol = sound_min(SOUND_VOLUME);
++    int max_vol = sound_max(SOUND_VOLUME);
++    int limit_vol = global_settings.volume_limit;
++    int span;
++    int pct;
++    long max_step;
++    long step;
++    static snd_ctl_t *btvol_ctl = NULL;
++    snd_ctl_elem_value_t *val;
++    snd_ctl_elem_id_t *id;
++    snd_ctl_elem_info_t *info;
++
++    if (limit_vol < max_vol)
++        max_vol = limit_vol;
++    if (max_vol < min_vol)
++        max_vol = min_vol;
++
++    if (vol_cb < min_vol)
++        vol_cb = min_vol;
++    if (vol_cb > max_vol)
++        vol_cb = max_vol;
++
++    span = max_vol - min_vol;
++    if (span <= 0)
++        pct = 100;
++    else
++        pct = ((vol_cb - min_vol) * 100 + span / 2) / span;
++
++    if (pct < 0)
++        pct = 0;
++    if (pct > 100)
++        pct = 100;
++
++    /* The softvol control only exists while the wrapped PCM is open, which
++     * is well after alsa_controls_init() cached the control list, so it has
++     * to be written through a direct ctl handle instead. */
++    if (!btvol_ctl && snd_ctl_open(&btvol_ctl, "default", 0) < 0)
++    {
++        btvol_ctl = NULL;
++        return;
++    }
++
++    snd_ctl_elem_id_alloca(&id);
++    snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_MIXER);
++    snd_ctl_elem_id_set_name(id, "Bluetooth Vol");
++
++    snd_ctl_elem_info_alloca(&info);
++    snd_ctl_elem_info_set_id(info, id);
++    if (snd_ctl_elem_info(btvol_ctl, info) < 0)
++    {
++        snd_ctl_close(btvol_ctl);
++        btvol_ctl = NULL;
++        return;
++    }
++
++    max_step = snd_ctl_elem_info_get_max(info);
++    if (max_step <= 0)
++        max_step = 255;
++
++    step = (pct * max_step + 50) / 100;
++
++    snd_ctl_elem_value_alloca(&val);
++    snd_ctl_elem_value_set_id(val, id);
++    snd_ctl_elem_value_set_integer(val, 0, step);
++
++    {
++        int rc = snd_ctl_elem_write(btvol_ctl, val);
++        n3pro_btvol_log("btvol: vol_cb=%d pct=%d max=%ld step=%ld rc=%d",
++                        vol_cb, pct, max_step, step, rc);
++        if (rc < 0)
++        {
++            /* The control disappears when the bluetooth PCM is closed;
++             * drop the handle so the next volume change reopens it. */
++            snd_ctl_close(btvol_ctl);
++            btvol_ctl = NULL;
++        }
++    }
++}
++#endif
++
+ void audiohw_set_volume(int vol_l, int vol_r)
+ {
+     logf("hw vol %d %d", vol_l, vol_r);
+@@ -146,18 +290,60 @@ void audiohw_set_volume(int vol_l, int vol_r)
+ 
+     alsa_controls_set_ints("Left Playback Volume", 1, &l);
+     alsa_controls_set_ints("Right Playback Volume", 1, &r);
++
++#if defined(CAYIN_N3PRO)
++    {
++        int bt_active = pcm_alsa_is_bluetooth_active();
++        n3pro_btvol_log("ahw: vol=%d bt=%d", (vol_l + vol_r) / 2, bt_active);
++        if (bt_active)
++            n3pro_set_bt_volume((vol_l + vol_r) / 2);
++    }
++#endif
+ }
+ 
  void audiohw_set_filter_roll_off(int value)
  {
      logf("rolloff %d", value);
@@ -14730,6 +17657,214 @@ index 469dc640b9..06d2b0191c 100644
  }
  
  bool usb_audio_get_active(void)
+diff --git a/firmware/target/hosted/pcm-alsa.c b/firmware/target/hosted/pcm-alsa.c
+index 10b379b03d..e81ce56fc8 100644
+--- a/firmware/target/hosted/pcm-alsa.c
++++ b/firmware/target/hosted/pcm-alsa.c
+@@ -111,6 +111,12 @@ static snd_pcm_stream_t current_alsa_mode;  /* SND_PCM_STREAM_PLAYBACK / _CAPTUR
+ 
+ static const char *current_alsa_device;
+ 
++#if defined(CAYIN_N3PRO)
++/* Dynamic output routing + the poll pump for the stock bluetooth PCM
++ * (see cayin/n3pro/n3pro-bt-pcm-hooks.h). */
++#include "cayin/n3pro/n3pro-bt-pcm-hooks.h"
++#endif
++
+ void pcm_alsa_set_playback_device(const char *device)
+ {
+     playback_dev = device;
+@@ -381,6 +387,113 @@ static bool copy_frames(bool first)
+     return true;
+ }
+ 
++#if defined(CAYIN_N3PRO)
++/* Data pump, called with pcm_mtx held.  A single poll thread drives both
++ * outputs: the stock bluetooth plugin has no SIGIO support, and running an
++ * async handler alongside the poll thread made the kernel PCM wake a
++ * thread twice (wait_queue_remove() on an already-removed wait queue). */
++static void pcm_pump_locked(snd_pcm_t *h)
++{
++    int err;
++    snd_pcm_state_t state = snd_pcm_state(h);
++    bool wrote = false;
++
++    if (state == SND_PCM_STATE_XRUN)
++    {
++        xruns++;
++        logf("initial underrun!");
++        err = snd_pcm_recover(h, -EPIPE, 0);
++        if (err < 0) {
++            logf("XRUN Recovery error: %s", snd_strerror(err));
++            return;
++        }
++    }
++    else if (state == SND_PCM_STATE_DRAINING)
++    {
++        logf("draining...");
++        return;
++    }
++    else if (state == SND_PCM_STATE_SETUP)
++    {
++        return;
++    }
++
++#ifdef HAVE_RECORDING
++    if (current_alsa_mode == SND_PCM_STREAM_PLAYBACK)
++    {
++#endif
++        while (snd_pcm_avail_update(h) >= period_size)
++        {
++            if (copy_frames(false))
++            {
++            retry:
++                err = snd_pcm_writei(h, frames, period_size);
++                if (err == -EPIPE)
++                {
++                    logf("mid underrun!");
++                    xruns++;
++                    err = snd_pcm_recover(h, -EPIPE, 0);
++                    if (err < 0) {
++                       logf("XRUN Recovery error: %s", snd_strerror(err));
++                       return;
++                    }
++                    goto retry;
++                }
++                else if (err != period_size)
++                {
++                    logf("Write error: written %i expected %li", err, period_size);
++                    break;
++                }
++                wrote = true;
++            }
++            else
++            {
++                logf("%s: No Data (%d).", __func__, state);
++                break;
++            }
++        }
++#ifdef HAVE_RECORDING
++    }
++    else if (current_alsa_mode == SND_PCM_STREAM_CAPTURE)
++    {
++        while (snd_pcm_avail_update(h) >= period_size)
++        {
++            int rerr = snd_pcm_readi(h, frames, period_size);
++            if (rerr == -EPIPE)
++            {
++                logf("rec mid underrun!");
++                xruns++;
++                rerr = snd_pcm_recover(h, -EPIPE, 0);
++                if (rerr < 0) {
++                   logf("XRUN Recovery error: %s", snd_strerror(rerr));
++                   return;
++                }
++                continue;  /* buffer contents trashed, no sense in trying to copy */
++            }
++            else if (rerr != period_size)
++            {
++                logf("Read error: read %i expected %li", rerr, period_size);
++                break;
++            }
++
++            /* start the fake DMA transfer */
++            if (!copy_frames(false))
++                break;
++        }
++    }
++#endif
++
++    /* Only start a stream this round actually fed: starting an empty
++     * PREPARED PCM underruns at once, and the poll thread would then
++     * recover/start it forever (an ioctl storm that starves the CPU). */
++    if (wrote && snd_pcm_state(h) == SND_PCM_STATE_PREPARED)
++    {
++        err = snd_pcm_start(h);
++        if (err < 0)
++            logf("cb start error: %s", snd_strerror(err));
++    }
++}
++#else /* !CAYIN_N3PRO */
+ static void async_callback(snd_async_handler_t *ahandler)
+ {
+     int err;
+@@ -496,11 +609,18 @@ static void async_callback(snd_async_handler_t *ahandler)
+ abort:
+     pthread_mutex_unlock(&pcm_mtx);
+ }
++#endif /* CAYIN_N3PRO */
+ 
+ static void close_hwdev(void)
+ {
+     logf("closedev (%p)", handle);
+ 
++#if defined(CAYIN_N3PRO)
++    /* The poll thread pumps the handle without the lock, so make sure it
++     * is not running before the handle is freed. */
++    n3pro_pcm_stop_poll();
++#endif
++
+     if (handle) {
+         snd_pcm_drain(handle);
+ #ifdef AUDIOHW_MUTE_ON_STOP
+@@ -534,6 +654,10 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+ 
+     logf("opendev %s (%p)", device, handle);
+ 
++#if defined(CAYIN_N3PRO)
++    if (n3pro_pcm_keep_hwdev(device, mode))
++        return;
++#else
+     if (handle && device == current_alsa_device
+ #ifdef HAVE_RECORDING
+         && current_alsa_mode == mode
+@@ -542,16 +666,38 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+     {
+         return;
+     }
++#endif
+ 
+     /* Close old handle */
+     close_hwdev();
+ 
++#if defined(CAYIN_N3PRO)
++    if (n3pro_pcm_is_bt_device(device))
++    {
++        /* Stock bluetooth plugin: opened against a freshly parsed config
++         * tree so the peer the vendor player wrote into /etc/asound.conf
++         * is picked up; a failure is non-fatal (the caller retries). */
++        if ((err = n3pro_bt_open(&handle, mode)) < 0)
++        {
++            logf("%s(): Cannot open bluetooth PCM: %s", __func__, snd_strerror(err));
++            handle = NULL;
++            return;
++        }
++    }
++    else
++#endif
+     if ((err = snd_pcm_open(&handle, device, mode, 0)) < 0)
+     {
+         panicf("%s(): Cannot open device %s: %s", __func__, device, snd_strerror(err));
+     }
+     last_sample_rate = 0;
+ 
++#if defined(CAYIN_N3PRO)
++    /* The poll thread is the only pump for this target (the stock bluetooth
++     * plugin has no SIGIO support, and driving the wired PCM from both a
++     * SIGIO handler and the poll thread races the kernel wait queues). */
++    n3pro_pcm_after_open();
++#else
+     pthread_mutexattr_t attr;
+     pthread_mutexattr_init(&attr);
+     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+@@ -585,6 +731,7 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+     {
+         panicf("Unable to install alternative signal stack: %s", strerror(err));
+     }
++#endif
+ 
+ #ifdef HAVE_RECORDING
+     current_alsa_mode = mode;
 diff --git a/firmware/target/hosted/sdl/sim-ui-defines.h b/firmware/target/hosted/sdl/sim-ui-defines.h
 index 5a08b27adf..61963a1926 100644
 --- a/firmware/target/hosted/sdl/sim-ui-defines.h

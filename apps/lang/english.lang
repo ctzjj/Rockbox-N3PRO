@@ -17373,3 +17373,409 @@
     swcodec: "Dry / Wet Mix"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_BLUETOOTH
+  desc: in the main menu
+  user: core
+  <source>
+    *: "Bluetooth"
+  </source>
+  <dest>
+    *: "Bluetooth"
+  </dest>
+  <voice>
+    *: "Bluetooth"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_STATUS
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Status"
+  </source>
+  <dest>
+    *: "Status"
+  </dest>
+  <voice>
+    *: "Status"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DEVICES
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Devices"
+  </source>
+  <dest>
+    *: "Devices"
+  </dest>
+  <voice>
+    *: "Devices"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DISCONNECT
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Disconnect"
+  </source>
+  <dest>
+    *: "Disconnect"
+  </dest>
+  <voice>
+    *: "Disconnect"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_SCAN
+  desc: in the bluetooth device list
+  user: core
+  <source>
+    *: "Scan for new devices"
+  </source>
+  <dest>
+    *: "Scan for new devices"
+  </dest>
+  <voice>
+    *: "Scan for new devices"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECT
+  desc: in the bluetooth device menu
+  user: core
+  <source>
+    *: "Connect"
+  </source>
+  <dest>
+    *: "Connect"
+  </dest>
+  <voice>
+    *: "Connect"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DELETE
+  desc: in the bluetooth device menu
+  user: core
+  <source>
+    *: "Delete"
+  </source>
+  <dest>
+    *: "Delete"
+  </dest>
+  <voice>
+    *: "Delete"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECTING
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Connecting..."
+  </source>
+  <dest>
+    *: "Connecting..."
+  </dest>
+  <voice>
+    *: "Connecting..."
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_SCANNING
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Scanning..."
+  </source>
+  <dest>
+    *: "Scanning..."
+  </dest>
+  <voice>
+    *: "Scanning..."
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_LOADING
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Loading devices..."
+  </source>
+  <dest>
+    *: "Loading devices..."
+  </dest>
+  <voice>
+    *: "Loading devices..."
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_NO_DEVICES
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "No devices"
+  </source>
+  <dest>
+    *: "No devices"
+  </dest>
+  <voice>
+    *: "No devices"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_UNAVAILABLE
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "BT unavailable"
+  </source>
+  <dest>
+    *: "BT unavailable"
+  </dest>
+  <voice>
+    *: "BT unavailable"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECTED
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "BT connected"
+  </source>
+  <dest>
+    *: "BT connected"
+  </dest>
+  <voice>
+    *: "BT connected"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECT_FAILED
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "BT connect failed"
+  </source>
+  <dest>
+    *: "BT connect failed"
+  </dest>
+  <voice>
+    *: "BT connect failed"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_PAIR_FAILED
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "BT pair failed"
+  </source>
+  <dest>
+    *: "BT pair failed"
+  </dest>
+  <voice>
+    *: "BT pair failed"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_NO_ROUTE
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "BT connected, no audio route"
+  </source>
+  <dest>
+    *: "BT connected, no audio route"
+  </dest>
+  <voice>
+    *: "BT connected, no audio route"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DELETED
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Device deleted"
+  </source>
+  <dest>
+    *: "Device deleted"
+  </dest>
+  <voice>
+    *: "Device deleted"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DISCONNECTED
+  desc: bluetooth status
+  user: core
+  <source>
+    *: "Disconnected (BT off)"
+  </source>
+  <dest>
+    *: "Disconnected (BT off)"
+  </dest>
+  <voice>
+    *: "Disconnected (BT off)"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CONNECTED_MARK
+  desc: in the bluetooth device list
+  user: core
+  <source>
+    *: "(Connected)"
+  </source>
+  <dest>
+    *: "(Connected)"
+  </dest>
+  <voice>
+    *: "(Connected)"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_DEVICE_LOCAL
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Device: Local"
+  </source>
+  <dest>
+    *: "Device: Local"
+  </dest>
+  <voice>
+    *: "Device: Local"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_MAC
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "MAC"
+  </source>
+  <dest>
+    *: "MAC"
+  </dest>
+  <voice>
+    *: "MAC"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_LINK
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Link"
+  </source>
+  <dest>
+    *: "Link"
+  </dest>
+  <voice>
+    *: "Link"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_A2DP_PCM
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "A2DP PCM"
+  </source>
+  <dest>
+    *: "A2DP PCM"
+  </dest>
+  <voice>
+    *: "A2DP PCM"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_CODEC
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Codec"
+  </source>
+  <dest>
+    *: "Codec"
+  </dest>
+  <voice>
+    *: "Codec"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_OUTPUT
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Output"
+  </source>
+  <dest>
+    *: "Output"
+  </dest>
+  <voice>
+    *: "Output"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RADIO
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Radio"
+  </source>
+  <dest>
+    *: "Radio"
+  </dest>
+  <voice>
+    *: "Radio"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_READY
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Ready"
+  </source>
+  <dest>
+    *: "Ready"
+  </dest>
+  <voice>
+    *: "Ready"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_NOT_READY
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Not ready"
+  </source>
+  <dest>
+    *: "Not ready"
+  </dest>
+  <voice>
+    *: "Not ready"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_LOCAL
+  desc: in the bluetooth status
+  user: core
+  <source>
+    *: "Local"
+  </source>
+  <dest>
+    *: "Local"
+  </dest>
+  <voice>
+    *: "Local"
+  </voice>
+</phrase>

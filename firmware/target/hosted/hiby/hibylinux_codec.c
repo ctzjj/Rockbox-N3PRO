@@ -37,6 +37,12 @@
 
 #if defined(CAYIN_N3PRO)
 #include "cayin-n3pro.h"    /* shared electron-tube power management */
+#include "settings.h"
+#include "sound.h"
+#include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
+#include <alsa/asoundlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 #endif
 
 int hiby_has_valid_output(void);
@@ -164,6 +170,109 @@ void audiohw_set_frequency(int fsel)
     (void)fsel;
 }
 
+#if defined(CAYIN_N3PRO)
+static void n3pro_btvol_log(const char *fmt, ...)
+{
+    FILE *f = fopen("/mnt/sd_0/.rockbox/btvol.log", "a");
+    va_list ap;
+
+    if (!f)
+        return;
+
+    va_start(ap, fmt);
+    vfprintf(f, fmt, ap);
+    va_end(ap);
+    fputc('\n', f);
+    fclose(f);
+}
+
+/* The bluetooth route bypasses the AK4493 DAC, so the hardware volume has
+ * no effect on it.  Drive the userspace softvol control wrapped around the
+ * vendor PCM instead, mapping the volume/volume_limit span onto whatever
+ * raw range the softvol entry was created with (min_dB/max_dB in the
+ * generated asound.conf, 5 steps per dB). */
+static void n3pro_set_bt_volume(int vol_cb)
+{
+    int min_vol = sound_min(SOUND_VOLUME);
+    int max_vol = sound_max(SOUND_VOLUME);
+    int limit_vol = global_settings.volume_limit;
+    int span;
+    int pct;
+    long max_step;
+    long step;
+    static snd_ctl_t *btvol_ctl = NULL;
+    snd_ctl_elem_value_t *val;
+    snd_ctl_elem_id_t *id;
+    snd_ctl_elem_info_t *info;
+
+    if (limit_vol < max_vol)
+        max_vol = limit_vol;
+    if (max_vol < min_vol)
+        max_vol = min_vol;
+
+    if (vol_cb < min_vol)
+        vol_cb = min_vol;
+    if (vol_cb > max_vol)
+        vol_cb = max_vol;
+
+    span = max_vol - min_vol;
+    if (span <= 0)
+        pct = 100;
+    else
+        pct = ((vol_cb - min_vol) * 100 + span / 2) / span;
+
+    if (pct < 0)
+        pct = 0;
+    if (pct > 100)
+        pct = 100;
+
+    /* The softvol control only exists while the wrapped PCM is open, which
+     * is well after alsa_controls_init() cached the control list, so it has
+     * to be written through a direct ctl handle instead. */
+    if (!btvol_ctl && snd_ctl_open(&btvol_ctl, "default", 0) < 0)
+    {
+        btvol_ctl = NULL;
+        return;
+    }
+
+    snd_ctl_elem_id_alloca(&id);
+    snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_MIXER);
+    snd_ctl_elem_id_set_name(id, "Bluetooth Vol");
+
+    snd_ctl_elem_info_alloca(&info);
+    snd_ctl_elem_info_set_id(info, id);
+    if (snd_ctl_elem_info(btvol_ctl, info) < 0)
+    {
+        snd_ctl_close(btvol_ctl);
+        btvol_ctl = NULL;
+        return;
+    }
+
+    max_step = snd_ctl_elem_info_get_max(info);
+    if (max_step <= 0)
+        max_step = 255;
+
+    step = (pct * max_step + 50) / 100;
+
+    snd_ctl_elem_value_alloca(&val);
+    snd_ctl_elem_value_set_id(val, id);
+    snd_ctl_elem_value_set_integer(val, 0, step);
+
+    {
+        int rc = snd_ctl_elem_write(btvol_ctl, val);
+        n3pro_btvol_log("btvol: vol_cb=%d pct=%d max=%ld step=%ld rc=%d",
+                        vol_cb, pct, max_step, step, rc);
+        if (rc < 0)
+        {
+            /* The control disappears when the bluetooth PCM is closed;
+             * drop the handle so the next volume change reopens it. */
+            snd_ctl_close(btvol_ctl);
+            btvol_ctl = NULL;
+        }
+    }
+}
+#endif
+
 void audiohw_set_volume(int vol_l, int vol_r)
 {
     logf("hw vol %d %d", vol_l, vol_r);
@@ -181,6 +290,15 @@ void audiohw_set_volume(int vol_l, int vol_r)
 
     alsa_controls_set_ints("Left Playback Volume", 1, &l);
     alsa_controls_set_ints("Right Playback Volume", 1, &r);
+
+#if defined(CAYIN_N3PRO)
+    {
+        int bt_active = pcm_alsa_is_bluetooth_active();
+        n3pro_btvol_log("ahw: vol=%d bt=%d", (vol_l + vol_r) / 2, bt_active);
+        if (bt_active)
+            n3pro_set_bt_volume((vol_l + vol_r) / 2);
+    }
+#endif
 }
 
 void audiohw_set_filter_roll_off(int value)
