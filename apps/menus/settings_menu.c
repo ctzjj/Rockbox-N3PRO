@@ -493,7 +493,6 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
 #endif
          );
 
-
 /*    SYSTEM MENU                  */
 /***********************************/
 
