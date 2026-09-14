@@ -62,13 +62,13 @@ int button_map(int keycode)
          * tick is a press+release within microseconds.  Map to the scroll
          * wheel so button-devinput queues them (plain buttons would be lost). */
         case KEY_LEFT:
-            return BUTTON_SCROLL_BACK;   /* volume up */
+            return BUTTON_SCROLL_FWD;     /* volume down */
         case KEY_RIGHT:
-            return BUTTON_SCROLL_FWD;    /* volume down */
+            return BUTTON_SCROLL_BACK;    /* volume up */
         case KEY_VOLUMEUP:
-            return BUTTON_SCROLL_BACK;
-        case KEY_VOLUMEDOWN:
             return BUTTON_SCROLL_FWD;
+        case KEY_VOLUMEDOWN:
+            return BUTTON_SCROLL_BACK;
 
         /* Bottom-front touch HOME key (GT9XX reports KEY_MENU) */
         case KEY_MENU:

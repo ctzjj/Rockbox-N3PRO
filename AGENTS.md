@@ -5,7 +5,7 @@ checkout needs in order to build for the **Cayin N3Pro** DAP (HiByOS / Ingenic
 X1000, Linux 3.10.14), plus a `n3pro_port.patch` that applies them to a pristine
 tree, and `n3pro_patcher.sh` which builds the flashable `.upt` image.
 
-Base commit the patch was generated against: **`10ec9bd530`** (Rockbox master,
+Base commit the patch was generated against: **`1784c9b8a7`** (Rockbox master,
 2026-09).  See "Applying to a newer master" below.
 
 ---
@@ -232,7 +232,7 @@ adb shell "sync; reboot"                                # UMS gadget is up
 
 ```sh
 git clone git://git.rockbox.org/rockbox && cd rockbox
-git checkout 10ec9bd530          # patch base (safest)
+git checkout 1784c9b8a7          # patch base (safest)
 git apply /path/to/n3pro_port.patch
 # on a much newer tree: git apply --3way … , or --reject and fix the .rej
 ```

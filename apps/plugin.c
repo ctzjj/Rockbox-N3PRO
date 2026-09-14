@@ -50,6 +50,9 @@
 #include "language.h"
 #include "statusbar-skinned.h"
 #include "panic.h"
+#ifdef HAVE_HW_H264
+#include "hw_h264.h"
+#endif
 
 #if CONFIG_CHARGING
 #include "power.h"
@@ -881,6 +884,15 @@ static const struct plugin_api rockbox_api = {
 #ifdef HAVE_TOUCHSCREEN
     gesture_flick_get_in_vp,
     gesture_flick_get,
+#endif
+#ifdef HAVE_HW_H264
+    &target_hw_h264_api,
+#endif
+#ifdef HAVE_BACKLIGHT
+    backlight_set_on_button_hold,
+#endif
+#if defined(HAVE_REMOTE_LCD) && defined(HAS_REMOTE_BUTTON_HOLD)
+    remote_backlight_set_on_button_hold,
 #endif
 };
 

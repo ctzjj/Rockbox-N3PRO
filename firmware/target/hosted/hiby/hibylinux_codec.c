@@ -151,6 +151,10 @@ void audiohw_postinit(void)
 {
     logf("hw postinit");
 #if defined(CAYIN_N3PRO)
+    /* Raise the headphone analog gain stage to "medium" exactly like the
+     * stock player does at boot, so maximum loudness lines up. */
+    sysfs_set_string(CAYIN_N3PRO_SYSFS_BASE "/output_gain", "output_gain_m");
+
     /* make sure the AK4493 output port is routed (headset/line/balanced) */
     hiby_get_outputs();
 #endif
@@ -278,18 +282,63 @@ void audiohw_set_volume(int vol_l, int vol_r)
     vol_l_hw = vol_l;
     vol_r_hw = vol_r;
 
+#if defined(CAYIN_N3PRO)
+    /* Stock-player volume model, from /usr/resource/ot_devices.json:
+     * the hardware register equals the 0..100 volume step (255 at step 0,
+     * 1..100 at steps 1..100 -- this driver's control is loudest at
+     * higher values) and a per-step software gain in centibels supplies
+     * the fine curve, applied to the 32-bit sample stream by pcm-alsa. */
+    static const int sw_gain[101] =
+    {
+        -1500, -1200,  -600,  -510,  -470,  -420,  -395,  -375,  -361,  -358,
+         -346,  -335,  -325,  -316,  -308,  -300,  -292,  -285,  -278,  -271,
+         -264,  -258,  -252,  -246,  -240,  -235,  -230,  -225,  -220,  -215,
+         -210,  -207,  -204,  -201,  -198,  -195,  -192,  -189,  -186,  -183,
+         -180,  -177,  -174,  -171,  -168,  -165,  -162,  -159,  -156,  -153,
+         -150,  -147,  -144,  -141,  -138,  -135,  -132,  -129,  -126,  -123,
+         -120,  -117,  -114,  -111,  -108,  -105,  -102,   -99,   -96,   -93,
+          -90,   -87,   -84,   -81,   -78,   -75,   -72,   -69,   -66,   -63,
+          -60,   -57,   -54,   -51,   -48,   -45,   -42,   -39,   -36,   -33,
+          -30,   -27,   -24,   -21,   -18,   -15,   -12,    -9,    -6,    -3,
+            0
+    };
+
+    if (!hw_init)
+        return;
+
+    int step_l = (vol_l + 1020) / 10;
+    int step_r = (vol_r + 1020) / 10;
+
+    if (step_l < 0)   step_l = 0;
+    if (step_l > 100) step_l = 100;
+    if (step_r < 0)   step_r = 0;
+    if (step_r > 100) step_r = 100;
+
+    l = step_l ? step_l : 255;
+    r = step_r ? step_r : 255;
+#else
     l = -vol_l/5;
     r = -vol_r/5;
 
     if (!hw_init)
         return;
+#endif
 
     alsa_controls_set_ints("Left Playback Volume", 1, &l);
     alsa_controls_set_ints("Right Playback Volume", 1, &r);
 
 #if defined(CAYIN_N3PRO)
     if (pcm_alsa_is_bluetooth_active())
+    {
+        /* The bluetooth route bypasses the AK4493, so the hardware
+         * register is inert there; the userspace softvol wrapped around
+         * the bluetooth PCM is the volume control.  Hold the 32-bit
+         * sample stream at unity so the two attenuations do not stack. */
+        pcm_set_mixer_volume(0, 0);
         n3pro_set_bt_volume((vol_l + vol_r) / 2);
+    }
+    else
+        pcm_set_mixer_volume(sw_gain[step_l], sw_gain[step_r]);
 #endif
 }
 

@@ -651,22 +651,30 @@ static void bt_write_asound(const char *mac)
 
     /* The AK4493 hardware volume does not touch the bluetooth path, so
      * wrap the plugin in a userspace softvol whose "Bluetooth Vol" mixer
-     * control is driven by audiohw_set_volume() while this route is up. */
+     * control is driven by audiohw_set_volume() while this route is up.
+     * The softvol chain sits behind a plug, because the 32-bit sample
+     * stream (HAVE_ALSA_32BIT) has to be converted down to the S16 the
+     * stock bluetooth plugin accepts; plug is pass-through when the
+     * formats already match. */
     fprintf(f, "pcm.%s {\n", N3PRO_BT_DEVICE);
-    fprintf(f, "    type softvol\n");
+    fprintf(f, "    type plug\n");
     fprintf(f, "    slave.pcm {\n");
-    fprintf(f, "        type bluetooth\n");
-    fprintf(f, "        device \"%s\"\n", mac);
-    fprintf(f, "        profile \"a2dp\"\n");
+    fprintf(f, "        type softvol\n");
+    fprintf(f, "        slave.pcm {\n");
+    fprintf(f, "            type bluetooth\n");
+    fprintf(f, "            device \"%s\"\n", mac);
+    fprintf(f, "            profile \"a2dp\"\n");
+    fprintf(f, "        }\n");
+    fprintf(f, "        control {\n");
+    fprintf(f, "            name \"Bluetooth Vol\"\n");
+    fprintf(f, "            card 0\n");
+    fprintf(f, "        }\n");
+    fprintf(f, "        /* The audible window of a digital attenuation is about\n");
+    fprintf(f, "           50 dB; use it all so the volume steps do not bunch up\n");
+    fprintf(f, "           in the top few dB. */\n");
+    fprintf(f, "        min_dB -50.0\n");
+    fprintf(f, "        max_dB 0.0\n");
     fprintf(f, "    }\n");
-    fprintf(f, "    control {\n");
-    fprintf(f, "        name \"Bluetooth Vol\"\n");
-    fprintf(f, "        card 0\n");
-    fprintf(f, "    }\n");
-    /* The audible window of a digital attenuation is about 50 dB; use it
-     * all so the volume steps do not bunch up in the top few dB. */
-    fprintf(f, "    min_dB -50.0\n");
-    fprintf(f, "    max_dB 0.0\n");
     fprintf(f, "}\n");
 
     fclose(f);
