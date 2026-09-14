@@ -57,6 +57,15 @@
 /* Audio codec */
 #define HAVE_HIBY_LINUX_CODEC
 
+/* The N3Pro kernel implements the AK4493 "Left/Right Playback Volume"
+ * controls with the opposite sense from every other hiby target (louder
+ * at higher values).  hibylinux_codec.c therefore follows the stock
+ * player's model instead: park the DAC register at the volume step and
+ * apply the fine volume curve to the 32-bit sample stream, like the
+ * other hosted linux targets with software volume (FiiO M3K Linux,
+ * Aigo Eros Q, Sony NWZ). */
+#define HAVE_ALSA_32BIT
+
 /* We don't have hardware controls */
 #define HAVE_SW_TONE_CONTROLS
 

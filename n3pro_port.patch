@@ -1,4 +1,4 @@
-# rockbox-base: 10ec9bd530c852631ce126795cacf20e7578017f
+# rockbox-base: 1784c9b8a7f1f2c8c535d8cb9dc965db0fe29e29
 diff --git a/apps/SOURCES b/apps/SOURCES
 index f81261f766..6a0127b9da 100644
 --- a/apps/SOURCES
@@ -5007,7 +5007,7 @@ index 61d16f4cb1..66c70ad054 100644
  #ifdef HAVE_PITCHCONTROL
            ,&timestretch_enabled
 diff --git a/apps/plugin.c b/apps/plugin.c
-index 51b4478421..dbe4187d1e 100644
+index 7f517fe727..e9764aec6c 100644
 --- a/apps/plugin.c
 +++ b/apps/plugin.c
 @@ -31,6 +31,7 @@
@@ -5018,7 +5018,7 @@ index 51b4478421..dbe4187d1e 100644
  #include "mp3data.h"
  #include "powermgmt.h"
  #include "splash.h"
-@@ -665,6 +666,7 @@ static const struct plugin_api rockbox_api = {
+@@ -668,6 +669,7 @@ static const struct plugin_api rockbox_api = {
      audio_set_input_source,
  #endif
      dsp_set_crossfeed_type ,
@@ -5027,10 +5027,10 @@ index 51b4478421..dbe4187d1e 100644
      dsp_dither_enable,
  #ifdef HAVE_PITCHCONTROL
 diff --git a/apps/plugin.h b/apps/plugin.h
-index cc10371a35..6e1c8e886c 100644
+index 0cbf638444..af431d4540 100644
 --- a/apps/plugin.h
 +++ b/apps/plugin.h
-@@ -775,6 +775,7 @@ struct plugin_api {
+@@ -778,6 +778,7 @@ struct plugin_api {
      void (*audio_set_input_source)(int source, unsigned flags);
  #endif
      void (*dsp_set_crossfeed_type)(int type);
@@ -12419,7 +12419,7 @@ index afe701efe2..eea5791f32 100644
      \group sound
      \conditions (defined(HAVE_PITCHCONTROL))
 diff --git a/firmware/SOURCES b/firmware/SOURCES
-index 8b524edcc4..e7513f4d8a 100644
+index 02a9d7cd83..d5070124fd 100644
 --- a/firmware/SOURCES
 +++ b/firmware/SOURCES
 @@ -161,7 +161,9 @@ target/hosted/lc-unix.c
@@ -12539,10 +12539,10 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..28ca335247
+index 0000000000..b17be72c79
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,98 @@
 +/*
 + * This config file is for the Cayin N3Pro
 + */
@@ -12601,6 +12601,15 @@ index 0000000000..28ca335247
 +
 +/* Audio codec */
 +#define HAVE_HIBY_LINUX_CODEC
++
++/* The N3Pro kernel implements the AK4493 "Left/Right Playback Volume"
++ * controls with the opposite sense from every other hiby target (louder
++ * at higher values).  hibylinux_codec.c therefore follows the stock
++ * player's model instead: park the DAC register at the volume step and
++ * apply the fine volume curve to the 32-bit sample stream, like the
++ * other hosted linux targets with software volume (FiiO M3K Linux,
++ * Aigo Eros Q, Sony NWZ). */
++#define HAVE_ALSA_32BIT
 +
 +/* We don't have hardware controls */
 +#define HAVE_SW_TONE_CONTROLS
@@ -12707,7 +12716,7 @@ index c7d510dc2f..48f071a7dd 100644
                                    unsigned int band_setting)
 diff --git a/firmware/target/hosted/cayin/n3pro/button-n3pro.c b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
 new file mode 100644
-index 0000000000..5158da6c2e
+index 0000000000..23ca34b809
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
 @@ -0,0 +1,128 @@
@@ -12775,13 +12784,13 @@ index 0000000000..5158da6c2e
 +         * tick is a press+release within microseconds.  Map to the scroll
 +         * wheel so button-devinput queues them (plain buttons would be lost). */
 +        case KEY_LEFT:
-+            return BUTTON_SCROLL_BACK;   /* volume up */
++            return BUTTON_SCROLL_FWD;     /* volume down */
 +        case KEY_RIGHT:
-+            return BUTTON_SCROLL_FWD;    /* volume down */
++            return BUTTON_SCROLL_BACK;    /* volume up */
 +        case KEY_VOLUMEUP:
-+            return BUTTON_SCROLL_BACK;
-+        case KEY_VOLUMEDOWN:
 +            return BUTTON_SCROLL_FWD;
++        case KEY_VOLUMEDOWN:
++            return BUTTON_SCROLL_BACK;
 +
 +        /* Bottom-front touch HOME key (GT9XX reports KEY_MENU) */
 +        case KEY_MENU:
@@ -14214,7 +14223,7 @@ index 0000000000..7ffc8b6996
 +    _usb_init = true;
 +}
 diff --git a/firmware/target/hosted/hiby/hibylinux_codec.c b/firmware/target/hosted/hiby/hibylinux_codec.c
-index 4cb445887d..410a0bb353 100644
+index 4cb445887d..ea82b09b05 100644
 --- a/firmware/target/hosted/hiby/hibylinux_codec.c
 +++ b/firmware/target/hosted/hiby/hibylinux_codec.c
 @@ -35,6 +35,10 @@
@@ -14275,7 +14284,7 @@ index 4cb445887d..410a0bb353 100644
  
      return ps;
  }
-@@ -109,12 +138,18 @@ void audiohw_preinit(void)
+@@ -109,12 +138,22 @@ void audiohw_preinit(void)
      hw_init = 1;
  
      audiohw_mute(false);  /* No need ? */
@@ -14288,13 +14297,70 @@ index 4cb445887d..410a0bb353 100644
  {
      logf("hw postinit");
 +#if defined(CAYIN_N3PRO)
++    /* Raise the headphone analog gain stage to "medium" exactly like the
++     * stock player does at boot, so maximum loudness lines up. */
++    sysfs_set_string(CAYIN_N3PRO_SYSFS_BASE "/output_gain", "output_gain_m");
++
 +    /* make sure the AK4493 output port is routed (headset/line/balanced) */
 +    hiby_get_outputs();
 +#endif
  }
  
  void audiohw_close(void)
-@@ -151,13 +186,46 @@ void audiohw_set_volume(int vol_l, int vol_r)
+@@ -138,26 +177,99 @@ void audiohw_set_volume(int vol_l, int vol_r)
+     vol_l_hw = vol_l;
+     vol_r_hw = vol_r;
+ 
++#if defined(CAYIN_N3PRO)
++    /* Stock-player volume model, from /usr/resource/ot_devices.json:
++     * the hardware register equals the 0..100 volume step (255 at step 0,
++     * 1..100 at steps 1..100 -- this driver's control is loudest at
++     * higher values) and a per-step software gain in centibels supplies
++     * the fine curve, applied to the 32-bit sample stream by pcm-alsa. */
++    static const int sw_gain[101] =
++    {
++        -1500, -1200,  -600,  -510,  -470,  -420,  -395,  -375,  -361,  -358,
++         -346,  -335,  -325,  -316,  -308,  -300,  -292,  -285,  -278,  -271,
++         -264,  -258,  -252,  -246,  -240,  -235,  -230,  -225,  -220,  -215,
++         -210,  -207,  -204,  -201,  -198,  -195,  -192,  -189,  -186,  -183,
++         -180,  -177,  -174,  -171,  -168,  -165,  -162,  -159,  -156,  -153,
++         -150,  -147,  -144,  -141,  -138,  -135,  -132,  -129,  -126,  -123,
++         -120,  -117,  -114,  -111,  -108,  -105,  -102,   -99,   -96,   -93,
++          -90,   -87,   -84,   -81,   -78,   -75,   -72,   -69,   -66,   -63,
++          -60,   -57,   -54,   -51,   -48,   -45,   -42,   -39,   -36,   -33,
++          -30,   -27,   -24,   -21,   -18,   -15,   -12,    -9,    -6,    -3,
++            0
++    };
++
++    if (!hw_init)
++        return;
++
++    int step_l = (vol_l + 1020) / 10;
++    int step_r = (vol_r + 1020) / 10;
++
++    if (step_l < 0)   step_l = 0;
++    if (step_l > 100) step_l = 100;
++    if (step_r < 0)   step_r = 0;
++    if (step_r > 100) step_r = 100;
++
++    l = step_l ? step_l : 255;
++    r = step_r ? step_r : 255;
++#else
+     l = -vol_l/5;
+     r = -vol_r/5;
+ 
+     if (!hw_init)
+         return;
++#endif
+ 
+     alsa_controls_set_ints("Left Playback Volume", 1, &l);
+     alsa_controls_set_ints("Right Playback Volume", 1, &r);
++
++#if defined(CAYIN_N3PRO)
++    pcm_set_mixer_volume(sw_gain[step_l], sw_gain[step_r]);
++#endif
+ }
+ 
  void audiohw_set_filter_roll_off(int value)
  {
      logf("rolloff %d", value);
