@@ -31,4 +31,10 @@ int pcm_alsa_bt_probe(void);
 /* True while the engine is routed to the bluetooth output. */
 bool pcm_alsa_is_bluetooth_active(void);
 
+/* Set by the data pump when the bluetooth link drops while the engine is
+ * routed there (the stock plugin reports a dead PCM).  The menu watchdog
+ * picks this up and falls back to the wired output so playback continues. */
+bool pcm_alsa_bt_link_lost(void);
+void pcm_alsa_bt_link_lost_clear(void);
+
 #endif /* __N3PRO_BT_PCM_H__ */

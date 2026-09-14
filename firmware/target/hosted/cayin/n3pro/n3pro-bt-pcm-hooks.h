@@ -17,6 +17,7 @@
 #define __N3PRO_BT_PCM_HOOKS_H__
 
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -123,6 +124,35 @@ bool pcm_alsa_is_bluetooth_active(void)
 {
     return current_alsa_device &&
            !strcmp(current_alsa_device, N3PRO_BT_DEVICE);
+}
+
+/* Raised by the pump when the bluetooth PCM dies under us (earpieces
+ * switched off, transport torn down); the menu watchdog acts on it. */
+static volatile bool n3pro_bt_link_lost = false;
+
+static void n3pro_bt_mark_link_lost(const char *why)
+{
+    FILE *f;
+
+    n3pro_bt_link_lost = true;
+
+    f = fopen("/mnt/sd_0/.rockbox/bt_pump.log", "a");
+    if (f)
+    {
+        fprintf(f, "link lost: %s (state=%d)\n", why,
+                handle ? (int)snd_pcm_state(handle) : -1);
+        fclose(f);
+    }
+}
+
+bool pcm_alsa_bt_link_lost(void)
+{
+    return n3pro_bt_link_lost;
+}
+
+void pcm_alsa_bt_link_lost_clear(void)
+{
+    n3pro_bt_link_lost = false;
 }
 
 /* Re-use the current handle when the same device is requested and it is

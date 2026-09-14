@@ -67,8 +67,17 @@ struct bt_device_menu_data
 };
 
 static char bt_selected_mac[18];
+static bool bt_prefer = false;   /* the user wants the bluetooth output */
 
-static bool bt_is_connected(const char *mac);
+/* Output watchdog state (see bt_watchdog()). */
+static bool bt_want = false;   /* the user wants bluetooth output */
+static bool bt_busy = false;   /* a menu-driven route is in progress */
+static bool bt_watchdog_started = false;
+static volatile bool bt_watchdog_run = false;
+
+static void bt_watchdog_start(void);
+static void bt_watchdog_stop(void);
+
 static bool bt_prepare_stack(void);
 static void bt_connect_device(const struct bt_device *device);
 
@@ -684,17 +693,27 @@ static const char *bt_pick_codec(const char *mac)
     {
         bt_set_codec(bt_codec_pref[i]);
 
-        snprintf(cmd, sizeof(cmd), "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
-        system(cmd);
-        sleep(HZ / 4);
-        snprintf(cmd, sizeof(cmd), "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
+        /* The codec is fixed when the A2DP transport is set up, so an
+         * attempt after the first needs a fresh connection; the first one
+         * runs on the link the caller has just established (repeatedly
+         * toggling the link wedges the stock bluetooth stack). */
+        if (i > 0)
+        {
+            snprintf(cmd, sizeof(cmd),
+                     "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
+            system(cmd);
+            sleep(HZ / 2);
+        }
+
+        snprintf(cmd, sizeof(cmd),
+                 "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
         system(cmd);
 
-        for (t = 0; t < 10; t++)
+        for (t = 0; t < 6; t++)
         {
             if (pcm_alsa_bt_probe() == 0)
                 return bt_codec_pref[i];
-            sleep(HZ / 5);
+            sleep(HZ / 4);
         }
     }
 
@@ -794,6 +813,8 @@ static bool bt_route_to_bluetooth(const char *mac)
     {
         /* Switch to the independent bluetooth volume (the softvol follows
          * it); the earpiece volume is left alone. */
+        bt_prefer = true;
+        bt_watchdog_start();
         bt_vol_enter_bt();
         bt_kick_audio_if_playing();
         return true;
@@ -803,13 +824,28 @@ static bool bt_route_to_bluetooth(const char *mac)
     return false;
 }
 
-static bool bt_is_connected(const char *mac)
+/* Route back to bluetooth after the earpieces reconnected on their own.
+ * The vendor stack has already brought the link (and its transport) up,
+ * so only the PCM route is switched -- no codec walk, which would cycle
+ * the link and wedge the stock bluetooth stack. */
+static bool bt_route_auto(const char *mac)
 {
-    if (!mac || !*mac)
+    if (!mac || !mac[0])
         return false;
 
-    return bt_selected_mac[0] && !strcmp(mac, bt_selected_mac) &&
-           pcm_alsa_is_bluetooth_active();
+    bt_write_asound(mac);
+
+    if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0)
+    {
+        bt_set_selected_mac(mac);
+        bt_vol_enter_bt();
+        bt_kick_audio_if_playing();
+        bt_route_log("watchdog: peer back, routed to bluetooth");
+        return true;
+    }
+
+    bt_route_to_local(false);
+    return false;
 }
 
 static const char *bt_get_codec(void)
@@ -1051,7 +1087,10 @@ static void bt_connect_device(const struct bt_device *device)
     }
 
     if (routed)
+    {
+        bt_want = true;
         splash(HZ, bt_str(LANG_BT_CONNECTED));
+    }
     else
         splash(HZ * 2, bt_str(LANG_BT_NO_ROUTE));
 }
@@ -1109,10 +1148,129 @@ static void bt_disconnect(void)
         bt_sys_command(cmd, reply, sizeof(reply));
     }
 
+    bt_prefer = false;
+    bt_watchdog_stop();
     bt_route_to_local(false);
     bt_set_selected_mac(NULL);
     bt_power_off();
     splash(HZ, bt_str(LANG_BT_DISCONNECTED));
+}
+
+/* The vendor stack exposes an AVRCP input device named after the peer's
+ * MAC while the earpieces are linked, and removes it again when they go
+ * away: a fork-free way to notice a disconnect. */
+static bool bt_peer_linked(const char *mac)
+{
+    char path[64];
+    char name[80];
+    int i;
+
+    if (!mac || !mac[0])
+        return false;
+
+    for (i = 0; i < 16; i++)
+    {
+        FILE *f;
+
+        snprintf(path, sizeof(path), "/sys/class/input/input%d/name", i);
+        f = fopen(path, "r");
+        if (!f)
+            continue;
+
+        name[0] = '\0';
+        if (fgets(name, sizeof(name), f))
+        {
+            char *nl = strchr(name, '\n');
+
+            if (nl)
+                *nl = '\0';
+        }
+        fclose(f);
+
+        if (name[0] && !strcasecmp(name, mac))
+            return true;
+    }
+
+    return false;
+}
+
+/* ------------------------------------------------------------------ */
+/* Output watchdog                                                     */
+/*                                                                     */
+/* When the earpieces are switched off the stock plugin PCM goes quiet */
+/* and never errors, which leaves the engine hanging on a dead bluetooth*/
+/* sink until the user disconnects by hand.  This cooperative Rockbox   */
+/* thread notices the peer is gone and falls back to the wired output  */
+/* so playback carries on.  Rockbox threads share the UI's host thread, */
+/* so re-opening the PCM here is safe.  The link is checked through the */
+/* peer's input device (no forking, no PCM calls).                     */
+static void bt_watchdog(void)
+{
+    long last_check = 0;
+    long last_fallback = 0;
+    long last_route = 0;
+
+    while (bt_watchdog_run)
+    {
+        sleep(HZ / 2);
+
+        if (bt_busy)
+            continue;
+
+        if (!TIME_AFTER(current_tick, last_check + 2 * HZ))
+            continue;
+        last_check = current_tick;
+
+        if (pcm_alsa_is_bluetooth_active())
+        {
+            if ((pcm_alsa_bt_link_lost() ||
+                 (bt_selected_mac[0] && !bt_peer_linked(bt_selected_mac))) &&
+                TIME_AFTER(current_tick, last_fallback + 5 * HZ))
+            {
+                last_fallback = current_tick;
+                pcm_alsa_bt_link_lost_clear();
+                bt_route_log("watchdog: peer gone, back to local");
+                bt_route_to_local(false);
+            }
+        }
+        else if (bt_prefer && bt_selected_mac[0] &&
+                 bt_peer_linked(bt_selected_mac) &&
+                 TIME_AFTER(current_tick, last_route + 5 * HZ))
+        {
+            /* The earpieces came back and the vendor stack reconnected
+             * them: pick the bluetooth output up again by itself. */
+            last_route = current_tick;
+            bt_route_auto(bt_selected_mac);
+        }
+    }
+
+    /* Exiting: the starter may create a fresh instance. */
+    bt_watchdog_started = false;
+}
+
+static long bt_watchdog_stack[(DEFAULT_STACK_SIZE + 0x2000) / sizeof(long)];
+
+/* Started when bluetooth output is in use and stopped again when the user
+ * disconnects, so no checking happens while the radio is off. */
+static void bt_watchdog_start(void)
+{
+    bt_watchdog_run = true;
+
+    if (bt_watchdog_started)
+        return;
+
+    if (create_thread(bt_watchdog, bt_watchdog_stack,
+                      sizeof(bt_watchdog_stack), 0, "bt_watch"
+                      IF_PRIO(, PRIORITY_USER_INTERFACE)
+                      IF_COP(, CPU)) > 0)
+        bt_watchdog_started = true;
+    else
+        bt_watchdog_run = false;
+}
+
+static void bt_watchdog_stop(void)
+{
+    bt_watchdog_run = false;   /* the thread exits on its next wake-up */
 }
 
 static void bt_show_status(void)
@@ -1125,12 +1283,11 @@ static void bt_show_status(void)
     if (bt_selected_mac[0])
     {
         simplelist_addline("%s: %s", bt_str(LANG_BT_MAC), bt_selected_mac);
+        /* Real link state from the peer's AVRCP input device; opening the
+         * PCM just to test readiness would block on the bluetooth stack. */
         simplelist_addline("%s: %s", bt_str(LANG_BT_LINK),
-                           bt_is_connected(bt_selected_mac)
+                           bt_peer_linked(bt_selected_mac)
                                ? bt_str(LANG_ON) : bt_str(LANG_OFF));
-        simplelist_addline("%s: %s", bt_str(LANG_BT_A2DP_PCM),
-                           pcm_alsa_bt_probe() == 0
-                               ? bt_str(LANG_BT_READY) : bt_str(LANG_BT_NOT_READY));
         simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC), bt_get_codec());
     }
     else
@@ -1173,10 +1330,14 @@ int n3pro_bluetooth_menu(void)
                 bt_show_status();
                 break;
             case 1:
+                bt_busy = true;
                 bt_show_devices();
+                bt_busy = false;
                 break;
             case 2:
+                bt_busy = true;
                 bt_disconnect();
+                bt_busy = false;
                 break;
             default:
                 break;

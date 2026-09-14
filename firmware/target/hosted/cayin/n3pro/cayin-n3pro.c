@@ -27,6 +27,7 @@
 #include "audio.h"
 #include "alsa-controls.h"
 #include "cayin-n3pro.h"
+#include "n3pro-bt-pcm.h"
 
 #define TIMBRE_PATH      CAYIN_N3PRO_SYSFS_BASE "/timbre_select"
 
@@ -84,6 +85,17 @@ void cayin_tube_tick(int out_ps)
 {
     int st = audio_status();
     bool playing = (st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE);
+
+    /* The bluetooth output bypasses the JAN6418 buffer entirely (it sits in
+     * the 3.5 mm single-ended path), so switch the tube off straight away
+     * while audio is routed there. */
+    if (pcm_alsa_is_bluetooth_active())
+    {
+        if (tube_powered)
+            tube_power(false);
+        tube_off_tick = 0;
+        return;
+    }
 
     if (tube_desired == 0)
     {

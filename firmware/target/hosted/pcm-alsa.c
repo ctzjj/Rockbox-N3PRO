@@ -417,6 +417,14 @@ static void pcm_pump_locked(snd_pcm_t *h)
     {
         return;
     }
+    else if (state == SND_PCM_STATE_DISCONNECTED)
+    {
+#if defined(CAYIN_N3PRO)
+        if (n3pro_pcm_is_bt_device(current_alsa_device))
+            n3pro_bt_mark_link_lost("pcm disconnected");
+#endif
+        return;
+    }
 
 #ifdef HAVE_RECORDING
     if (current_alsa_mode == SND_PCM_STREAM_PLAYBACK)
@@ -580,11 +588,15 @@ static void async_callback(snd_async_handler_t *ahandler)
                 }
 		continue;  /* buffer contents trashed, no sense in trying to copy */
             }
-            else if (err != period_size)
-            {
-                logf("Read error: read %i expected %li", err, period_size);
-                break;
-            }
+                else if (err != period_size)
+                {
+                    logf("Write error: written %i expected %li", err, period_size);
+#if defined(CAYIN_N3PRO)
+                    if (n3pro_pcm_is_bt_device(current_alsa_device))
+                        n3pro_bt_mark_link_lost("write error");
+#endif
+                    break;
+                }
 
             /* start the fake DMA transfer */
             if (!copy_frames(false))
