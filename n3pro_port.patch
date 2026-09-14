@@ -6294,10 +6294,10 @@ index 61d16f4cb1..66c70ad054 100644
            ,&timestretch_enabled
 diff --git a/apps/n3pro_bluetooth.c b/apps/n3pro_bluetooth.c
 new file mode 100644
-index 0000000000..3e108762bf
+index 0000000000..5bb3eb8bf8
 --- /dev/null
 +++ b/apps/n3pro_bluetooth.c
-@@ -0,0 +1,1414 @@
+@@ -0,0 +1,1413 @@
 +/***************************************************************************
 + * Bluetooth audio (A2DP source) for the Cayin N3Pro hosted port.
 + *
@@ -6969,9 +6969,8 @@ index 0000000000..3e108762bf
 +    fprintf(f, "            name \"Bluetooth Vol\"\n");
 +    fprintf(f, "            card 0\n");
 +    fprintf(f, "        }\n");
-+    fprintf(f, "        /* The audible window of a digital attenuation is about\n");
-+    fprintf(f, "           50 dB; use it all so the volume steps do not bunch up\n");
-+    fprintf(f, "           in the top few dB. */\n");
++    /* The audible window of a digital attenuation is about 50 dB; use it
++     * all so the volume steps do not bunch up in the top few dB. */
 +    fprintf(f, "        min_dB -50.0\n");
 +    fprintf(f, "        max_dB 0.0\n");
 +    fprintf(f, "    }\n");

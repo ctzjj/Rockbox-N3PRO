@@ -669,9 +669,8 @@ static void bt_write_asound(const char *mac)
     fprintf(f, "            name \"Bluetooth Vol\"\n");
     fprintf(f, "            card 0\n");
     fprintf(f, "        }\n");
-    fprintf(f, "        /* The audible window of a digital attenuation is about\n");
-    fprintf(f, "           50 dB; use it all so the volume steps do not bunch up\n");
-    fprintf(f, "           in the top few dB. */\n");
+    /* The audible window of a digital attenuation is about 50 dB; use it
+     * all so the volume steps do not bunch up in the top few dB. */
     fprintf(f, "        min_dB -50.0\n");
     fprintf(f, "        max_dB 0.0\n");
     fprintf(f, "    }\n");
