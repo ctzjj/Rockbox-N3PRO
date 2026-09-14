@@ -132,17 +132,8 @@ static volatile bool n3pro_bt_link_lost = false;
 
 static void n3pro_bt_mark_link_lost(const char *why)
 {
-    FILE *f;
-
+    (void)why;
     n3pro_bt_link_lost = true;
-
-    f = fopen("/mnt/sd_0/.rockbox/bt_pump.log", "a");
-    if (f)
-    {
-        fprintf(f, "link lost: %s (state=%d)\n", why,
-                handle ? (int)snd_pcm_state(handle) : -1);
-        fclose(f);
-    }
 }
 
 bool pcm_alsa_bt_link_lost(void)

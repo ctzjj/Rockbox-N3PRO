@@ -41,8 +41,6 @@
 #include "sound.h"
 #include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
 #include <alsa/asoundlib.h>
-#include <stdio.h>
-#include <stdarg.h>
 #endif
 
 int hiby_has_valid_output(void);
@@ -171,21 +169,6 @@ void audiohw_set_frequency(int fsel)
 }
 
 #if defined(CAYIN_N3PRO)
-static void n3pro_btvol_log(const char *fmt, ...)
-{
-    FILE *f = fopen("/mnt/sd_0/.rockbox/btvol.log", "a");
-    va_list ap;
-
-    if (!f)
-        return;
-
-    va_start(ap, fmt);
-    vfprintf(f, fmt, ap);
-    va_end(ap);
-    fputc('\n', f);
-    fclose(f);
-}
-
 /* The bluetooth route bypasses the AK4493 DAC, so the hardware volume has
  * no effect on it.  Drive the userspace softvol control wrapped around the
  * vendor PCM instead, mapping the volume/volume_limit span onto whatever
@@ -256,12 +239,25 @@ static void n3pro_set_bt_volume(int vol_cb)
 
     snd_ctl_elem_value_alloca(&val);
     snd_ctl_elem_value_set_id(val, id);
-    snd_ctl_elem_value_set_integer(val, 0, step);
+
+    /* The softvol control is stereo ("Front Left/Right"); every channel has
+     * to be written or the untouched ones keep their old (possibly muted)
+     * value and the output comes out unbalanced. */
+    {
+        unsigned int ch;
+        unsigned int cnt = snd_ctl_elem_info_get_count(info);
+
+        if (cnt < 1)
+            cnt = 1;
+        if (cnt > 8)
+            cnt = 8;
+
+        for (ch = 0; ch < cnt; ch++)
+            snd_ctl_elem_value_set_integer(val, ch, step);
+    }
 
     {
         int rc = snd_ctl_elem_write(btvol_ctl, val);
-        n3pro_btvol_log("btvol: vol_cb=%d pct=%d max=%ld step=%ld rc=%d",
-                        vol_cb, pct, max_step, step, rc);
         if (rc < 0)
         {
             /* The control disappears when the bluetooth PCM is closed;
@@ -292,12 +288,8 @@ void audiohw_set_volume(int vol_l, int vol_r)
     alsa_controls_set_ints("Right Playback Volume", 1, &r);
 
 #if defined(CAYIN_N3PRO)
-    {
-        int bt_active = pcm_alsa_is_bluetooth_active();
-        n3pro_btvol_log("ahw: vol=%d bt=%d", (vol_l + vol_r) / 2, bt_active);
-        if (bt_active)
-            n3pro_set_bt_volume((vol_l + vol_r) / 2);
-    }
+    if (pcm_alsa_is_bluetooth_active())
+        n3pro_set_bt_volume((vol_l + vol_r) / 2);
 #endif
 }
 

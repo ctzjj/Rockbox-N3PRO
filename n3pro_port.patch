@@ -6227,6 +6227,18 @@ index 0000000000..2376e7d44d
 +                  n3pro_bluetooth_menu, NULL, Icon_Submenu);
 +
 +#endif /* CAYIN_N3PRO */
+diff --git a/apps/menus/settings_menu.c b/apps/menus/settings_menu.c
+index 1879ada8fe..97c536faad 100644
+--- a/apps/menus/settings_menu.c
++++ b/apps/menus/settings_menu.c
+@@ -493,6 +493,7 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
+ #endif
+          );
+ 
++
+ /*    SYSTEM MENU                  */
+ /***********************************/
+ 
 diff --git a/apps/menus/sound_menu.c b/apps/menus/sound_menu.c
 index 61d16f4cb1..66c70ad054 100644
 --- a/apps/menus/sound_menu.c
@@ -6282,10 +6294,10 @@ index 61d16f4cb1..66c70ad054 100644
            ,&timestretch_enabled
 diff --git a/apps/n3pro_bluetooth.c b/apps/n3pro_bluetooth.c
 new file mode 100644
-index 0000000000..6e3ed00859
+index 0000000000..3e2796a0f6
 --- /dev/null
 +++ b/apps/n3pro_bluetooth.c
-@@ -0,0 +1,1349 @@
+@@ -0,0 +1,1406 @@
 +/***************************************************************************
 + * Bluetooth audio (A2DP source) for the Cayin N3Pro hosted port.
 + *
@@ -6322,9 +6334,9 @@ index 0000000000..6e3ed00859
 +#include "n3pro-bt-pcm.h"
 +
 +/* str() yields const unsigned char *; keep the string call sites simple. */
-+static const char *bt_str(int id)
++static char *bt_str(int id)
 +{
-+    return (const char *)str(id);
++    return (char *)str(id);
 +}
 +
 +#define BT_MAX_DEVICES 32
@@ -6360,6 +6372,7 @@ index 0000000000..6e3ed00859
 +/* Output watchdog state (see bt_watchdog()). */
 +static bool bt_want = false;   /* the user wants bluetooth output */
 +static bool bt_busy = false;   /* a menu-driven route is in progress */
++static bool bt_peer_linked(const char *mac);
 +static bool bt_watchdog_started = false;
 +static volatile bool bt_watchdog_run = false;
 +
@@ -6899,7 +6912,13 @@ index 0000000000..6e3ed00859
 +static void bt_set_selected_mac(const char *mac)
 +{
 +    if (mac && mac[0])
-+        snprintf(bt_selected_mac, sizeof(bt_selected_mac), "%s", mac);
++    {
++        /* Guard against snprintf()-ing the buffer onto itself (the link
++         * watcher passes bt_selected_mac), which is undefined and was
++         * wiping the address. */
++        if (mac != bt_selected_mac)
++            snprintf(bt_selected_mac, sizeof(bt_selected_mac), "%s", mac);
++    }
 +    else
 +        bt_selected_mac[0] = '\0';
 +}
@@ -6979,30 +6998,41 @@ index 0000000000..6e3ed00859
 +
 +    for (i = 0; bt_codec_pref[i] != NULL; i++)
 +    {
++        /* Give the first attempt (on the link the caller just made) time
++         * to come up before stepping down the codec list. */
++        int probes = (i == 0) ? 12 : 6;
++
 +        bt_set_codec(bt_codec_pref[i]);
 +
-+        /* The codec is fixed when the A2DP transport is set up, so an
-+         * attempt after the first needs a fresh connection; the first one
-+         * runs on the link the caller has just established (repeatedly
-+         * toggling the link wedges the stock bluetooth stack). */
++        /* The codec is fixed when the A2DP transport is set up, so a new
++         * codec needs a fresh connection.  Only ever renegotiate while
++         * the link is really up: toggling a link that is not up wedges
++         * the stock bluetooth stack (reboot required). */
 +        if (i > 0)
 +        {
++            if (!bt_peer_linked(mac))
++                break;
++
 +            snprintf(cmd, sizeof(cmd),
 +                     "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
 +            system(cmd);
 +            sleep(HZ / 2);
++            snprintf(cmd, sizeof(cmd),
++                     "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
++            system(cmd);
 +        }
 +
-+        snprintf(cmd, sizeof(cmd),
-+                 "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
-+        system(cmd);
-+
-+        for (t = 0; t < 6; t++)
++        for (t = 0; t < probes; t++)
 +        {
 +            if (pcm_alsa_bt_probe() == 0)
 +                return bt_codec_pref[i];
 +            sleep(HZ / 4);
 +        }
++
++        /* Nothing came up and the link is gone: cycling would only wedge
++         * the stack further. */
++        if (!bt_peer_linked(mac))
++            break;
 +    }
 +
 +    return NULL;
@@ -7048,6 +7078,19 @@ index 0000000000..6e3ed00859
 +    bt_vol_on_bt = false;
 +}
 +
++/* An unclean link drop (earpieces powered off in the middle of a
++ * connection) leaves a stale ACL behind in the controller: the host side
++ * loses the handle ("ACL packet for unknown connection handle") while the
++ * earpieces still believe they are connected, so every later connect
++ * fails with "Stream setup failed" until the earpieces are re-paired or
++ * the player reboots.  An HCI reset clears the controller state and makes
++ * both ends drop the ghost link. */
++static void bt_controller_reset(void)
++{
++    system("/usr/sbin/hciconfig hci0 reset >/dev/null 2>&1");
++    sleep(HZ / 2);
++}
++
 +static void bt_route_to_local(bool show_message)
 +{
 +    pcm_alsa_switch_playback_device(BT_LOCAL_PLAYBACK_DEVICE);
@@ -7057,47 +7100,22 @@ index 0000000000..6e3ed00859
 +        splash(HZ, "Output: Local");
 +}
 +
-+static void bt_route_log(const char *msg)
-+{
-+    FILE *f = fopen("/mnt/sd_0/.rockbox/bt_route.log", "a");
-+
-+    if (!f)
-+        return;
-+
-+    fputs(msg, f);
-+    fputc('\n', f);
-+    fclose(f);
-+}
-+
 +static bool bt_route_to_bluetooth(const char *mac)
 +{
-+    char line[96];
-+    int rc;
-+
 +    if (!mac || !mac[0])
 +        return false;
 +
 +    bt_write_asound(mac);
-+    snprintf(line, sizeof(line), "route: mac=%s asound written", mac);
-+    bt_route_log(line);
 +
 +    /* Pick the highest codec the earphone supports; on success the A2DP
 +     * transport is already up, so no extra wait is needed. */
 +    if (!bt_pick_codec(mac))
 +    {
-+        bt_route_log("route: codec pick failed");
 +        bt_route_to_local(false);
 +        return false;
 +    }
 +
-+    bt_route_log("route: codec ok");
-+
-+    rc = pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE);
-+    snprintf(line, sizeof(line), "route: switch rc=%d active=%d",
-+             rc, pcm_alsa_is_bluetooth_active());
-+    bt_route_log(line);
-+
-+    if (rc == 0)
++    if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0)
 +    {
 +        /* Switch to the independent bluetooth volume (the softvol follows
 +         * it); the earpiece volume is left alone. */
@@ -7128,7 +7146,6 @@ index 0000000000..6e3ed00859
 +        bt_set_selected_mac(mac);
 +        bt_vol_enter_bt();
 +        bt_kick_audio_if_playing();
-+        bt_route_log("watchdog: peer back, routed to bluetooth");
 +        return true;
 +    }
 +
@@ -7343,6 +7360,15 @@ index 0000000000..6e3ed00859
 +        if (pair_reply_ok)
 +            sleep(HZ / 2);
 +    }
++    else if (!bt_peer_linked(mac))
++    {
++        /* A ghost ACL left over from an unclean link drop is the usual
++         * reason a connect to an already-paired device fails ("Stream
++         * setup failed"): clear the controller before dialling.  Never do
++         * this after a fresh pairing -- the reset would interrupt the
++         * pairing handshake that just completed. */
++        bt_controller_reset();
++    }
 +
 +    snprintf(cmd, sizeof(cmd), "BT:CONNECT:%s", mac);
 +    ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
@@ -7365,6 +7391,8 @@ index 0000000000..6e3ed00859
 +    routed = bt_route_to_bluetooth(mac);
 +    if (!routed)
 +    {
++        if (device->paired)
++            bt_controller_reset();
 +        snprintf(cmd, sizeof(cmd), "BT:CONNECT:%s", mac);
 +        ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
 +        if (ctl_rc == 0 && bt_sys_reply_ok(reply, "BT:CONNECT"))
@@ -7482,6 +7510,41 @@ index 0000000000..6e3ed00859
 +    return false;
 +}
 +
++/* True while any peer (MAC-named) input device exists; used as a fallback
++ * when the selected address is not known. */
++static bool bt_any_peer_input(void)
++{
++    char path[64];
++    char name[80];
++    int i;
++
++    for (i = 0; i < 16; i++)
++    {
++        FILE *f;
++
++        snprintf(path, sizeof(path), "/sys/class/input/input%d/name", i);
++        f = fopen(path, "r");
++        if (!f)
++            continue;
++
++        name[0] = '\0';
++        if (fgets(name, sizeof(name), f))
++        {
++            char *nl = strchr(name, '\n');
++
++            if (nl)
++                *nl = '\0';
++        }
++        fclose(f);
++
++        /* Peer devices are named after their MAC address. */
++        if (strlen(name) == 17 && name[2] == ':' && name[5] == ':')
++            return true;
++    }
++
++    return false;
++}
++
 +/* ------------------------------------------------------------------ */
 +/* Output watchdog                                                     */
 +/*                                                                     */
@@ -7511,14 +7574,17 @@ index 0000000000..6e3ed00859
 +
 +        if (pcm_alsa_is_bluetooth_active())
 +        {
-+            if ((pcm_alsa_bt_link_lost() ||
-+                 (bt_selected_mac[0] && !bt_peer_linked(bt_selected_mac))) &&
-+                TIME_AFTER(current_tick, last_fallback + 5 * HZ))
++            bool lost = pcm_alsa_bt_link_lost() ||
++                        (bt_selected_mac[0] ? !bt_peer_linked(bt_selected_mac)
++                                            : !bt_any_peer_input());
++
++            if (lost && TIME_AFTER(current_tick, last_fallback + 5 * HZ))
 +            {
 +                last_fallback = current_tick;
 +                pcm_alsa_bt_link_lost_clear();
-+                bt_route_log("watchdog: peer gone, back to local");
 +                bt_route_to_local(false);
++                /* Drop the ghost ACL before it wedges the next connect. */
++                bt_controller_reset();
 +            }
 +        }
 +        else if (bt_prefer && bt_selected_mac[0] &&
@@ -7527,8 +7593,11 @@ index 0000000000..6e3ed00859
 +        {
 +            /* The earpieces came back and the vendor stack reconnected
 +             * them: pick the bluetooth output up again by itself. */
++            char mac[18];
++
 +            last_route = current_tick;
-+            bt_route_auto(bt_selected_mac);
++            snprintf(mac, sizeof(mac), "%s", bt_selected_mac);
++            bt_route_auto(mac);
 +        }
 +    }
 +
@@ -16233,10 +16302,10 @@ index 0000000000..a25dcfbfc2
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 new file mode 100644
-index 0000000000..ced11c799b
+index 0000000000..c280c4e0c6
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,248 @@
 +/***************************************************************************
 + * N3Pro dynamic PCM routing hooks for the shared hosted ALSA backend.
 + *
@@ -16371,17 +16440,8 @@ index 0000000000..ced11c799b
 +
 +static void n3pro_bt_mark_link_lost(const char *why)
 +{
-+    FILE *f;
-+
++    (void)why;
 +    n3pro_bt_link_lost = true;
-+
-+    f = fopen("/mnt/sd_0/.rockbox/bt_pump.log", "a");
-+    if (f)
-+    {
-+        fprintf(f, "link lost: %s (state=%d)\n", why,
-+                handle ? (int)snd_pcm_state(handle) : -1);
-+        fclose(f);
-+    }
 +}
 +
 +bool pcm_alsa_bt_link_lost(void)
@@ -17220,10 +17280,10 @@ index 0000000000..7ffc8b6996
 +    _usb_init = true;
 +}
 diff --git a/firmware/target/hosted/hiby/hibylinux_codec.c b/firmware/target/hosted/hiby/hibylinux_codec.c
-index 4cb445887d..44fa7554c6 100644
+index 4cb445887d..8154eb73e0 100644
 --- a/firmware/target/hosted/hiby/hibylinux_codec.c
 +++ b/firmware/target/hosted/hiby/hibylinux_codec.c
-@@ -35,6 +35,16 @@
+@@ -35,6 +35,14 @@
  
  #include "logf.h"
  
@@ -17233,14 +17293,12 @@ index 4cb445887d..44fa7554c6 100644
 +#include "sound.h"
 +#include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
 +#include <alsa/asoundlib.h>
-+#include <stdio.h>
-+#include <stdarg.h>
 +#endif
 +
  int hiby_has_valid_output(void);
  
  static int hw_init = 0;
-@@ -52,7 +62,11 @@ void audiohw_mute(int mute)
+@@ -52,7 +60,11 @@ void audiohw_mute(int mute)
  
      muted = mute;
  
@@ -17252,7 +17310,7 @@ index 4cb445887d..44fa7554c6 100644
  }
  
  int hiby_has_valid_output(void) {
-@@ -62,6 +76,26 @@ int hiby_has_valid_output(void) {
+@@ -62,6 +74,26 @@ int hiby_has_valid_output(void) {
  
      if (!hw_init) return ps;
  
@@ -17279,7 +17337,7 @@ index 4cb445887d..44fa7554c6 100644
      const char * const sysfs_hs_switch = "/sys/class/switch/headset/state";
      const char * const sysfs_bal_switch = "/sys/class/switch/balance/state";
  
-@@ -70,6 +104,7 @@ int hiby_has_valid_output(void) {
+@@ -70,6 +102,7 @@ int hiby_has_valid_output(void) {
  
      if (sysfs_get_int(sysfs_bal_switch, &status) && status)
          ps = 3; // balanced output
@@ -17287,7 +17345,7 @@ index 4cb445887d..44fa7554c6 100644
  
      return ps;
  }
-@@ -109,12 +144,18 @@ void audiohw_preinit(void)
+@@ -109,12 +142,18 @@ void audiohw_preinit(void)
      hw_init = 1;
  
      audiohw_mute(false);  /* No need ? */
@@ -17306,26 +17364,11 @@ index 4cb445887d..44fa7554c6 100644
  }
  
  void audiohw_close(void)
-@@ -129,6 +170,109 @@ void audiohw_set_frequency(int fsel)
+@@ -129,6 +168,107 @@ void audiohw_set_frequency(int fsel)
      (void)fsel;
  }
  
 +#if defined(CAYIN_N3PRO)
-+static void n3pro_btvol_log(const char *fmt, ...)
-+{
-+    FILE *f = fopen("/mnt/sd_0/.rockbox/btvol.log", "a");
-+    va_list ap;
-+
-+    if (!f)
-+        return;
-+
-+    va_start(ap, fmt);
-+    vfprintf(f, fmt, ap);
-+    va_end(ap);
-+    fputc('\n', f);
-+    fclose(f);
-+}
-+
 +/* The bluetooth route bypasses the AK4493 DAC, so the hardware volume has
 + * no effect on it.  Drive the userspace softvol control wrapped around the
 + * vendor PCM instead, mapping the volume/volume_limit span onto whatever
@@ -17396,12 +17439,25 @@ index 4cb445887d..44fa7554c6 100644
 +
 +    snd_ctl_elem_value_alloca(&val);
 +    snd_ctl_elem_value_set_id(val, id);
-+    snd_ctl_elem_value_set_integer(val, 0, step);
++
++    /* The softvol control is stereo ("Front Left/Right"); every channel has
++     * to be written or the untouched ones keep their old (possibly muted)
++     * value and the output comes out unbalanced. */
++    {
++        unsigned int ch;
++        unsigned int cnt = snd_ctl_elem_info_get_count(info);
++
++        if (cnt < 1)
++            cnt = 1;
++        if (cnt > 8)
++            cnt = 8;
++
++        for (ch = 0; ch < cnt; ch++)
++            snd_ctl_elem_value_set_integer(val, ch, step);
++    }
 +
 +    {
 +        int rc = snd_ctl_elem_write(btvol_ctl, val);
-+        n3pro_btvol_log("btvol: vol_cb=%d pct=%d max=%ld step=%ld rc=%d",
-+                        vol_cb, pct, max_step, step, rc);
 +        if (rc < 0)
 +        {
 +            /* The control disappears when the bluetooth PCM is closed;
@@ -17416,18 +17472,14 @@ index 4cb445887d..44fa7554c6 100644
  void audiohw_set_volume(int vol_l, int vol_r)
  {
      logf("hw vol %d %d", vol_l, vol_r);
-@@ -146,18 +290,60 @@ void audiohw_set_volume(int vol_l, int vol_r)
+@@ -146,18 +286,56 @@ void audiohw_set_volume(int vol_l, int vol_r)
  
      alsa_controls_set_ints("Left Playback Volume", 1, &l);
      alsa_controls_set_ints("Right Playback Volume", 1, &r);
 +
 +#if defined(CAYIN_N3PRO)
-+    {
-+        int bt_active = pcm_alsa_is_bluetooth_active();
-+        n3pro_btvol_log("ahw: vol=%d bt=%d", (vol_l + vol_r) / 2, bt_active);
-+        if (bt_active)
-+            n3pro_set_bt_volume((vol_l + vol_r) / 2);
-+    }
++    if (pcm_alsa_is_bluetooth_active())
++        n3pro_set_bt_volume((vol_l + vol_r) / 2);
 +#endif
  }
  
@@ -17866,6 +17918,202 @@ index 469dc640b9..06d2b0191c 100644
  }
  
  bool usb_audio_get_active(void)
+diff --git a/firmware/target/hosted/lcd-linuxfb.c b/firmware/target/hosted/lcd-linuxfb.c
+index 63661a1254..06369efc21 100644
+--- a/firmware/target/hosted/lcd-linuxfb.c
++++ b/firmware/target/hosted/lcd-linuxfb.c
+@@ -24,6 +24,7 @@
+ #include <unistd.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <time.h>
+ #include <linux/fb.h>
+ #include <sys/mman.h>
+ #include <sys/ioctl.h>
+@@ -61,6 +62,89 @@ static void redraw(void)
+     ioctl(fd, FBIOPAN_DISPLAY, &vinfo);
+ }
+ 
++#if defined(CAYIN_N3PRO)
++/* The panel is a sync-less 60 Hz panel scanned straight out of the
++ * framebuffer by the LCDC: there is no blanking interval, and the kernel
++ * fbdev neither supports FBIOPAN page flipping (yres_virtual is clamped to
++ * yres) nor FBIO_WAITFORVSYNC.  Writing the visible buffer therefore tears
++ * whenever the scan beam crosses the rows being written -- with a ~7 ms
++ * full-frame blit that is virtually every update (menu transitions showed
++ * the lower half of the screen catching up frames later).
++ *
++ * The panel TE signal is wired to a GPIO, though, and the kernel counts it
++ * as the "slcd_vsync" interrupt (~60 Hz, verified on the running system).
++ * We poll that counter to lock onto the frame start and then write in scan
++ * order: the blit (~7 ms/frame) runs well ahead of the beam (~35 us/row),
++ * so the beam only ever reads fully-written rows.  The frame period is
++ * predicted from the panel timing and re-locked at every edge, so the
++ * tight-poll window stays around a millisecond. */
++
++static long long n3pro_frame_ns;
++static long long n3pro_next_vsync_ns;
++
++static long long n3pro_now_ns(void)
++{
++    struct timespec ts;
++    clock_gettime(CLOCK_MONOTONIC, &ts);
++    return (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
++}
++
++/* Current value of the slcd_vsync interrupt counter, -1 if unavailable. */
++static long long n3pro_vsync_count(void)
++{
++    char buf[2048];
++    int fd = open("/proc/interrupts", O_RDONLY);
++    if (fd < 0)
++        return -1;
++    int n = read(fd, buf, sizeof(buf) - 1);
++    close(fd);
++    if (n <= 0)
++        return -1;
++    buf[n] = '\0';
++
++    const char *p = strstr(buf, "slcd_vsync");
++    if (!p)
++        return -1;
++    while (p > buf && p[-1] != '\n')
++        p--;                          /* start of the interrupt line */
++    p = strchr(p, ':');
++    if (!p)
++        return -1;
++    return strtoll(p + 1, NULL, 10);
++}
++
++/* Block until the next panel frame start (best effort; if the sync source
++ * disappears we simply return and the blit runs unsynchronised). */
++static void n3pro_wait_vsync(void)
++{
++    long long c0, t0, now, d;
++
++    now = n3pro_now_ns();
++    d = n3pro_next_vsync_ns - now;
++    if (d > 400000)
++    {
++        if (d > 20000000LL)
++            d = 20000000LL;           /* stale prediction: cap the sleep */
++        usleep((d - 400000) / 1000);
++    }
++
++    c0 = n3pro_vsync_count();
++    if (c0 < 0)
++        return;
++    t0 = n3pro_now_ns();
++    while (n3pro_vsync_count() == c0)
++    {
++        now = n3pro_now_ns();
++        if (now - t0 > 30000000LL)
++        {
++            n3pro_next_vsync_ns = now + n3pro_frame_ns;
++            return;                   /* lost sync: write unsynchronised */
++        }
++    }
++    n3pro_next_vsync_ns = n3pro_now_ns() + n3pro_frame_ns;
++}
++#endif
++
+ void lcd_init_device(void)
+ {
+     const char * const fb_dev = "/dev/fb0";
+@@ -90,7 +174,15 @@ void lcd_init_device(void)
+         panicf("Cannot read framebuffer variable information");
+     }
+ 
+-#ifdef FB_DOUBLEBUF
++#if defined(CAYIN_N3PRO)
++    /* N3Pro uses a fixed 32bpp Ingenic SLCD and the mode cannot be changed.
++     * Leave it as-is; the blit converts our 16bpp buffer to the panel format. */
++    n3pro_frame_ns = (long long)vinfo.pixclock
++                     * (vinfo.xres + vinfo.left_margin + vinfo.right_margin
++                        + vinfo.hsync_len)
++                     * (vinfo.yres + vinfo.upper_margin + vinfo.lower_margin
++                        + vinfo.vsync_len) / 1000;
++#elif defined(FB_DOUBLEBUF)
+     if (doublebuf) {
+         vinfo.yres_virtual = vinfo.yres * 2;
+         if(ioctl(fd, FBIOPUT_VSCREENINFO, &vinfo) < 0) {
+@@ -185,6 +277,37 @@ static void fb_copy_rect(fb_data *dst, const fb_data *src,
+ }
+ #endif
+ 
++#if defined(CAYIN_N3PRO)
++/* The N3Pro panel is a 32bpp XRGB8888 Ingenic panel whose scan order is
++ * reversed (180-degree mounting).  Convert Rockbox's 16bpp RGB565
++ * framebuffer into the panel format and write it rotated so the image
++ * appears upright.  Rows are written in panel scan order (fb row 0 first)
++ * so that, combined with n3pro_wait_vsync(), the blit stays ahead of the
++ * scan beam. */
++static void fb_blit_n3pro(const fb_data *src_base, int x, int y,
++                          int width, int height)
++{
++    unsigned int *dst = (unsigned int *)framebuffer;
++
++    for (int j = height - 1; j >= 0; j--)
++    {
++        const fb_data *srow = src_base + (long)(y + j) * LCD_WIDTH + x;
++        /* rotated destination row, walked backwards */
++        unsigned int *drow = dst + (long)(LCD_HEIGHT - 1 - y - j) * LCD_WIDTH
++                               + (LCD_WIDTH - 1 - x);
++
++        for (int i = 0; i < width; i++)
++        {
++            unsigned short c = srow[i];
++            unsigned r = (c >> 11) & 0x1f, g = (c >> 5) & 0x3f, b = c & 0x1f;
++            *drow-- = ((r << 3 | r >> 2) << 16)
++                    | ((g << 2 | g >> 4) << 8)
++                    |  (b << 3 | b >> 2);
++        }
++    }
++}
++#endif
++
+ void lcd_update(void)
+ {
+     if (fd < 0) return;
+@@ -193,6 +316,10 @@ void lcd_update(void)
+     if (lcd_active())
+ #endif
+     {
++#if defined(CAYIN_N3PRO)
++        n3pro_wait_vsync();           /* chase the scan beam (full screen) */
++        fb_blit_n3pro(FBADDR(0, 0), 0, 0, LCD_WIDTH, LCD_HEIGHT);
++#else
+         /* Copy the Rockbox framebuffer to the second framebuffer */
+ #ifdef FB_STRIDE_MISMATCH
+         /* Strides differ - not one contiguous run */
+@@ -202,6 +329,7 @@ void lcd_update(void)
+         fb_data *dst = LCD_FRAMEBUF_ADDR(0, 0) + (fb_plane * FRAMEBUFFER_SIZE);
+         lcd_copy_buffer_rect(dst, FBADDR(0,0),
+                              LCD_WIDTH*LCD_HEIGHT, 1);
++#endif
+ #endif
+         redraw();
+     }
+@@ -215,6 +343,11 @@ void lcd_update_rect(int x, int y, int width, int height)
+     if (lcd_active())
+ #endif
+     {
++#if defined(CAYIN_N3PRO)
++        if (width * height >= LCD_WIDTH * LCD_HEIGHT / 8)
++            n3pro_wait_vsync();       /* chase the scan beam on big updates */
++        fb_blit_n3pro(FBADDR(0, 0), x, y, width, height);
++#else
+ #ifdef FB_STRIDE_MISMATCH
+         /* Strides differ - do line-by-line */
+         fb_copy_rect(LCD_FRAMEBUF_ADDR(x, y), FBADDR(x, y), width, height);
+@@ -233,6 +366,7 @@ void lcd_update_rect(int x, int y, int width, int height)
+             /* Full width - copy as one line */
+             lcd_copy_buffer_rect(dst, src, LCD_WIDTH*height, 1);
+         }
++#endif
+ #endif
+         redraw();
+     }
 diff --git a/firmware/target/hosted/pcm-alsa.c b/firmware/target/hosted/pcm-alsa.c
 index 10b379b03d..84817bfc6f 100644
 --- a/firmware/target/hosted/pcm-alsa.c
@@ -18121,6 +18369,372 @@ index 5a08b27adf..61963a1926 100644
  #elif defined(SIMULATOR)
  #error no UI defines
  #endif
+diff --git a/firmware/target/hosted/usb-hiby.c b/firmware/target/hosted/usb-hiby.c
+index 050c86e446..c385089e5a 100644
+--- a/firmware/target/hosted/usb-hiby.c
++++ b/firmware/target/hosted/usb-hiby.c
+@@ -4,7 +4,7 @@
+  *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+  *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+- *                     \/            \/     \/    \/            \/
++ *                     \/            \/     \/    \/    \/
+  *
+  * Copyright (C) 2018 by Marcin Bukat
+  *
+@@ -26,41 +26,11 @@
+ #include "usb.h"
+ #include "sysfs.h"
+ #include "power.h"
+-
+-//#define LOGF_ENABLE
+-#include "logf.h"
+-
+-static bool adb_mode = false;
+-
+-#ifdef HAVE_MULTIDRIVE
+-void cleanup_rbhome(void);
+-void startup_rbhome(void);
++#ifdef HAVE_HOST_USB_AUDIO
++#include "pcm.h"
++#include "hiby/usb-dac-hiby.h"
+ #endif
+-
+-/* TODO: implement usb detection properly */
+-int usb_detect(void)
+-{
+-    return power_input_status() == POWER_INPUT_USB_CHARGER ? USB_INSERTED : USB_EXTRACTED;
+-}
+-
+-void usb_enable(bool on)
+-{
+-    logf("usb enable %d %d\n", on, adb_mode);
+-
+-    /* Ignore usb enable/disable when ADB is enabled so we can fireup adb shell
+-     * without entering ums mode
+-     */
+-    if (!adb_mode)
+-    {
+-        sysfs_set_int("/sys/class/android_usb/android0/enable", on ? 1 : 0);
+-    }
+-}
+-
+-/* This is called by usb thread after usb extract in order to return
+- * regular FS access
+- *
+- * returns the # of successful mounts
+-*/
++#include "logf.h"
+ int disk_mount_all(void)
+ {
+     const char * const dev[] = {"/dev/mmcblk0p1", "/dev/mmcblk0"};
+@@ -88,10 +58,6 @@ int disk_mount_all(void)
+     return 0;
+ }
+ 
+-/* This is called by usb thread after all threads ACKs usb inserted message
+- *
+- * returns the # of successful unmounts
+- */
+ int disk_unmount_all(void)
+ {
+ #ifdef HAVE_MULTIDRIVE
+@@ -113,6 +79,289 @@ int disk_unmount_all(void)
+     return 0;
+ }
+ 
++#if defined(CAYIN_N3PRO)
++/* ------------------------------------------------------------------------
++ * Cayin N3Pro
++ *
++ * The vendor android_usb gadget is configured through sysfs; changing the
++ * function list requires the gadget to be disabled first. The structure
++ * mirrors firmware/target/hosted/hiby/usb-hiby-gadget.c (R1):
++ *
++ *  - usb_detect() never touches the gadget or the DAC; it only reports
++ *    insertion. A charger never enumerates the gadget, so "CONFIGURED"
++ *    tells a real host apart from a dumb charger.
++ *  - The base mode is applied by configure_usb_mode(); the DAC gadget is
++ *    reconciled separately from usb_set_audio()/hiby_set_usb_mode(), the
++ *    only two places R1 drives it from.
++ *  - The DAC is never started before the PCM mixer is up (pcm_is_initialized)
++ *    and if it fails to come up the base mode is restored.
++ * ------------------------------------------------------------------------ */
++static const char * const sysfs_functions = "/sys/class/android_usb/android0/functions";
++static const char * const sysfs_enable    = "/sys/class/android_usb/android0/enable";
++static const char * const sysfs_lun       = "/sys/class/android_usb/android0/f_mass_storage/lun/file";
++
++static int _usb_mode  = -1;
++static int _usb_audio = 0;
++static bool _usb_init = false;
++
++/* Reconfiguring the gadget invalidates the endpoints adbd holds open; the
++ * daemon does not notice and turns into a zombie (interface enumerates but
++ * refuses connections). The vendor adbserver.sh loop respawns it within a
++ * second, so kick it here after every function-list change. */
++static void restart_adbd(void)
++{
++    system("killall adbd 2>/dev/null");
++}
++
++/* The "USB Audio" setting: 0 never, 1 always, 2 while charge-only,
++ * 3 while mass-storage (same values as R1). */
++static bool dac_wanted(void)
++{
++    switch (_usb_audio)
++    {
++    case 1: return true;
++    case 2: return _usb_mode == USB_MODE_CHARGE;
++    case 3: return _usb_mode == USB_MODE_MASS_STORAGE;
++    default: return false;
++    }
++}
++
++/* Apply the base USB mode without the DAC (R1 configure_usb_mode). */
++static void configure_usb_mode(int mode)
++{
++    sysfs_set_int(sysfs_enable, 0);
++
++    /* Plain modes are plain composites: clear the IAD device class set by
++     * the DAC gadget, or Windows mis-parses the descriptors (it binds the
++     * whole device as a single ADB interface and loses everything else). */
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0);
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 0);
++    sysfs_set_int("/sys/class/android_usb/android0/bDeviceProtocol", 0);
++
++    switch (mode)
++    {
++    case USB_MODE_CHARGE:
++        /* charge only: export nothing and stay disabled */
++        sysfs_set_string(sysfs_functions, "");
++        restart_adbd();
++        return;
++
++    case USB_MODE_ADB:
++        sysfs_set_string(sysfs_functions, "adb");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "18D1");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "D002");
++        break;
++
++    case USB_MODE_MASS_STORAGE:
++    default:
++        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
++        sysfs_set_string(sysfs_functions, "mass_storage");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++    }
++
++    sysfs_set_int(sysfs_enable, 1);
++    restart_adbd();
++}
++
++/* Bring the DAC gadget up standalone (R1 enable_usb_audio). Composite with
++ * the base function, uac_sa first: its audio interfaces are hard-coded 0-1. */
++static bool enable_usb_audio(void)
++{
++    /* Never before the PCM mixer exists (boot), like R1. */
++    if (!pcm_is_initialized())
++        return false;
++
++    sysfs_set_int(sysfs_enable, 0);
++    usb_dac_stop();
++
++    switch (_usb_mode)
++    {
++    case USB_MODE_ADB:
++        /* No IAD here: with bDeviceClass 0xEF Windows fails to parse the
++         * uac_sa+adb composite. Also use the Cayin VID/PID: the Google/
++         * vendor ADB INFs match 18D1:D002 at device level and preempt the
++         * composite driver, which hides every other function. Windows'
++         * in-box WinUSB matches the ADB interface (FF/42/01) on its own. */
++        sysfs_set_string(sysfs_functions, "uac_sa,adb");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++
++    case USB_MODE_MASS_STORAGE:
++        /* composite: the card is exported AND the host gets a sound card */
++        sysfs_set_string(sysfs_lun, "/dev/mmcblk0");
++        sysfs_set_string(sysfs_functions, "uac_sa,mass_storage");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        /* Interface Association Descriptor, like the stock gadget / R1 */
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceClass", 0xEF);
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceSubClass", 2);
++        sysfs_set_int("/sys/class/android_usb/android0/bDeviceProtocol", 1);
++        break;
++
++    default:
++        sysfs_set_string(sysfs_functions, "uac_sa");
++        sysfs_set_string("/sys/class/android_usb/android0/idVendor", "C502");
++        sysfs_set_string("/sys/class/android_usb/android0/idProduct", "0029");
++        break;
++    }
++
++    sysfs_set_int(sysfs_enable, 1);
++    restart_adbd();
++
++    /* Do NOT usb_dac_start() here: the vendor driver's open() blocks until a
++     * host is streaming ("wait uac sa device"), which would hang whichever
++     * thread applies the setting. The pump is started from usb_detect()
++     * once the gadget is actually CONFIGURED. */
++    return true;
++}
++
++/* Tear the DAC gadget down and restore the base mode (R1 disable_usb_audio). */
++static void disable_usb_audio(void)
++{
++    usb_dac_stop();
++    configure_usb_mode(_usb_mode < 0 ? USBMODE_DEFAULT : _usb_mode);
++}
++
++/* Reconcile the DAC with the setting + base mode (R1 apply_usb_audio). */
++static void apply_usb_audio(void)
++{
++    bool want = dac_wanted();
++    bool active = usb_audio_get_active();
++
++    if (want && !active)
++    {
++        /* enable_usb_audio() returns false if applied before audio_init()
++         * (PCM mixer not up yet -- e.g. at boot) or if uac_sa never comes
++         * up. Either way restore the base mode so we never leave a dead
++         * gadget behind. */
++        if (!enable_usb_audio())
++            configure_usb_mode(_usb_mode < 0 ? USBMODE_DEFAULT : _usb_mode);
++    }
++    else if (!want && active)
++    {
++        disable_usb_audio();
++    }
++}
++
++void hiby_set_usb_mode(int mode)
++{
++    if (!_usb_init)
++        usb_init_device();
++
++    /* Drop any active DAC before reconfiguring the base gadget. */
++    if (usb_audio_get_active())
++        disable_usb_audio();
++
++    _usb_mode = mode;
++    configure_usb_mode(mode);
++    apply_usb_audio();
++}
++
++/* Target implementation of the "USB Audio" setting. */
++void usb_set_audio(int value)
++{
++    _usb_audio = value;
++    if (_usb_mode >= 0)
++        apply_usb_audio();
++}
++
++/* Re-apply the USB Audio setting once the PCM mixer is up. The setting is
++ * applied at boot before audio_init(), so the first attempt bails out on
++ * pcm_is_initialized() and the base mode stays; call this periodically
++ * (from the N3Pro housekeeping tick) until it sticks. */
++void cayin_usb_retry(void)
++{
++#ifdef HAVE_HOST_USB_AUDIO
++    /* Fire exactly once after the PCM mixer comes up: a failing attempt
++     * reconfigures the gadget, so retrying forever would flap it. */
++    static bool done = false;
++
++    if (done || _usb_audio <= 0 || _usb_mode < 0 || !pcm_is_initialized())
++        return;
++    if (!usb_audio_get_active() && dac_wanted())
++        apply_usb_audio();
++    done = true;
++#endif
++}
++
++int usb_detect(void)
++{
++    char state[32] = {0};
++    bool configured;
++
++    /* A dumb charger supplies VBUS but never enumerates the gadget, so only
++     * a CONFIGURED gadget counts as "connected to a host". */
++    sysfs_get_string("/sys/class/android_usb/android0/state", state, sizeof(state));
++    configured = strstr(state, "CONFIGURED") != NULL;
++
++#ifdef HAVE_HOST_USB_AUDIO
++    /* Start/stop the host-PCM pump here (USB thread context): the vendor
++     * uac_sa open() blocks until a host is streaming, so it may only run
++     * once the gadget is actually configured. */
++    if (configured)
++    {
++        if (dac_wanted() && !usb_audio_get_active())
++            usb_dac_start();
++    }
++    else if (usb_audio_get_active())
++    {
++        usb_dac_stop();
++    }
++#endif
++
++    return configured ? USB_INSERTED : USB_EXTRACTED;
++}
++
++void usb_enable(bool on)
++{
++    /* Deliberately a no-op: the gadget must stay enabled across unplug so
++     * the still-asserted soft-connect re-enumerates on replug without any
++     * help (this is how the stock firmware behaves). Tearing it down here
++     * left the device dead to the host on re-insertion, because a
++     * composite including uac_sa does not come back from enable=0/1.
++     * The gadget lifecycle is owned by configure_usb_mode()/the DAC
++     * helpers, which reconfigure it only on mode/setting changes. */
++    (void)on;
++}
++
++void usb_init_device(void)
++{
++    /* The vendor sys_server daemon also drives this gadget
++     * (usb_mgr_set_functions) and would tear our function list back down;
++     * Rockbox is the only USB manager now. */
++    system("killall sys_server 2>/dev/null");
++
++    sysfs_set_string("/sys/class/android_usb/android0/iManufacturer", "Rockbox.org");
++    sysfs_set_string("/sys/class/android_usb/android0/iProduct", "Rockbox media player");
++    sysfs_set_string("/sys/class/android_usb/android0/iSerial", "0123456789ABCDEF");
++    sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/inquiry_string", "Rockbox 0100");
++    _usb_init = true;
++}
++
++#else  /* !CAYIN_N3PRO */
++
++/* TODO: implement usb detection properly */
++int usb_detect(void)
++{
++    return power_input_status() == POWER_INPUT_USB_CHARGER ? USB_INSERTED : USB_EXTRACTED;
++}
++
++void usb_enable(bool on)
++{
++    logf("usb enable %d %d\n", on, adb_mode);
++
++    /* Ignore usb enable/disable when ADB is enabled so we can fireup adb shell
++     * without entering ums mode
++     */
++    if (!adb_mode)
++    {
++        sysfs_set_int("/sys/class/android_usb/android0/enable", on ? 1 : 0);
++    }
++}
++
+ void usb_init_device(void)
+ {
+     char functions[32] = {0};
+@@ -141,3 +390,5 @@ void usb_init_device(void)
+     sysfs_set_string("/sys/class/android_usb/android0/iSerial", "0123456789ABCDEF");
+     sysfs_set_string("/sys/class/android_usb/android0/f_mass_storage/inquiry_string", "Rockbox 0100");
+ }
++
++#endif /* CAYIN_N3PRO */
 diff --git a/firmware/usb.c b/firmware/usb.c
 index b41facb39d..9551988683 100644
 --- a/firmware/usb.c

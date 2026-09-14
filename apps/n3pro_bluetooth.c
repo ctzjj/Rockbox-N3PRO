@@ -34,9 +34,9 @@
 #include "n3pro-bt-pcm.h"
 
 /* str() yields const unsigned char *; keep the string call sites simple. */
-static const char *bt_str(int id)
+static char *bt_str(int id)
 {
-    return (const char *)str(id);
+    return (char *)str(id);
 }
 
 #define BT_MAX_DEVICES 32
@@ -72,6 +72,7 @@ static bool bt_prefer = false;   /* the user wants the bluetooth output */
 /* Output watchdog state (see bt_watchdog()). */
 static bool bt_want = false;   /* the user wants bluetooth output */
 static bool bt_busy = false;   /* a menu-driven route is in progress */
+static bool bt_peer_linked(const char *mac);
 static bool bt_watchdog_started = false;
 static volatile bool bt_watchdog_run = false;
 
@@ -611,7 +612,13 @@ static int bt_choose_device(const char *title, struct bt_device *devices, int co
 static void bt_set_selected_mac(const char *mac)
 {
     if (mac && mac[0])
-        snprintf(bt_selected_mac, sizeof(bt_selected_mac), "%s", mac);
+    {
+        /* Guard against snprintf()-ing the buffer onto itself (the link
+         * watcher passes bt_selected_mac), which is undefined and was
+         * wiping the address. */
+        if (mac != bt_selected_mac)
+            snprintf(bt_selected_mac, sizeof(bt_selected_mac), "%s", mac);
+    }
     else
         bt_selected_mac[0] = '\0';
 }
@@ -691,30 +698,41 @@ static const char *bt_pick_codec(const char *mac)
 
     for (i = 0; bt_codec_pref[i] != NULL; i++)
     {
+        /* Give the first attempt (on the link the caller just made) time
+         * to come up before stepping down the codec list. */
+        int probes = (i == 0) ? 12 : 6;
+
         bt_set_codec(bt_codec_pref[i]);
 
-        /* The codec is fixed when the A2DP transport is set up, so an
-         * attempt after the first needs a fresh connection; the first one
-         * runs on the link the caller has just established (repeatedly
-         * toggling the link wedges the stock bluetooth stack). */
+        /* The codec is fixed when the A2DP transport is set up, so a new
+         * codec needs a fresh connection.  Only ever renegotiate while
+         * the link is really up: toggling a link that is not up wedges
+         * the stock bluetooth stack (reboot required). */
         if (i > 0)
         {
+            if (!bt_peer_linked(mac))
+                break;
+
             snprintf(cmd, sizeof(cmd),
                      "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
             system(cmd);
             sleep(HZ / 2);
+            snprintf(cmd, sizeof(cmd),
+                     "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
+            system(cmd);
         }
 
-        snprintf(cmd, sizeof(cmd),
-                 "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
-        system(cmd);
-
-        for (t = 0; t < 6; t++)
+        for (t = 0; t < probes; t++)
         {
             if (pcm_alsa_bt_probe() == 0)
                 return bt_codec_pref[i];
             sleep(HZ / 4);
         }
+
+        /* Nothing came up and the link is gone: cycling would only wedge
+         * the stack further. */
+        if (!bt_peer_linked(mac))
+            break;
     }
 
     return NULL;
@@ -760,6 +778,19 @@ static void bt_vol_enter_local(void)
     bt_vol_on_bt = false;
 }
 
+/* An unclean link drop (earpieces powered off in the middle of a
+ * connection) leaves a stale ACL behind in the controller: the host side
+ * loses the handle ("ACL packet for unknown connection handle") while the
+ * earpieces still believe they are connected, so every later connect
+ * fails with "Stream setup failed" until the earpieces are re-paired or
+ * the player reboots.  An HCI reset clears the controller state and makes
+ * both ends drop the ghost link. */
+static void bt_controller_reset(void)
+{
+    system("/usr/sbin/hciconfig hci0 reset >/dev/null 2>&1");
+    sleep(HZ / 2);
+}
+
 static void bt_route_to_local(bool show_message)
 {
     pcm_alsa_switch_playback_device(BT_LOCAL_PLAYBACK_DEVICE);
@@ -769,47 +800,22 @@ static void bt_route_to_local(bool show_message)
         splash(HZ, "Output: Local");
 }
 
-static void bt_route_log(const char *msg)
-{
-    FILE *f = fopen("/mnt/sd_0/.rockbox/bt_route.log", "a");
-
-    if (!f)
-        return;
-
-    fputs(msg, f);
-    fputc('\n', f);
-    fclose(f);
-}
-
 static bool bt_route_to_bluetooth(const char *mac)
 {
-    char line[96];
-    int rc;
-
     if (!mac || !mac[0])
         return false;
 
     bt_write_asound(mac);
-    snprintf(line, sizeof(line), "route: mac=%s asound written", mac);
-    bt_route_log(line);
 
     /* Pick the highest codec the earphone supports; on success the A2DP
      * transport is already up, so no extra wait is needed. */
     if (!bt_pick_codec(mac))
     {
-        bt_route_log("route: codec pick failed");
         bt_route_to_local(false);
         return false;
     }
 
-    bt_route_log("route: codec ok");
-
-    rc = pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE);
-    snprintf(line, sizeof(line), "route: switch rc=%d active=%d",
-             rc, pcm_alsa_is_bluetooth_active());
-    bt_route_log(line);
-
-    if (rc == 0)
+    if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0)
     {
         /* Switch to the independent bluetooth volume (the softvol follows
          * it); the earpiece volume is left alone. */
@@ -840,7 +846,6 @@ static bool bt_route_auto(const char *mac)
         bt_set_selected_mac(mac);
         bt_vol_enter_bt();
         bt_kick_audio_if_playing();
-        bt_route_log("watchdog: peer back, routed to bluetooth");
         return true;
     }
 
@@ -1055,6 +1060,15 @@ static void bt_connect_device(const struct bt_device *device)
         if (pair_reply_ok)
             sleep(HZ / 2);
     }
+    else if (!bt_peer_linked(mac))
+    {
+        /* A ghost ACL left over from an unclean link drop is the usual
+         * reason a connect to an already-paired device fails ("Stream
+         * setup failed"): clear the controller before dialling.  Never do
+         * this after a fresh pairing -- the reset would interrupt the
+         * pairing handshake that just completed. */
+        bt_controller_reset();
+    }
 
     snprintf(cmd, sizeof(cmd), "BT:CONNECT:%s", mac);
     ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
@@ -1077,6 +1091,8 @@ static void bt_connect_device(const struct bt_device *device)
     routed = bt_route_to_bluetooth(mac);
     if (!routed)
     {
+        if (device->paired)
+            bt_controller_reset();
         snprintf(cmd, sizeof(cmd), "BT:CONNECT:%s", mac);
         ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
         if (ctl_rc == 0 && bt_sys_reply_ok(reply, "BT:CONNECT"))
@@ -1194,6 +1210,41 @@ static bool bt_peer_linked(const char *mac)
     return false;
 }
 
+/* True while any peer (MAC-named) input device exists; used as a fallback
+ * when the selected address is not known. */
+static bool bt_any_peer_input(void)
+{
+    char path[64];
+    char name[80];
+    int i;
+
+    for (i = 0; i < 16; i++)
+    {
+        FILE *f;
+
+        snprintf(path, sizeof(path), "/sys/class/input/input%d/name", i);
+        f = fopen(path, "r");
+        if (!f)
+            continue;
+
+        name[0] = '\0';
+        if (fgets(name, sizeof(name), f))
+        {
+            char *nl = strchr(name, '\n');
+
+            if (nl)
+                *nl = '\0';
+        }
+        fclose(f);
+
+        /* Peer devices are named after their MAC address. */
+        if (strlen(name) == 17 && name[2] == ':' && name[5] == ':')
+            return true;
+    }
+
+    return false;
+}
+
 /* ------------------------------------------------------------------ */
 /* Output watchdog                                                     */
 /*                                                                     */
@@ -1223,14 +1274,17 @@ static void bt_watchdog(void)
 
         if (pcm_alsa_is_bluetooth_active())
         {
-            if ((pcm_alsa_bt_link_lost() ||
-                 (bt_selected_mac[0] && !bt_peer_linked(bt_selected_mac))) &&
-                TIME_AFTER(current_tick, last_fallback + 5 * HZ))
+            bool lost = pcm_alsa_bt_link_lost() ||
+                        (bt_selected_mac[0] ? !bt_peer_linked(bt_selected_mac)
+                                            : !bt_any_peer_input());
+
+            if (lost && TIME_AFTER(current_tick, last_fallback + 5 * HZ))
             {
                 last_fallback = current_tick;
                 pcm_alsa_bt_link_lost_clear();
-                bt_route_log("watchdog: peer gone, back to local");
                 bt_route_to_local(false);
+                /* Drop the ghost ACL before it wedges the next connect. */
+                bt_controller_reset();
             }
         }
         else if (bt_prefer && bt_selected_mac[0] &&
@@ -1239,8 +1293,11 @@ static void bt_watchdog(void)
         {
             /* The earpieces came back and the vendor stack reconnected
              * them: pick the bluetooth output up again by itself. */
+            char mac[18];
+
             last_route = current_tick;
-            bt_route_auto(bt_selected_mac);
+            snprintf(mac, sizeof(mac), "%s", bt_selected_mac);
+            bt_route_auto(mac);
         }
     }
 
