@@ -843,17 +843,26 @@ static bool bt_route_to_bluetooth(const char *mac)
  * the link and wedge the stock bluetooth stack. */
 static bool bt_route_auto(const char *mac)
 {
+    int i;
+
     if (!mac || !mac[0])
         return false;
 
     bt_write_asound(mac);
 
-    if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0)
+    /* The A2DP transport may not be fully established even though the
+     * ACL link is present.  Probe a few times before giving up. */
+    for (i = 0; i < 10; i++)
     {
-        bt_set_selected_mac(mac);
-        bt_vol_enter_bt();
-        bt_kick_audio_if_playing();
-        return true;
+        if (pcm_alsa_bt_probe() == 0 &&
+            pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0)
+        {
+            bt_set_selected_mac(mac);
+            bt_vol_enter_bt();
+            bt_kick_audio_if_playing();
+            return true;
+        }
+        sleep(HZ / 2);
     }
 
     bt_route_to_local(false);
@@ -1266,7 +1275,6 @@ static void bt_watchdog(void)
 {
     long last_check = 0;
     long last_fallback = 0;
-    long last_route = 0;
 
     while (bt_watchdog_run)
     {
@@ -1285,24 +1293,24 @@ static void bt_watchdog(void)
                         (bt_selected_mac[0] ? !bt_peer_linked(bt_selected_mac)
                                             : !bt_any_peer_input());
 
-            if (lost && TIME_AFTER(current_tick, last_fallback + 5 * HZ))
+            if (lost && TIME_AFTER(current_tick, last_fallback + 2 * HZ))
             {
                 last_fallback = current_tick;
                 pcm_alsa_bt_link_lost_clear();
                 bt_route_to_local(false);
-                /* Drop the ghost ACL before it wedges the next connect. */
-                bt_controller_reset();
+                /* Do NOT reset the controller here -- the vendor stack
+                 * needs the adapter alive to auto-reconnect the earpiece. */
             }
         }
         else if (bt_prefer && bt_selected_mac[0] &&
-                 bt_peer_linked(bt_selected_mac) &&
-                 TIME_AFTER(current_tick, last_route + 5 * HZ))
+                 bt_peer_linked(bt_selected_mac))
         {
             /* The earpieces came back and the vendor stack reconnected
-             * them: pick the bluetooth output up again by itself. */
+             * them: probe the A2DP transport and pick the bluetooth
+             * output up again.  bt_route_auto probes internally so no
+             * extra cooldown is needed here. */
             char mac[18];
 
-            last_route = current_tick;
             snprintf(mac, sizeof(mac), "%s", bt_selected_mac);
             bt_route_auto(mac);
         }
