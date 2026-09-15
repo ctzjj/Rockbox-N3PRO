@@ -690,10 +690,10 @@ index 3d046e9351..db2335d937 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..4a35fdcb69 100644
+index 3c8be16c72..7bc318f5f2 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,649 @@
+@@ -17168,3 +17168,691 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -1343,11 +1343,53 @@ index 3c8be16c72..4a35fdcb69 100644
 +    *: "Sample rate"
 +  </voice>
 +</phrase>
++<phrase>
++  id: LANG_BT_RESET
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Reset Bluetooth"
++  </source>
++  <dest>
++    *: "重置蓝牙"
++  </dest>
++  <voice>
++    *: "Reset Bluetooth"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RESET_CONFIRM
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Reset Bluetooth to power-on state?"
++  </source>
++  <dest>
++    *: "重置蓝牙到开机初始状态？"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RESETTING
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Resetting..."
++  </source>
++  <dest>
++    *: "重置中…"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
 diff --git a/apps/lang/chinese-trad.lang b/apps/lang/chinese-trad.lang
-index 2ffee1e338..91c3c14ba5 100644
+index 2ffee1e338..802bc9d7f8 100644
 --- a/apps/lang/chinese-trad.lang
 +++ b/apps/lang/chinese-trad.lang
-@@ -11238,3 +11238,649 @@
+@@ -11238,3 +11238,691 @@
      ibassodx50,ibassodx90: "CPU頻率管理器"
    </voice>
  </phrase>
@@ -1997,6 +2039,48 @@ index 2ffee1e338..91c3c14ba5 100644
 +    *: "Sample rate"
 +  </voice>
 +</phrase>
++<phrase>
++  id: LANG_BT_RESET
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Reset Bluetooth"
++  </source>
++  <dest>
++    *: "重置藍牙"
++  </dest>
++  <voice>
++    *: "Reset Bluetooth"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RESET_CONFIRM
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Reset Bluetooth to power-on state?"
++  </source>
++  <dest>
++    *: "重置藍牙到開機初始狀態？"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RESETTING
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Resetting..."
++  </source>
++  <dest>
++    *: "重置中…"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
 diff --git a/apps/lang/czech.lang b/apps/lang/czech.lang
 index 170b57de93..3991c49022 100644
 --- a/apps/lang/czech.lang
@@ -2468,7 +2552,7 @@ index 55028062cd..ae85f0a296 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..3d53c0d749 100644
+index 4c2f0d58b0..4b2e0a3aa9 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -2534,7 +2618,7 @@ index 4c2f0d58b0..3d53c0d749 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,593 @@
+@@ -17231,3 +17287,635 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -3126,6 +3210,48 @@ index 4c2f0d58b0..3d53c0d749 100644
 +  </dest>
 +  <voice>
 +    *: "Sample rate"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RESET
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Reset Bluetooth"
++  </source>
++  <dest>
++    *: "Reset Bluetooth"
++  </dest>
++  <voice>
++    *: "Reset Bluetooth"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RESET_CONFIRM
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Reset Bluetooth to power-on state?"
++  </source>
++  <dest>
++    *: "Reset Bluetooth to power-on state?"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RESETTING
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Resetting..."
++  </source>
++  <dest>
++    *: "Resetting..."
++  </dest>
++  <voice>
++    *: ""
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/espanol.lang b/apps/lang/espanol.lang
@@ -6615,10 +6741,10 @@ index 61d16f4cb1..66c70ad054 100644
            ,&timestretch_enabled
 diff --git a/apps/n3pro_bluetooth.c b/apps/n3pro_bluetooth.c
 new file mode 100644
-index 0000000000..5dbdafd8cd
+index 0000000000..5fb6082083
 --- /dev/null
 +++ b/apps/n3pro_bluetooth.c
-@@ -0,0 +1,1681 @@
+@@ -0,0 +1,1739 @@
 +/***************************************************************************
 + * Bluetooth audio (A2DP source) for the Cayin N3Pro hosted port.
 + *
@@ -6654,6 +6780,7 @@ index 0000000000..5dbdafd8cd
 +#include "screen_access.h"
 +#include "viewport.h"
 +#include "gui/list.h"
++#include "yesno.h"
 +#include "pcm-alsa.h"
 +#include "n3pro-bt-pcm.h"
 +#include "n3pro-bt-input.h"
@@ -7811,6 +7938,39 @@ index 0000000000..5dbdafd8cd
 +        system("/usr/sbin/hciconfig hci0 down >/dev/null 2>&1");
 +}
 +
++/* Reset the whole bluetooth stack to the boot-time state: stop any
++ * active receive session or earphone route, tear the vendor stack
++ * fully down (dbus, patchram, bluetoothd, chip power -- /usr/bin/
++ * bt_done) and bring it back exactly like /etc/init.d/S40bt_init
++ * does at boot (/usr/bin/bt_init).  The radio ends up Powered Off;
++ * the receive screen and the output menu power it on themselves
++ * when they need it. */
++static void bt_reset_stack(void)
++{
++    char cmd[36], reply[BT_SYS_REPLY_MAX];
++
++    /* Drop anything that holds the stack or the output busy. */
++    if (n3pro_bt_rx_get_active())
++        n3pro_bt_rx_stop();
++    if (bt_selected_mac[0])
++    {
++        snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
++        bt_sys_command(cmd, reply, sizeof(reply));
++        bt_prefer = false;
++        bt_watchdog_stop();
++        bt_route_to_local(false);
++        bt_set_selected_mac(NULL);
++    }
++
++    /* The extra kills cover what bt_done forgets (the agents) and
++     * sys_server, whose stale dbus connection would talk to the old
++     * bluetoothd; bt_ensure_sys_server() re-spawns it on demand. */
++    system("/usr/bin/bt_done >/dev/null 2>&1");
++    system("killall bt-agent bt-monitor sys_server >/dev/null 2>&1");
++    sleep(HZ / 2);
++    system("/usr/bin/bt_init >/dev/null 2>&1");
++}
++
 +static void bt_disconnect(void)
 +{
 +    char cmd[96];
@@ -8251,16 +8411,37 @@ index 0000000000..5dbdafd8cd
 +     * is stopped from this screen. */
 +}
 +
++static void bt_reset_screen(void)
++{
++    struct viewport vp;
++    struct screen *sc = &screens[SCREEN_MAIN];
++
++    if (!yesno_pop(bt_str(LANG_BT_RESET_CONFIRM)))
++        return;
++
++    /* The re-init blocks for several seconds (firmware download,
++     * bluetoothd start); keep a message on screen while it runs.
++     * The parent menu redraws on return. */
++    viewport_set_defaults(&vp, SCREEN_MAIN);
++    sc->set_viewport(&vp);
++    sc->clear_display();
++    sc->puts(0, 0, bt_str(LANG_BT_RESETTING));
++    sc->update_viewport();
++    sc->set_viewport(NULL);
++
++    bt_reset_stack();
++}
++
 +static const char *bt_top_name_cb(int selected_item, void *data,
 +                                  char *buffer, size_t buffer_len)
 +{
 +    static const unsigned short ids[] =
 +    {
-+        LANG_BT_AUDIO_OUT, LANG_BT_AUDIO_IN
++        LANG_BT_AUDIO_OUT, LANG_BT_AUDIO_IN, LANG_BT_RESET
 +    };
 +    (void)data;
 +
-+    if (selected_item < 0 || selected_item >= 2)
++    if (selected_item < 0 || selected_item >= 3)
 +    {
 +        buffer[0] = '\0';
 +        return buffer;
@@ -8275,7 +8456,7 @@ index 0000000000..5dbdafd8cd
 +    {
 +        struct simplelist_info info;
 +
-+        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 2, NULL);
++        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
 +        info.get_name = bt_top_name_cb;
 +        info.selection = -1;
 +        info.title_icon = Icon_Submenu;
@@ -8291,6 +8472,9 @@ index 0000000000..5dbdafd8cd
 +                break;
 +            case 1:
 +                bt_rx_screen();
++                break;
++            case 2:
++                bt_reset_screen();
 +                break;
 +            default:
 +                break;

@@ -33,6 +33,7 @@
 #include "screen_access.h"
 #include "viewport.h"
 #include "gui/list.h"
+#include "yesno.h"
 #include "pcm-alsa.h"
 #include "n3pro-bt-pcm.h"
 #include "n3pro-bt-input.h"
@@ -1190,6 +1191,39 @@ static void bt_power_off(void)
         system("/usr/sbin/hciconfig hci0 down >/dev/null 2>&1");
 }
 
+/* Reset the whole bluetooth stack to the boot-time state: stop any
+ * active receive session or earphone route, tear the vendor stack
+ * fully down (dbus, patchram, bluetoothd, chip power -- /usr/bin/
+ * bt_done) and bring it back exactly like /etc/init.d/S40bt_init
+ * does at boot (/usr/bin/bt_init).  The radio ends up Powered Off;
+ * the receive screen and the output menu power it on themselves
+ * when they need it. */
+static void bt_reset_stack(void)
+{
+    char cmd[36], reply[BT_SYS_REPLY_MAX];
+
+    /* Drop anything that holds the stack or the output busy. */
+    if (n3pro_bt_rx_get_active())
+        n3pro_bt_rx_stop();
+    if (bt_selected_mac[0])
+    {
+        snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
+        bt_sys_command(cmd, reply, sizeof(reply));
+        bt_prefer = false;
+        bt_watchdog_stop();
+        bt_route_to_local(false);
+        bt_set_selected_mac(NULL);
+    }
+
+    /* The extra kills cover what bt_done forgets (the agents) and
+     * sys_server, whose stale dbus connection would talk to the old
+     * bluetoothd; bt_ensure_sys_server() re-spawns it on demand. */
+    system("/usr/bin/bt_done >/dev/null 2>&1");
+    system("killall bt-agent bt-monitor sys_server >/dev/null 2>&1");
+    sleep(HZ / 2);
+    system("/usr/bin/bt_init >/dev/null 2>&1");
+}
+
 static void bt_disconnect(void)
 {
     char cmd[96];
@@ -1630,16 +1664,37 @@ static void bt_rx_screen(void)
      * is stopped from this screen. */
 }
 
+static void bt_reset_screen(void)
+{
+    struct viewport vp;
+    struct screen *sc = &screens[SCREEN_MAIN];
+
+    if (!yesno_pop(bt_str(LANG_BT_RESET_CONFIRM)))
+        return;
+
+    /* The re-init blocks for several seconds (firmware download,
+     * bluetoothd start); keep a message on screen while it runs.
+     * The parent menu redraws on return. */
+    viewport_set_defaults(&vp, SCREEN_MAIN);
+    sc->set_viewport(&vp);
+    sc->clear_display();
+    sc->puts(0, 0, bt_str(LANG_BT_RESETTING));
+    sc->update_viewport();
+    sc->set_viewport(NULL);
+
+    bt_reset_stack();
+}
+
 static const char *bt_top_name_cb(int selected_item, void *data,
                                   char *buffer, size_t buffer_len)
 {
     static const unsigned short ids[] =
     {
-        LANG_BT_AUDIO_OUT, LANG_BT_AUDIO_IN
+        LANG_BT_AUDIO_OUT, LANG_BT_AUDIO_IN, LANG_BT_RESET
     };
     (void)data;
 
-    if (selected_item < 0 || selected_item >= 2)
+    if (selected_item < 0 || selected_item >= 3)
     {
         buffer[0] = '\0';
         return buffer;
@@ -1654,7 +1709,7 @@ int n3pro_bluetooth_menu(void)
     {
         struct simplelist_info info;
 
-        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 2, NULL);
+        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
         info.get_name = bt_top_name_cb;
         info.selection = -1;
         info.title_icon = Icon_Submenu;
@@ -1670,6 +1725,9 @@ int n3pro_bluetooth_menu(void)
                 break;
             case 1:
                 bt_rx_screen();
+                break;
+            case 2:
+                bt_reset_screen();
                 break;
             default:
                 break;

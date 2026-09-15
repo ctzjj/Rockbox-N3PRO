@@ -17814,3 +17814,45 @@
     *: "Sample rate"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_BT_RESET
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Reset Bluetooth"
+  </source>
+  <dest>
+    *: "重置蓝牙"
+  </dest>
+  <voice>
+    *: "Reset Bluetooth"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RESET_CONFIRM
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Reset Bluetooth to power-on state?"
+  </source>
+  <dest>
+    *: "重置蓝牙到开机初始状态？"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RESETTING
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Resetting..."
+  </source>
+  <dest>
+    *: "重置中…"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
