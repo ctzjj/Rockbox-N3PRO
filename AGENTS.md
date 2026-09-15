@@ -10,6 +10,73 @@ Base commit the patch was generated against: **`1784c9b8a7`** (Rockbox master,
 
 ---
 
+## Branch model
+
+Two release lines share this repository:
+
+- **`main`** — the clean hardware port: target drivers, config, keymaps, WPS
+  assets and hardware-level fixes only.  It stays minimal — pure hardware
+  porting, no feature work.  **`v1.x` releases are tagged from `main`.**
+- **`n3pro`** (this branch) — the feature integration line: everything
+  `main` has, plus the Bluetooth work (output, A2DP input, menu, reset) and
+  future features built on the ported hardware.  **`v2.x` releases are
+  tagged from `n3pro`.**  It is always a superset of `main`.
+
+All code changes are made in a separate rockbox checkout (the working tree),
+never directly in this repository — this repo only holds overlay files plus
+`n3pro_port.patch`.  Branch mapping:
+
+| rockbox working tree                               | this repository |
+|----------------------------------------------------|-----------------|
+| `port-newbase` = upstream base + the port commit   | `main`          |
+| `n3pro-newbase` = `port-newbase` + feature work    | `n3pro`         |
+
+Landing changes on a line (same procedure for both branches):
+
+1. Modify, build (`tools/configure --target=n3pro --type=N && make`) and
+   verify on the device in the rockbox tree, on the matching branch.
+2. Regenerate the patch: a `# rockbox-base: <commit>` header line (the
+   upstream commit the diff is against) followed by
+   `git diff --binary origin/master <branch>` → `n3pro_port.patch`.
+3. Copy the changed files from the rockbox tree into this repository on the
+   matching branch (overlays only — this repo is never a full tree sync).
+4. Roundtrip-check the patch: apply it to a pristine checkout of the base
+   commit, `git add -A && git write-tree`, and compare the resulting tree
+   hash with the rockbox branch's tree.
+5. Commit and push the branch here.
+
+Flow rules:
+
+1. **One-way merging**: `main` merges INTO `n3pro`; never merge or wholesale
+   cherry-pick `n3pro` into `main`.  To promote a general improvement (one
+   with no BT-file dependencies) back to `main`, extract a clean hunk in
+   the rockbox tree, land it on `main`, and let it flow into `n3pro` with
+   the next merge.
+2. **Ownership**: hardware-related fixes (volume model, wheel, power, USB,
+   display) belong on `main` and must be merged down promptly; code that
+   depends on the BT files (`apps/n3pro_bluetooth.c`, `n3pro-bt-input.*`,
+   `n3pro_bt_rx_*()` calls, BT-aware tube logic) stays on `n3pro` only.
+3. **Merge `main` into `n3pro` after every `main` release** — do not let
+   the lines diverge, or the shared files (`hibylinux_codec.c`,
+   `cayin-n3pro.c`, `apps/lang/*.lang`) accumulate conflicts.
+
+Working procedure for a `main` → `n3pro` merge (the real merge happens in
+the rockbox tree, not here):
+
+1. In the rockbox tree, bring `port-newbase` (= `main`'s content on the
+   upstream base) up to date, then `git merge` it into `n3pro-newbase` and
+   resolve the conflicts there once.
+2. Rebuild (`tools/configure --target=n3pro --type=N && make`) and verify
+   on the device.
+3. Land `n3pro-newbase` here with the "Landing changes" procedure above.
+
+Releases: CI builds whatever commit a release tag points at (it reads the
+patch header for the rockbox base), so publishing `v2.x` from `n3pro` works
+exactly like `v1.x` from `main`.  Upgrading v1 → v2 (or v2 → v2) is
+replacing the `.rockbox` folder; the bootloader is unchanged.
+
+---
+
 ## Layout
 
 ```
