@@ -222,6 +222,7 @@ target/hosted/cayin/n3pro/usb-n3pro.c
 #if !defined(BOOTLOADER)
 target/hosted/cayin/n3pro/cayin-n3pro.c
 target/hosted/cayin/n3pro/led-n3pro.c
+target/hosted/cayin/n3pro/n3pro-bt-input.c
 target/hosted/hiby/hibylinux_codec.c
 target/hosted/hiby/usb-dac-hiby.c
 #endif

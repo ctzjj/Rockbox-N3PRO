@@ -40,6 +40,7 @@
 #include "settings.h"
 #include "sound.h"
 #include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
+#include "n3pro-bt-input.h" /* n3pro_bt_rx_get_active() */
 #include <alsa/asoundlib.h>
 #endif
 
@@ -305,6 +306,20 @@ void audiohw_set_volume(int vol_l, int vol_r)
 
     if (!hw_init)
         return;
+
+    /* Bluetooth receive: the wired output stays wide open (HW step
+     * 100, unity software gain) -- the phone is the volume control.
+     * Pinning it HERE instead of saving/restoring the global volume
+     * means an unclean end (crash, poweroff while waiting for the
+     * phone) can never leave a persisted maximum in the settings. */
+    if (n3pro_bt_rx_get_active())
+    {
+        l = r = 100;
+        alsa_controls_set_ints("Left Playback Volume", 1, &l);
+        alsa_controls_set_ints("Right Playback Volume", 1, &r);
+        pcm_set_mixer_volume(0, 0);
+        return;
+    }
 
     int step_l = (vol_l + 1020) / 10;
     int step_r = (vol_r + 1020) / 10;

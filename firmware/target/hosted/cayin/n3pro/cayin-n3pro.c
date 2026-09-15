@@ -28,6 +28,7 @@
 #include "alsa-controls.h"
 #include "cayin-n3pro.h"
 #include "n3pro-bt-pcm.h"
+#include "n3pro-bt-input.h"
 
 #define TIMBRE_PATH      CAYIN_N3PRO_SYSFS_BASE "/timbre_select"
 
@@ -69,6 +70,33 @@ static void tube_power(bool on)
     tube_wiring = -1;               /* re-apply wiring after (re)power */
 }
 
+/* Off without the grace delay (conditions that can never play through
+ * the tube: mode off, bluetooth output). */
+static void tube_off_now(void)
+{
+    if (tube_powered)
+        tube_power(false);
+    tube_off_tick = 0;
+}
+
+/* Off after TUBE_OFF_DELAY so a brief pause (or jack wiggle) does not
+ * bounce the tube on and off. */
+static void tube_off_delayed(void)
+{
+    if (!tube_powered)
+    {
+        tube_off_tick = 0;
+        return;
+    }
+    if (tube_off_tick == 0)
+        tube_off_tick = current_tick + TUBE_OFF_DELAY;
+    else if (TIME_AFTER(current_tick, tube_off_tick))
+    {
+        tube_power(false);
+        tube_off_tick = 0;
+    }
+}
+
 void cayin_tube_set_mode(int mode)
 {
     if (mode < 0)
@@ -83,30 +111,45 @@ void cayin_tube_set_mode(int mode)
 
 void cayin_tube_tick(int out_ps)
 {
-    int st = audio_status();
-    bool playing = (st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE);
+    bool playing;
 
-    /* The bluetooth output bypasses the JAN6418 buffer entirely (it sits in
-     * the 3.5 mm single-ended path), so switch the tube off straight away
-     * while audio is routed there. */
+    /* 1. Headphone jack first: the JAN6418 buffer sits in the 3.5 mm
+     *    single-ended path ONLY, so without that jack the tube may
+     *    never be powered, no matter where audio runs. */
+    if (out_ps != CAYIN_OUTPUT_HEADSET)
+    {
+        tube_off_delayed();
+        return;
+    }
+
+    /* 2. Bluetooth OUTPUT bypasses the tube entirely: switch it off
+     *    straight away while audio is routed there. */
     if (pcm_alsa_is_bluetooth_active())
     {
-        if (tube_powered)
-            tube_power(false);
-        tube_off_tick = 0;
+        tube_off_now();
         return;
+    }
+
+    /* 3. Who is playing on the wired path?
+     *    Bluetooth INPUT streams to the jack through the mixer while
+     *    the audio core stays idle -- count the receive link as
+     *    playing.  Otherwise it is ordinary local playback. */
+    if (n3pro_bt_rx_get_active())
+        playing = n3pro_bt_rx_link_ok();
+    else
+    {
+        int st = audio_status();
+
+        playing = (st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE);
     }
 
     if (tube_desired == 0)
     {
-        if (tube_powered)
-            tube_power(false);
-        tube_off_tick = 0;
+        tube_off_now();
         return;
     }
 
-    /* JAN6418 tube buffer sits in the single-ended headphone path only. */
-    if (playing && out_ps == CAYIN_OUTPUT_HEADSET)
+    if (playing)
     {
         /* Resume cancels a pending power-off so a quick pause/resume does
          * not bounce the tube on and off. */
@@ -120,14 +163,6 @@ void cayin_tube_tick(int out_ps)
             tube_wiring = tube_desired;
         }
     }
-    else if (tube_powered)
-    {
-        if (tube_off_tick == 0)
-            tube_off_tick = current_tick + TUBE_OFF_DELAY;
-        else if (TIME_AFTER(current_tick, tube_off_tick))
-        {
-            tube_power(false);
-            tube_off_tick = 0;
-        }
-    }
+    else
+        tube_off_delayed();
 }

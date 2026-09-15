@@ -17716,3 +17716,101 @@
     *: "Local"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_BT_RX
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth Receive"
+  </source>
+  <dest>
+    *: "蓝牙接收"
+  </dest>
+  <voice>
+    *: "Bluetooth Receive"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RX_ACTIVE
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth receive active"
+  </source>
+  <dest>
+    *: "蓝牙接收使用中"
+  </dest>
+  <voice>
+    *: "Bluetooth receive active"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RX_STOPPED
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth receive stopped"
+  </source>
+  <dest>
+    *: "蓝牙接收已停止"
+  </dest>
+  <voice>
+    *: "Bluetooth receive stopped"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_AUDIO_OUT
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth Output"
+  </source>
+  <dest>
+    *: "蓝牙输出"
+  </dest>
+  <voice>
+    *: "Bluetooth Output"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_AUDIO_IN
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth Input"
+  </source>
+  <dest>
+    *: "蓝牙输入"
+  </dest>
+  <voice>
+    *: "Bluetooth Input"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RX_WAITING
+  desc: in the bluetooth receive screen
+  user: core
+  <source>
+    *: "Waiting for connection"
+  </source>
+  <dest>
+    *: "等待连接"
+  </dest>
+  <voice>
+    *: "Waiting for connection"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RX_RATE
+  desc: in the bluetooth receive screen
+  user: core
+  <source>
+    *: "Sample rate"
+  </source>
+  <dest>
+    *: "采样率"
+  </dest>
+  <voice>
+    *: "Sample rate"
+  </voice>
+</phrase>

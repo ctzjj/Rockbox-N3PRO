@@ -24,14 +24,18 @@
 
 #include "kernel.h"
 #include "audio.h"
+#include "action.h"
 #include "menu.h"
 #include "splash.h"
 #include "lang.h"
 #include "settings.h"
 #include "sound.h"
+#include "screen_access.h"
+#include "viewport.h"
 #include "gui/list.h"
 #include "pcm-alsa.h"
 #include "n3pro-bt-pcm.h"
+#include "n3pro-bt-input.h"
 
 /* str() yields const unsigned char *; keep the string call sites simple. */
 static char *bt_str(int id)
@@ -800,9 +804,26 @@ static void bt_controller_reset(void)
 
 static void bt_route_to_local(bool show_message)
 {
+    int status = audio_status();
+    bool was_playing = (status & AUDIO_STATUS_PLAY)
+                       && !(status & AUDIO_STATUS_PAUSE);
+
+    /* Leave the bluetooth route while paused: mid-stream the wired
+     * device would briefly carry the bluetooth-route unity gain at
+     * full scale to the headphone jack.  The wired volume is put
+     * back before playback resumes. */
+    if (was_playing)
+    {
+        audio_pause();
+        sleep(HZ / 4);
+    }
+
     pcm_alsa_switch_playback_device(BT_LOCAL_PLAYBACK_DEVICE);
-    bt_kick_audio_if_playing();
     bt_vol_enter_local();
+
+    if (was_playing)
+        audio_resume();
+
     if (show_message)
         splash(HZ, "Output: Local");
 }
@@ -1283,6 +1304,11 @@ static void bt_watchdog(void)
         if (bt_busy)
             continue;
 
+        /* Never fight the receive path: while it is active the radio
+         * belongs to it and the output stays on the wired jack. */
+        if (n3pro_bt_rx_get_active())
+            continue;
+
         if (!TIME_AFTER(current_tick, last_check + 2 * HZ))
             continue;
         last_check = current_tick;
@@ -1377,15 +1403,24 @@ static void bt_show_status(void)
     simplelist_show_list(&info);
 }
 
-int n3pro_bluetooth_menu(void)
+/* Bluetooth output submenu: status, device list, disconnect. */
+static int bt_output_menu(void)
 {
     int action = -1;
+
+    /* Output and receive are mutually exclusive: while the receive
+     * path owns the radio and the wired output, refuse to route. */
+    if (n3pro_bt_rx_get_active())
+    {
+        splash(HZ * 2, bt_str(LANG_BT_RX_ACTIVE));
+        return 0;
+    }
 
     while (true)
     {
         struct simplelist_info info;
 
-        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
+        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
         info.get_name = bt_action_name_cb;
         info.action_callback = bt_simplelist_ok_cancel;
         info.selection = -1;
@@ -1410,6 +1445,231 @@ int n3pro_bluetooth_menu(void)
                 bt_busy = true;
                 bt_disconnect();
                 bt_busy = false;
+                break;
+            default:
+                break;
+        }
+    }
+    return 0;
+}
+
+/* Bluetooth receive screen: live status lines plus a selectable
+ * "Disconnect" entry at the bottom. Choosing it drops the phone link,
+ * stops the pump and powers the radio down. Back leaves the receiver
+ * running in the background (like USB DAC mode) so the menus stay
+ * usable; local playback is refused while it runs (apps/playback.c).
+ * The list refreshes itself when the link state changes (checked on
+ * the 2 s input timeout). */
+#define BT_RX_ROWS 5
+
+static const char *bt_rx_name_cb(int selected_item, void *data,
+                                 char *buffer, size_t buffer_len)
+{
+    char peer[18];
+    const char *str;
+
+    (void)data;
+
+    if (selected_item < 0 || selected_item >= BT_RX_ROWS)
+    {
+        buffer[0] = '\0';
+        return buffer;
+    }
+
+    switch (selected_item)
+    {
+        case 0:
+            switch (n3pro_bt_rx_get_state())
+            {
+                case N3PRO_BT_RX_CONNECTED:
+                    str = bt_str(LANG_BT_CONNECTED);
+                    break;
+                case N3PRO_BT_RX_DISCONNECTED:
+                    str = bt_str(LANG_BT_DISCONNECTED);
+                    break;
+                default:
+                    str = bt_str(LANG_BT_RX_WAITING);
+                    break;
+            }
+            snprintf(buffer, buffer_len, "%s: %s",
+                     bt_str(LANG_BT_STATUS), str);
+            break;
+        case 1:
+            n3pro_bt_rx_get_peer(peer, sizeof(peer));
+            snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_MAC),
+                     peer[0] ? peer : "-");
+            break;
+        case 2:
+            snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_CODEC),
+                     bt_get_codec());
+            break;
+        case 3:
+        {
+            int rate = n3pro_bt_rx_get_rate();
+
+            if (rate > 0)
+                snprintf(buffer, buffer_len, "%s: %d Hz",
+                         bt_str(LANG_BT_RX_RATE), rate);
+            else
+                snprintf(buffer, buffer_len, "%s: -", bt_str(LANG_BT_RX_RATE));
+            break;
+        }
+        default:
+            snprintf(buffer, buffer_len, "%s", bt_str(LANG_BT_DISCONNECT));
+            break;
+    }
+    return buffer;
+}
+
+static int bt_rx_action_cb(int action, struct gui_synclist *lists)
+{
+    static int last_state = -1;
+    static int last_rate = -1;
+    static char last_peer[18];
+
+    if (action == ACTION_STD_OK)
+    {
+        if (gui_synclist_get_sel_pos(lists) == BT_RX_ROWS - 1)
+            return ACTION_STD_CANCEL;    /* "Disconnect": exit list */
+        return ACTION_NONE;               /* status rows do nothing */
+    }
+
+    if (action == ACTION_NONE)
+    {
+        /* Input timeout: redraw only when something changed. */
+        char peer[18];
+        int state = n3pro_bt_rx_get_state();
+        int rate = n3pro_bt_rx_get_rate();
+
+        n3pro_bt_rx_get_peer(peer, sizeof(peer));
+        if (state != last_state || rate != last_rate ||
+            strcmp(peer, last_peer) != 0)
+        {
+            last_state = state;
+            last_rate = rate;
+            snprintf(last_peer, sizeof(last_peer), "%s", peer);
+            return ACTION_REDRAW;
+        }
+    }
+    return action;
+}
+
+static void bt_rx_screen(void)
+{
+    struct simplelist_info info;
+
+    /* Incoming pairings/connections need sys_server's agent: it does
+     * not survive the hand-off into Rockbox, so bring the stack up
+     * before waiting for the phone. */
+    bt_busy = true;
+    bt_prepare_stack();
+    bt_busy = false;
+
+    /* Receive and output are mutually exclusive: if an earphone route
+     * is up, drop it (without powering the radio down -- receiving
+     * needs it) and stop the output watchdog. */
+    if (!n3pro_bt_rx_get_active() && bt_selected_mac[0])
+    {
+        char cmd[36], reply[BT_SYS_REPLY_MAX];
+
+        snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
+        bt_sys_command(cmd, reply, sizeof(reply));
+        bt_prefer = false;
+        bt_watchdog_stop();
+        bt_route_to_local(false);
+        bt_set_selected_mac(NULL);
+    }
+
+    /* The receive path owns the output, like USB DAC mode: stop any
+     * running playback first. */
+    if (audio_status() & (AUDIO_STATUS_PLAY | AUDIO_STATUS_PAUSE))
+        audio_stop();
+
+    /* The pump may keep waiting for the phone only while this screen
+     * is open; in the background it winds itself down on link loss.
+     * Set the flag BEFORE starting the pump -- its very first open
+     * usually fails (no transport yet) and must retry, not wind down. */
+    n3pro_bt_rx_set_fg(true);
+
+    if (!n3pro_bt_rx_get_active() && !n3pro_bt_rx_start())
+    {
+        n3pro_bt_rx_set_fg(false);
+        splash(HZ * 2, bt_str(LANG_BT_UNAVAILABLE));
+        return;
+    }
+
+    simplelist_info_init(&info, bt_str(LANG_BT_RX), BT_RX_ROWS, NULL);
+    info.get_name = bt_rx_name_cb;
+    info.action_callback = bt_rx_action_cb;
+    info.timeout = HZ * 2;
+    info.selection = BT_RX_ROWS - 1;
+    info.title_icon = Icon_Submenu;
+
+    simplelist_show_list(&info);
+
+    n3pro_bt_rx_set_fg(false);
+
+    if (info.selection == BT_RX_ROWS - 1)
+    {
+        /* "Disconnect": full stop -- drop the phone link, stop the
+         * pump and power the radio down before returning. */
+        char peer[18], cmd[36], reply[BT_SYS_REPLY_MAX];
+
+        n3pro_bt_rx_get_peer(peer, sizeof(peer));
+        if (peer[0])
+        {
+            snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", peer);
+            bt_sys_command(cmd, reply, sizeof(reply));
+        }
+        n3pro_bt_rx_stop();
+        bt_power_off();
+        splash(HZ, bt_str(LANG_BT_RX_STOPPED));
+    }
+    /* Back (selection < 0): receiving keeps running in the background;
+     * local playback and the earphone route stay locked out until it
+     * is stopped from this screen. */
+}
+
+static const char *bt_top_name_cb(int selected_item, void *data,
+                                  char *buffer, size_t buffer_len)
+{
+    static const unsigned short ids[] =
+    {
+        LANG_BT_AUDIO_OUT, LANG_BT_AUDIO_IN
+    };
+    (void)data;
+
+    if (selected_item < 0 || selected_item >= 2)
+    {
+        buffer[0] = '\0';
+        return buffer;
+    }
+    snprintf(buffer, buffer_len, "%s", bt_str(ids[selected_item]));
+    return buffer;
+}
+
+int n3pro_bluetooth_menu(void)
+{
+    while (true)
+    {
+        struct simplelist_info info;
+
+        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 2, NULL);
+        info.get_name = bt_top_name_cb;
+        info.selection = -1;
+        info.title_icon = Icon_Submenu;
+
+        simplelist_show_list(&info);
+        if (info.selection < 0)
+            break;
+
+        switch (info.selection)
+        {
+            case 0:
+                bt_output_menu();
+                break;
+            case 1:
+                bt_rx_screen();
                 break;
             default:
                 break;

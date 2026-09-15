@@ -143,6 +143,20 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
        Note these are in FRAMES, and are sized to be about 8.5ms
        for the buffer and 2.1ms for the period
      */
+#ifdef CAYIN_N3PRO
+    /* The X1000 smart-LCD update path can stall the kernel (and thus
+     * any thread) for tens of milliseconds when the screen wakes or
+     * redraws. The stock ~10ms hardware buffer underruns audibly on
+     * every such event, so keep ~200ms of audio in the hardware and
+     * let the poll thread catch up once the stall is over. */
+    {
+        unsigned long want = sampr / 5;          /* frames in 200ms */
+        buffer_size = (want + MIX_FRAME_SAMPLES - 1) & ~(unsigned long)(MIX_FRAME_SAMPLES - 1);
+        if (buffer_size < MIX_FRAME_SAMPLES * 4)
+            buffer_size = MIX_FRAME_SAMPLES * 4;
+        period_size = buffer_size / 8;
+    }
+#else
     if (sampr > SAMPR_96) {
         buffer_size = MIX_FRAME_SAMPLES * 4 * 4;
         period_size = MIX_FRAME_SAMPLES * 4;
@@ -153,6 +167,7 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
         buffer_size = MIX_FRAME_SAMPLES * 4;
         period_size = MIX_FRAME_SAMPLES;
     }
+#endif
 
     /* choose all parameters */
     err = snd_pcm_hw_params_any(handle, params);

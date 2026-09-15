@@ -17779,3 +17779,101 @@
     *: "Local"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_BT_RX
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth Receive"
+  </source>
+  <dest>
+    *: "Bluetooth Receive"
+  </dest>
+  <voice>
+    *: "Bluetooth Receive"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RX_ACTIVE
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth receive active"
+  </source>
+  <dest>
+    *: "Bluetooth receive active"
+  </dest>
+  <voice>
+    *: "Bluetooth receive active"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RX_STOPPED
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth receive stopped"
+  </source>
+  <dest>
+    *: "Bluetooth receive stopped"
+  </dest>
+  <voice>
+    *: "Bluetooth receive stopped"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_AUDIO_OUT
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth Output"
+  </source>
+  <dest>
+    *: "Bluetooth Output"
+  </dest>
+  <voice>
+    *: "Bluetooth Output"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_AUDIO_IN
+  desc: in the bluetooth menu
+  user: core
+  <source>
+    *: "Bluetooth Input"
+  </source>
+  <dest>
+    *: "Bluetooth Input"
+  </dest>
+  <voice>
+    *: "Bluetooth Input"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RX_WAITING
+  desc: in the bluetooth receive screen
+  user: core
+  <source>
+    *: "Waiting for connection"
+  </source>
+  <dest>
+    *: "Waiting for connection"
+  </dest>
+  <voice>
+    *: "Waiting for connection"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_BT_RX_RATE
+  desc: in the bluetooth receive screen
+  user: core
+  <source>
+    *: "Sample rate"
+  </source>
+  <dest>
+    *: "Sample rate"
+  </dest>
+  <voice>
+    *: "Sample rate"
+  </voice>
+</phrase>

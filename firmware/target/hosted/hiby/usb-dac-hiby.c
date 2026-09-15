@@ -50,6 +50,10 @@
 #include "thread.h"
 #include "usb.h"
 #include "usb-dac-hiby.h"
+
+#if defined(CAYIN_N3PRO)
+#include "n3pro-bt-input.h"
+#endif
 #if defined(CAYIN_N3PRO)
 #include <stdlib.h>
 #include <time.h>
@@ -432,6 +436,12 @@ bool usb_dac_start(void)
      * usb_detect() retries every tick, so the DAC comes up by itself
      * once playback is over. */
     if (mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) != CHANNEL_STOPPED)
+        return false;
+
+    /* The Bluetooth receive path owns the output and the DSP the same
+     * way; the two inputs are mutually exclusive and usb_detect()
+     * retries, so the DAC still comes up once receiving stops. */
+    if (n3pro_bt_rx_get_active())
         return false;
 
     /* The vendor driver's open()/read() block until the host streams, so

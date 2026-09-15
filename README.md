@@ -33,6 +33,8 @@ Download the ready-made image and SD-card payload from the
 | SD card (`/mnt/sd_0`) | working |
 | USB: Mass Storage / Charge only / ADB modes | working |
 | USB Audio (USB DAC, incl. "DAC + storage" and "DAC + ADB" gadgets) | working* |
+| Bluetooth output (A2DP earphones: scan / pair / connect, LDAC/APTX/AAC/SBC) | working |
+| Bluetooth input (phone A2DP → Rockbox DSP → wired outputs) | working |
 | RGB status LED (charge + playback, colour by sample rate) | working |
 | Battery gauge | working (kernel fuel gauge) |
 | Backlight / sleep | working |
@@ -85,13 +87,51 @@ in-box WinUSB driver, so the **libusb** adb backend is required
 * **Settings -> General Settings -> System -> LED indicators** enables the
   playback LED (charging indication is always shown).
 * **Settings -> Sound Settings**: *Filter roll-off* and *Tube Mode*.
+* **Main menu -> 蓝牙 (Bluetooth)**: two entries — **蓝牙输出 (audio output)**
+  and **蓝牙输入 (audio input)**, see below.
+
+## Bluetooth
+
+The port drives the vendor Bluetooth stack (BlueZ4 + `sys_server` + the stock
+ALSA `bluetooth` plugin, BCM4345C5) through a two-entry menu:
+
+* **Audio output (蓝牙输出)** — A2DP to earphones/speakers:
+  * scan, pair, connect, disconnect; a codec preference walk negotiates the
+    best codec the peer accepts (LDAC_HQ → APTX → AAC → SBC).
+  * An output watchdog follows the link state: audio auto-routes to the
+    earphone when it (re)connects and falls back to the wired jack when it
+    drops — pausing playback across the switch so the bluetooth-side volume
+    is never carried into the wired output.
+  * Volume: the bluetooth route uses a userspace softvol (`Bluetooth Vol`,
+    50 dB window) driven by the normal volume keys; each output remembers its
+    own volume and they are swapped on route changes.
+* **Audio input (蓝牙输入)** — the phone connects to the N3Pro and its music
+  plays through Rockbox:
+  * the received A2DP stream is decoded by the vendor plugin, pumped through
+    the full Rockbox DSP chain (**EQ and Sound settings apply**) and played
+    out of the wired outputs, with the sample rate following the link
+    (44.1/48/88.2/96 kHz).
+  * entering the screen powers the radio on (the phone can then pair) and
+    stops local playback, like USB DAC; the screen shows link state, peer,
+    codec and rate. **Back** keeps receiving in the background; the
+    **断开连接** item disconnects the phone and powers the radio off.
+  * while receiving, the wired volume is pinned wide open — **the phone is
+    the volume control** — and the user's own volume setting is restored
+    afterwards (also after a crash or poweroff during receive).
+* Mutual exclusion: bluetooth input pauses local playback and blocks it
+  (with a splash, like the USB DAC), is exclusive with USB DAC input and with
+  bluetooth output; the tubes follow the wired rules for received audio and
+  are forced off on bluetooth output.
 
 ## Files
 
 The target driver lives in `firmware/target/hosted/cayin/n3pro/`, including
 **standalone LCD and USB drivers** (`lcd-n3pro.c`, `usb-n3pro.c` — the shared
 `lcd-linuxfb.c` / `usb-hiby.c` stay upstream-clean and are excluded for this
-target in `firmware/SOURCES`).  The model header is
+target in `firmware/SOURCES`).  The Bluetooth manager is `apps/n3pro_bluetooth.c`
+(menu, pairing, routing, watchdog) with the receive pump in
+`firmware/target/hosted/cayin/n3pro/n3pro-bt-input.c` and the bluetooth PCM
+hooks in `n3pro-bt-pcm-hooks.h`.  The model header is
 `firmware/export/config/n3pro.h` and the keymap is
 `apps/keymaps/keymap-n3pro.c`.  Registration is in `tools/configure`,
 `tools/builds.pm`, `firmware/SOURCES`, `apps/SOURCES`,

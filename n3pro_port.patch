@@ -43,6 +43,33 @@ index 9812851388..1411aca776 100644
  hibyicon.130x130x16.bmp
  rockboxicon.130x130x16.bmp
  toolsicon.130x130x16.bmp
+diff --git a/apps/gui/wps.c b/apps/gui/wps.c
+index 12fda68824..dcc6665abd 100644
+--- a/apps/gui/wps.c
++++ b/apps/gui/wps.c
+@@ -34,6 +34,9 @@
+ #include "skin_engine/skin_engine.h"
+ #include "audio.h"
+ #include "usb.h"
++#if defined(CAYIN_N3PRO)
++#include "n3pro-bt-input.h"
++#endif
+ #include "status.h"
+ #include "storage.h"
+ #include "screens.h"
+@@ -721,6 +724,12 @@ long gui_wps_show(void)
+     {
+         splash(HZ*2, ID2P(LANG_USB_DAC_ACTIVE));
+     }
++#endif
++#if defined(CAYIN_N3PRO)
++    if (n3pro_bt_rx_get_active())
++    {
++        splash(HZ*2, ID2P(LANG_BT_RX_ACTIVE));
++    }
+ #endif
+     long button = 0;
+     bool restore = true;
 diff --git a/apps/keymaps/keymap-n3pro.c b/apps/keymaps/keymap-n3pro.c
 new file mode 100644
 index 0000000000..22693ef5f8
@@ -663,10 +690,10 @@ index 3d046e9351..db2335d937 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..c627f2b771 100644
+index 3c8be16c72..4a35fdcb69 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,551 @@
+@@ -17168,3 +17168,649 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -1218,11 +1245,109 @@ index 3c8be16c72..c627f2b771 100644
 +    *: "Local"
 +  </voice>
 +</phrase>
++<phrase>
++  id: LANG_BT_RX
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Receive"
++  </source>
++  <dest>
++    *: "蓝牙接收"
++  </dest>
++  <voice>
++    *: "Bluetooth Receive"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_ACTIVE
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth receive active"
++  </source>
++  <dest>
++    *: "蓝牙接收使用中"
++  </dest>
++  <voice>
++    *: "Bluetooth receive active"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_STOPPED
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth receive stopped"
++  </source>
++  <dest>
++    *: "蓝牙接收已停止"
++  </dest>
++  <voice>
++    *: "Bluetooth receive stopped"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_AUDIO_OUT
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Output"
++  </source>
++  <dest>
++    *: "蓝牙输出"
++  </dest>
++  <voice>
++    *: "Bluetooth Output"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_AUDIO_IN
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Input"
++  </source>
++  <dest>
++    *: "蓝牙输入"
++  </dest>
++  <voice>
++    *: "Bluetooth Input"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_WAITING
++  desc: in the bluetooth receive screen
++  user: core
++  <source>
++    *: "Waiting for connection"
++  </source>
++  <dest>
++    *: "等待连接"
++  </dest>
++  <voice>
++    *: "Waiting for connection"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_RATE
++  desc: in the bluetooth receive screen
++  user: core
++  <source>
++    *: "Sample rate"
++  </source>
++  <dest>
++    *: "采样率"
++  </dest>
++  <voice>
++    *: "Sample rate"
++  </voice>
++</phrase>
 diff --git a/apps/lang/chinese-trad.lang b/apps/lang/chinese-trad.lang
-index 2ffee1e338..b999ab8fc6 100644
+index 2ffee1e338..91c3c14ba5 100644
 --- a/apps/lang/chinese-trad.lang
 +++ b/apps/lang/chinese-trad.lang
-@@ -11238,3 +11238,551 @@
+@@ -11238,3 +11238,649 @@
      ibassodx50,ibassodx90: "CPU頻率管理器"
    </voice>
  </phrase>
@@ -1774,6 +1899,104 @@ index 2ffee1e338..b999ab8fc6 100644
 +    *: "Local"
 +  </voice>
 +</phrase>
++<phrase>
++  id: LANG_BT_RX
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Receive"
++  </source>
++  <dest>
++    *: "藍牙接收"
++  </dest>
++  <voice>
++    *: "Bluetooth Receive"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_ACTIVE
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth receive active"
++  </source>
++  <dest>
++    *: "藍牙接收使用中"
++  </dest>
++  <voice>
++    *: "Bluetooth receive active"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_STOPPED
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth receive stopped"
++  </source>
++  <dest>
++    *: "藍牙接收已停止"
++  </dest>
++  <voice>
++    *: "Bluetooth receive stopped"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_AUDIO_OUT
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Output"
++  </source>
++  <dest>
++    *: "藍牙輸出"
++  </dest>
++  <voice>
++    *: "Bluetooth Output"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_AUDIO_IN
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Input"
++  </source>
++  <dest>
++    *: "藍牙輸入"
++  </dest>
++  <voice>
++    *: "Bluetooth Input"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_WAITING
++  desc: in the bluetooth receive screen
++  user: core
++  <source>
++    *: "Waiting for connection"
++  </source>
++  <dest>
++    *: "等待連接"
++  </dest>
++  <voice>
++    *: "Waiting for connection"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_RATE
++  desc: in the bluetooth receive screen
++  user: core
++  <source>
++    *: "Sample rate"
++  </source>
++  <dest>
++    *: "採樣率"
++  </dest>
++  <voice>
++    *: "Sample rate"
++  </voice>
++</phrase>
 diff --git a/apps/lang/czech.lang b/apps/lang/czech.lang
 index 170b57de93..3991c49022 100644
 --- a/apps/lang/czech.lang
@@ -2245,7 +2468,7 @@ index 55028062cd..ae85f0a296 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..05c50ad286 100644
+index 4c2f0d58b0..3d53c0d749 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -2311,7 +2534,7 @@ index 4c2f0d58b0..05c50ad286 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,495 @@
+@@ -17231,3 +17287,593 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -2805,6 +3028,104 @@ index 4c2f0d58b0..05c50ad286 100644
 +  </dest>
 +  <voice>
 +    *: "Local"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Receive"
++  </source>
++  <dest>
++    *: "Bluetooth Receive"
++  </dest>
++  <voice>
++    *: "Bluetooth Receive"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_ACTIVE
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth receive active"
++  </source>
++  <dest>
++    *: "Bluetooth receive active"
++  </dest>
++  <voice>
++    *: "Bluetooth receive active"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_STOPPED
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth receive stopped"
++  </source>
++  <dest>
++    *: "Bluetooth receive stopped"
++  </dest>
++  <voice>
++    *: "Bluetooth receive stopped"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_AUDIO_OUT
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Output"
++  </source>
++  <dest>
++    *: "Bluetooth Output"
++  </dest>
++  <voice>
++    *: "Bluetooth Output"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_AUDIO_IN
++  desc: in the bluetooth menu
++  user: core
++  <source>
++    *: "Bluetooth Input"
++  </source>
++  <dest>
++    *: "Bluetooth Input"
++  </dest>
++  <voice>
++    *: "Bluetooth Input"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_WAITING
++  desc: in the bluetooth receive screen
++  user: core
++  <source>
++    *: "Waiting for connection"
++  </source>
++  <dest>
++    *: "Waiting for connection"
++  </dest>
++  <voice>
++    *: "Waiting for connection"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_RX_RATE
++  desc: in the bluetooth receive screen
++  user: core
++  <source>
++    *: "Sample rate"
++  </source>
++  <dest>
++    *: "Sample rate"
++  </dest>
++  <voice>
++    *: "Sample rate"
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/espanol.lang b/apps/lang/espanol.lang
@@ -6294,10 +6615,10 @@ index 61d16f4cb1..66c70ad054 100644
            ,&timestretch_enabled
 diff --git a/apps/n3pro_bluetooth.c b/apps/n3pro_bluetooth.c
 new file mode 100644
-index 0000000000..62fb92bdd4
+index 0000000000..5dbdafd8cd
 --- /dev/null
 +++ b/apps/n3pro_bluetooth.c
-@@ -0,0 +1,1421 @@
+@@ -0,0 +1,1681 @@
 +/***************************************************************************
 + * Bluetooth audio (A2DP source) for the Cayin N3Pro hosted port.
 + *
@@ -6324,14 +6645,18 @@ index 0000000000..62fb92bdd4
 +
 +#include "kernel.h"
 +#include "audio.h"
++#include "action.h"
 +#include "menu.h"
 +#include "splash.h"
 +#include "lang.h"
 +#include "settings.h"
 +#include "sound.h"
++#include "screen_access.h"
++#include "viewport.h"
 +#include "gui/list.h"
 +#include "pcm-alsa.h"
 +#include "n3pro-bt-pcm.h"
++#include "n3pro-bt-input.h"
 +
 +/* str() yields const unsigned char *; keep the string call sites simple. */
 +static char *bt_str(int id)
@@ -7100,9 +7425,26 @@ index 0000000000..62fb92bdd4
 +
 +static void bt_route_to_local(bool show_message)
 +{
++    int status = audio_status();
++    bool was_playing = (status & AUDIO_STATUS_PLAY)
++                       && !(status & AUDIO_STATUS_PAUSE);
++
++    /* Leave the bluetooth route while paused: mid-stream the wired
++     * device would briefly carry the bluetooth-route unity gain at
++     * full scale to the headphone jack.  The wired volume is put
++     * back before playback resumes. */
++    if (was_playing)
++    {
++        audio_pause();
++        sleep(HZ / 4);
++    }
++
 +    pcm_alsa_switch_playback_device(BT_LOCAL_PLAYBACK_DEVICE);
-+    bt_kick_audio_if_playing();
 +    bt_vol_enter_local();
++
++    if (was_playing)
++        audio_resume();
++
 +    if (show_message)
 +        splash(HZ, "Output: Local");
 +}
@@ -7583,6 +7925,11 @@ index 0000000000..62fb92bdd4
 +        if (bt_busy)
 +            continue;
 +
++        /* Never fight the receive path: while it is active the radio
++         * belongs to it and the output stays on the wired jack. */
++        if (n3pro_bt_rx_get_active())
++            continue;
++
 +        if (!TIME_AFTER(current_tick, last_check + 2 * HZ))
 +            continue;
 +        last_check = current_tick;
@@ -7677,15 +8024,24 @@ index 0000000000..62fb92bdd4
 +    simplelist_show_list(&info);
 +}
 +
-+int n3pro_bluetooth_menu(void)
++/* Bluetooth output submenu: status, device list, disconnect. */
++static int bt_output_menu(void)
 +{
 +    int action = -1;
++
++    /* Output and receive are mutually exclusive: while the receive
++     * path owns the radio and the wired output, refuse to route. */
++    if (n3pro_bt_rx_get_active())
++    {
++        splash(HZ * 2, bt_str(LANG_BT_RX_ACTIVE));
++        return 0;
++    }
 +
 +    while (true)
 +    {
 +        struct simplelist_info info;
 +
-+        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
++        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
 +        info.get_name = bt_action_name_cb;
 +        info.action_callback = bt_simplelist_ok_cancel;
 +        info.selection = -1;
@@ -7718,6 +8074,231 @@ index 0000000000..62fb92bdd4
 +    return 0;
 +}
 +
++/* Bluetooth receive screen: live status lines plus a selectable
++ * "Disconnect" entry at the bottom. Choosing it drops the phone link,
++ * stops the pump and powers the radio down. Back leaves the receiver
++ * running in the background (like USB DAC mode) so the menus stay
++ * usable; local playback is refused while it runs (apps/playback.c).
++ * The list refreshes itself when the link state changes (checked on
++ * the 2 s input timeout). */
++#define BT_RX_ROWS 5
++
++static const char *bt_rx_name_cb(int selected_item, void *data,
++                                 char *buffer, size_t buffer_len)
++{
++    char peer[18];
++    const char *str;
++
++    (void)data;
++
++    if (selected_item < 0 || selected_item >= BT_RX_ROWS)
++    {
++        buffer[0] = '\0';
++        return buffer;
++    }
++
++    switch (selected_item)
++    {
++        case 0:
++            switch (n3pro_bt_rx_get_state())
++            {
++                case N3PRO_BT_RX_CONNECTED:
++                    str = bt_str(LANG_BT_CONNECTED);
++                    break;
++                case N3PRO_BT_RX_DISCONNECTED:
++                    str = bt_str(LANG_BT_DISCONNECTED);
++                    break;
++                default:
++                    str = bt_str(LANG_BT_RX_WAITING);
++                    break;
++            }
++            snprintf(buffer, buffer_len, "%s: %s",
++                     bt_str(LANG_BT_STATUS), str);
++            break;
++        case 1:
++            n3pro_bt_rx_get_peer(peer, sizeof(peer));
++            snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_MAC),
++                     peer[0] ? peer : "-");
++            break;
++        case 2:
++            snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_CODEC),
++                     bt_get_codec());
++            break;
++        case 3:
++        {
++            int rate = n3pro_bt_rx_get_rate();
++
++            if (rate > 0)
++                snprintf(buffer, buffer_len, "%s: %d Hz",
++                         bt_str(LANG_BT_RX_RATE), rate);
++            else
++                snprintf(buffer, buffer_len, "%s: -", bt_str(LANG_BT_RX_RATE));
++            break;
++        }
++        default:
++            snprintf(buffer, buffer_len, "%s", bt_str(LANG_BT_DISCONNECT));
++            break;
++    }
++    return buffer;
++}
++
++static int bt_rx_action_cb(int action, struct gui_synclist *lists)
++{
++    static int last_state = -1;
++    static int last_rate = -1;
++    static char last_peer[18];
++
++    if (action == ACTION_STD_OK)
++    {
++        if (gui_synclist_get_sel_pos(lists) == BT_RX_ROWS - 1)
++            return ACTION_STD_CANCEL;    /* "Disconnect": exit list */
++        return ACTION_NONE;               /* status rows do nothing */
++    }
++
++    if (action == ACTION_NONE)
++    {
++        /* Input timeout: redraw only when something changed. */
++        char peer[18];
++        int state = n3pro_bt_rx_get_state();
++        int rate = n3pro_bt_rx_get_rate();
++
++        n3pro_bt_rx_get_peer(peer, sizeof(peer));
++        if (state != last_state || rate != last_rate ||
++            strcmp(peer, last_peer) != 0)
++        {
++            last_state = state;
++            last_rate = rate;
++            snprintf(last_peer, sizeof(last_peer), "%s", peer);
++            return ACTION_REDRAW;
++        }
++    }
++    return action;
++}
++
++static void bt_rx_screen(void)
++{
++    struct simplelist_info info;
++
++    /* Incoming pairings/connections need sys_server's agent: it does
++     * not survive the hand-off into Rockbox, so bring the stack up
++     * before waiting for the phone. */
++    bt_busy = true;
++    bt_prepare_stack();
++    bt_busy = false;
++
++    /* Receive and output are mutually exclusive: if an earphone route
++     * is up, drop it (without powering the radio down -- receiving
++     * needs it) and stop the output watchdog. */
++    if (!n3pro_bt_rx_get_active() && bt_selected_mac[0])
++    {
++        char cmd[36], reply[BT_SYS_REPLY_MAX];
++
++        snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
++        bt_sys_command(cmd, reply, sizeof(reply));
++        bt_prefer = false;
++        bt_watchdog_stop();
++        bt_route_to_local(false);
++        bt_set_selected_mac(NULL);
++    }
++
++    /* The receive path owns the output, like USB DAC mode: stop any
++     * running playback first. */
++    if (audio_status() & (AUDIO_STATUS_PLAY | AUDIO_STATUS_PAUSE))
++        audio_stop();
++
++    /* The pump may keep waiting for the phone only while this screen
++     * is open; in the background it winds itself down on link loss.
++     * Set the flag BEFORE starting the pump -- its very first open
++     * usually fails (no transport yet) and must retry, not wind down. */
++    n3pro_bt_rx_set_fg(true);
++
++    if (!n3pro_bt_rx_get_active() && !n3pro_bt_rx_start())
++    {
++        n3pro_bt_rx_set_fg(false);
++        splash(HZ * 2, bt_str(LANG_BT_UNAVAILABLE));
++        return;
++    }
++
++    simplelist_info_init(&info, bt_str(LANG_BT_RX), BT_RX_ROWS, NULL);
++    info.get_name = bt_rx_name_cb;
++    info.action_callback = bt_rx_action_cb;
++    info.timeout = HZ * 2;
++    info.selection = BT_RX_ROWS - 1;
++    info.title_icon = Icon_Submenu;
++
++    simplelist_show_list(&info);
++
++    n3pro_bt_rx_set_fg(false);
++
++    if (info.selection == BT_RX_ROWS - 1)
++    {
++        /* "Disconnect": full stop -- drop the phone link, stop the
++         * pump and power the radio down before returning. */
++        char peer[18], cmd[36], reply[BT_SYS_REPLY_MAX];
++
++        n3pro_bt_rx_get_peer(peer, sizeof(peer));
++        if (peer[0])
++        {
++            snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", peer);
++            bt_sys_command(cmd, reply, sizeof(reply));
++        }
++        n3pro_bt_rx_stop();
++        bt_power_off();
++        splash(HZ, bt_str(LANG_BT_RX_STOPPED));
++    }
++    /* Back (selection < 0): receiving keeps running in the background;
++     * local playback and the earphone route stay locked out until it
++     * is stopped from this screen. */
++}
++
++static const char *bt_top_name_cb(int selected_item, void *data,
++                                  char *buffer, size_t buffer_len)
++{
++    static const unsigned short ids[] =
++    {
++        LANG_BT_AUDIO_OUT, LANG_BT_AUDIO_IN
++    };
++    (void)data;
++
++    if (selected_item < 0 || selected_item >= 2)
++    {
++        buffer[0] = '\0';
++        return buffer;
++    }
++    snprintf(buffer, buffer_len, "%s", bt_str(ids[selected_item]));
++    return buffer;
++}
++
++int n3pro_bluetooth_menu(void)
++{
++    while (true)
++    {
++        struct simplelist_info info;
++
++        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 2, NULL);
++        info.get_name = bt_top_name_cb;
++        info.selection = -1;
++        info.title_icon = Icon_Submenu;
++
++        simplelist_show_list(&info);
++        if (info.selection < 0)
++            break;
++
++        switch (info.selection)
++        {
++            case 0:
++                bt_output_menu();
++                break;
++            case 1:
++                bt_rx_screen();
++                break;
++            default:
++                break;
++        }
++    }
++    return 0;
++}
++
 +#endif /* CAYIN_N3PRO */
 diff --git a/apps/n3pro_bluetooth.h b/apps/n3pro_bluetooth.h
 new file mode 100644
@@ -7734,6 +8315,36 @@ index 0000000000..6eef4e342d
 +int n3pro_bluetooth_menu(void);
 +
 +#endif /* __N3PRO_BLUETOOTH_H__ */
+diff --git a/apps/playback.c b/apps/playback.c
+index 29f06dcb69..141cdea3ef 100644
+--- a/apps/playback.c
++++ b/apps/playback.c
+@@ -71,6 +71,9 @@
+ #include "usbstack/usb_audio.h"
+ #endif
+ #include "usb.h"
++#if defined(CAYIN_N3PRO)
++#include "n3pro-bt-input.h"
++#endif
+ #include "splash.h"
+ #include "lang.h"
+ #endif
+@@ -3005,6 +3008,15 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
+         queue_reply(&audio_queue, 0);
+         return;
+     }
++#endif
++#if defined(CAYIN_N3PRO)
++    /* Refuse playback while the Bluetooth receive pump owns the output
++     * and the shared DSP chain (see gui_wps_show() for the splash). */
++    if (n3pro_bt_rx_get_active())
++    {
++        queue_reply(&audio_queue, 0);
++        return;
++    }
+ #endif
+     static struct audio_resume_info resume = { 0, 0 };
+     enum play_status old_status = play_status;
 diff --git a/apps/plugin.c b/apps/plugin.c
 index 7f517fe727..e9764aec6c 100644
 --- a/apps/plugin.c
@@ -15188,7 +15799,7 @@ index afe701efe2..eea5791f32 100644
      \group sound
      \conditions (defined(HAVE_PITCHCONTROL))
 diff --git a/firmware/SOURCES b/firmware/SOURCES
-index 02a9d7cd83..d5070124fd 100644
+index 02a9d7cd83..8104db6aba 100644
 --- a/firmware/SOURCES
 +++ b/firmware/SOURCES
 @@ -161,7 +161,9 @@ target/hosted/lc-unix.c
@@ -15201,7 +15812,7 @@ index 02a9d7cd83..d5070124fd 100644
  target/hosted/power-linux.c
  #endif
  
-@@ -211,6 +213,20 @@ target/hosted/agptek/rocker_codec.c
+@@ -211,6 +213,21 @@ target/hosted/agptek/rocker_codec.c
  #endif
  #endif
  
@@ -15214,6 +15825,7 @@ index 02a9d7cd83..d5070124fd 100644
 +#if !defined(BOOTLOADER)
 +target/hosted/cayin/n3pro/cayin-n3pro.c
 +target/hosted/cayin/n3pro/led-n3pro.c
++target/hosted/cayin/n3pro/n3pro-bt-input.c
 +target/hosted/hiby/hibylinux_codec.c
 +target/hosted/hiby/usb-dac-hiby.c
 +#endif
@@ -15222,7 +15834,7 @@ index 02a9d7cd83..d5070124fd 100644
  #if defined(SURFANS_F28) && !defined(SIMULATOR)
  target/hosted/surfans/button-f28.c
  target/hosted/surfans/debug-f28.c
-@@ -233,7 +249,7 @@ target/hosted/xduoo/xduoolinux_codec.c
+@@ -233,7 +250,7 @@ target/hosted/xduoo/xduoolinux_codec.c
  target/hosted/button-devinput.c
  #endif
  
@@ -15437,6 +16049,21 @@ index d0b7f8c706..45095f687b 100644
  void audiohw_mute(int mute);
  void hiby_set_output(int ps);
  int hiby_get_outputs(void);
+diff --git a/firmware/export/pcm_mixer.h b/firmware/export/pcm_mixer.h
+index bbc2c2c9cd..3d2420d097 100644
+--- a/firmware/export/pcm_mixer.h
++++ b/firmware/export/pcm_mixer.h
+@@ -73,6 +73,10 @@ enum pcm_mixer_channel
+     PCM_MIXER_CHAN_PLAYBACK = 0,
+ #if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+     PCM_MIXER_CHAN_USBAUDIO,
++#endif
++#if defined(CAYIN_N3PRO)
++    /* Bluetooth A2DP receive; see target/hosted/cayin/n3pro/n3pro-bt-input.c */
++    PCM_MIXER_CHAN_BT_AUDIO,
+ #endif
+     PCM_MIXER_CHAN_VOICE,
+ #ifndef HAVE_HARDWARE_BEEP
 diff --git a/firmware/export/sound.h b/firmware/export/sound.h
 index 75a1202d57..aa1d1e3068 100644
 --- a/firmware/export/sound.h
@@ -15690,10 +16317,10 @@ index 0000000000..961cdf087c
 +#endif /* _BUTTON_TARGET_H_ */
 diff --git a/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c
 new file mode 100644
-index 0000000000..ef5bf84d60
+index 0000000000..57ba8b7ba3
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,168 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -15724,6 +16351,7 @@ index 0000000000..ef5bf84d60
 +#include "alsa-controls.h"
 +#include "cayin-n3pro.h"
 +#include "n3pro-bt-pcm.h"
++#include "n3pro-bt-input.h"
 +
 +#define TIMBRE_PATH      CAYIN_N3PRO_SYSFS_BASE "/timbre_select"
 +
@@ -15765,6 +16393,33 @@ index 0000000000..ef5bf84d60
 +    tube_wiring = -1;               /* re-apply wiring after (re)power */
 +}
 +
++/* Off without the grace delay (conditions that can never play through
++ * the tube: mode off, bluetooth output). */
++static void tube_off_now(void)
++{
++    if (tube_powered)
++        tube_power(false);
++    tube_off_tick = 0;
++}
++
++/* Off after TUBE_OFF_DELAY so a brief pause (or jack wiggle) does not
++ * bounce the tube on and off. */
++static void tube_off_delayed(void)
++{
++    if (!tube_powered)
++    {
++        tube_off_tick = 0;
++        return;
++    }
++    if (tube_off_tick == 0)
++        tube_off_tick = current_tick + TUBE_OFF_DELAY;
++    else if (TIME_AFTER(current_tick, tube_off_tick))
++    {
++        tube_power(false);
++        tube_off_tick = 0;
++    }
++}
++
 +void cayin_tube_set_mode(int mode)
 +{
 +    if (mode < 0)
@@ -15779,30 +16434,45 @@ index 0000000000..ef5bf84d60
 +
 +void cayin_tube_tick(int out_ps)
 +{
-+    int st = audio_status();
-+    bool playing = (st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE);
++    bool playing;
 +
-+    /* The bluetooth output bypasses the JAN6418 buffer entirely (it sits in
-+     * the 3.5 mm single-ended path), so switch the tube off straight away
-+     * while audio is routed there. */
++    /* 1. Headphone jack first: the JAN6418 buffer sits in the 3.5 mm
++     *    single-ended path ONLY, so without that jack the tube may
++     *    never be powered, no matter where audio runs. */
++    if (out_ps != CAYIN_OUTPUT_HEADSET)
++    {
++        tube_off_delayed();
++        return;
++    }
++
++    /* 2. Bluetooth OUTPUT bypasses the tube entirely: switch it off
++     *    straight away while audio is routed there. */
 +    if (pcm_alsa_is_bluetooth_active())
 +    {
-+        if (tube_powered)
-+            tube_power(false);
-+        tube_off_tick = 0;
++        tube_off_now();
 +        return;
++    }
++
++    /* 3. Who is playing on the wired path?
++     *    Bluetooth INPUT streams to the jack through the mixer while
++     *    the audio core stays idle -- count the receive link as
++     *    playing.  Otherwise it is ordinary local playback. */
++    if (n3pro_bt_rx_get_active())
++        playing = n3pro_bt_rx_link_ok();
++    else
++    {
++        int st = audio_status();
++
++        playing = (st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE);
 +    }
 +
 +    if (tube_desired == 0)
 +    {
-+        if (tube_powered)
-+            tube_power(false);
-+        tube_off_tick = 0;
++        tube_off_now();
 +        return;
 +    }
 +
-+    /* JAN6418 tube buffer sits in the single-ended headphone path only. */
-+    if (playing && out_ps == CAYIN_OUTPUT_HEADSET)
++    if (playing)
 +    {
 +        /* Resume cancels a pending power-off so a quick pause/resume does
 +         * not bounce the tube on and off. */
@@ -15816,16 +16486,8 @@ index 0000000000..ef5bf84d60
 +            tube_wiring = tube_desired;
 +        }
 +    }
-+    else if (tube_powered)
-+    {
-+        if (tube_off_tick == 0)
-+            tube_off_tick = current_tick + TUBE_OFF_DELAY;
-+        else if (TIME_AFTER(current_tick, tube_off_tick))
-+        {
-+            tube_power(false);
-+            tube_off_tick = 0;
-+        }
-+    }
++    else
++        tube_off_delayed();
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/cayin-n3pro.h b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.h
 new file mode 100644
@@ -16324,6 +16986,665 @@ index 0000000000..a25dcfbfc2
 +    }
 +}
 +#endif
+diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.c b/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.c
+new file mode 100644
+index 0000000000..135d3a0dd5
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.c
+@@ -0,0 +1,573 @@
++/***************************************************************************
++ *             __________               __   ___.
++ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
++ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
++ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
++ *   Firmware  |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
++ *                     \/            \/     \/    \/            \/
++ *
++ * Copyright (C) 2026 by the Rockbox-N3PRO contributors
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software, either version 2 of the
++ * License, or (at your option) any later version.
++ *
++ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
++ * KIND, either express or implied.
++ *
++ ****************************************************************************/
++
++/* Bluetooth A2DP receive pump for the Cayin N3Pro (hosted).
++ *
++ * The vendor bluetoothd exposes the A2DP sink stream through the ALSA
++ * bluetooth plugin in capture mode: opening the "btin" device delivers
++ * the decoded S16 stereo stream sent by the connected phone. A detached
++ * pump thread (patterned after usb-dac-hiby.c) drains it into a small
++ * single-producer/single-consumer ring; the mixer's get_more callback
++ * plays it through the normal ALSA output path with the shared
++ * CODEC_IDX_AUDIO DSP chain applied, so the EQ and Sound settings apply
++ * to received audio exactly as they do to USB DAC input.
++ *
++ * The capture is opened through a private config tree parsed from our
++ * own /tmp/btin.conf (patterned after the output path's lconf open):
++ * /etc/asound.conf belongs to the vendor stack and is never touched.
++ * The peer MAC comes from the ACL connection's sysfs node.
++ */
++
++#include <ctype.h>
++#include <dirent.h>
++#include <errno.h>
++#include <pthread.h>
++#include <stdarg.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++#include <sys/resource.h>
++#include <time.h>
++#include <unistd.h>
++
++#include "config.h"
++#include "kernel.h"
++#include "pcm_mixer.h"
++#include "pcm_sampr.h"
++#include "system.h"
++#include "thread.h"
++#include "dsp_core.h"
++#include "settings.h"
++#include "sound.h"
++
++#include <alsa/asoundlib.h>
++
++/*#define LOGF_ENABLE*/
++#include "logf.h"
++
++#include "n3pro-bt-input.h"
++
++#define BTIN_PCM_NAME     "btin"
++#define BTIN_CONF         "/tmp/btin.conf"
++#define BTIN_RATE         44100
++#define BTIN_LATENCY_US   200000   /* 200 ms capture buffering */
++#define BTIN_SYSFS_BT     "/sys/class/bluetooth"
++
++/* Ring of S16 stereo frames. A power of two so head/tail wrap cleanly.
++ * Large enough to ride out the bluetooth plugin's bursty delivery at
++ * 96 kHz (341 ms) without underrunning. */
++#define BTIN_RING_FRAMES   32768
++#define BTIN_CHUNK_FRAMES  512   /* mixer buffer granularity */
++
++static int16_t btin_ring[BTIN_RING_FRAMES * 2];
++static volatile unsigned int btin_head;  /* frames produced; pump only */
++static volatile unsigned int btin_tail;  /* frames consumed; mixer only */
++static pthread_t btin_thread;
++static volatile bool btin_running;
++static volatile bool btin_link_ok;       /* capture transport is up */
++/* The pump may sit inside the plugin's open()/readi, so it is detached
++ * and never joined: bumping the generation invalidates a stale thread. */
++static volatile unsigned int btin_gen;
++/* DSP chain the received PCM is run through; shared with normal
++ * playback, prepared by the pump thread before streaming. */
++static struct dsp_config *btin_dsp;
++static int btin_rate;
++/* Link-history for the WAITING vs DISCONNECTED distinction. */
++static volatile bool btin_ever_connected;
++/* True while the receive screen is open: only then may the pump keep
++ * retrying for the phone. In the background a lost (or never
++ * established) link winds the pump down instead of spinning. */
++static volatile bool btin_fg;
++static char btin_peer_mac[18];
++/* Config tree backing the currently open capture handle (kept alive
++ * for as long as the handle references it). */
++static snd_config_t *btin_cfg;
++
++/* Mixer callback (PCM feed context). Returns the next chunk from the
++ * ring, zero-padded with silence on underrun so the stream never
++ * stalls. Double buffered so the returned pointer stays valid until
++ * the following call. */
++static void btin_get_more(const void **start, size_t *size)
++{
++    static int16_t out[2][BTIN_CHUNK_FRAMES * 2];
++    static int which;
++    int16_t *buf;
++
++    which ^= 1;
++    buf = out[which];
++
++    unsigned int tail = btin_tail;
++    unsigned int avail = btin_head - tail;         /* wrap-safe */
++    avail = MIN(avail, BTIN_CHUNK_FRAMES);
++
++    for (unsigned int i = 0; i < avail; i++)
++    {
++        unsigned int idx = (tail + i) & (BTIN_RING_FRAMES - 1);
++        buf[2 * i]     = btin_ring[2 * idx];
++        buf[2 * i + 1] = btin_ring[2 * idx + 1];
++    }
++    memset(&buf[2 * avail], 0,
++           (BTIN_CHUNK_FRAMES - avail) * 2 * sizeof(int16_t));
++    btin_tail = tail + avail;
++
++    *start = buf;
++    *size = BTIN_CHUNK_FRAMES * 2 * sizeof(int16_t);
++}
++
++static const struct mixer_play_cbs btin_cbs =
++{
++    .get_more = btin_get_more,
++};
++
++/* Follow a sample-rate change: retime the mixer + ALSA output and the
++ * DSP chain, and drop audio still buffered from the old rate.
++ * Called from the pump thread only. */
++static void btin_apply_rate(int rate)
++{
++    if (rate < 8000 || rate > 192000)
++        rate = BTIN_RATE;
++    if (rate == btin_rate)
++        return;
++    btin_rate = rate;
++
++    btin_tail = btin_head;          /* ring: drop old-rate audio */
++
++    mixer_set_frequency(rate);
++    if (btin_dsp)
++    {
++        dsp_configure(btin_dsp, DSP_SET_FREQUENCY, rate);
++        dsp_configure(btin_dsp, DSP_SET_OUT_FREQUENCY, rate);
++    }
++
++    /* mixer_set_frequency() stops the PCM driver and nothing restarts
++     * it: re-kick our channel so the stream resumes at the new rate. */
++    mixer_channel_play_data(PCM_MIXER_CHAN_BT_AUDIO, &btin_cbs, NULL, 0);
++}
++
++/* Find the currently ACL-connected peer ("hci0:NN" sysfs nodes) and
++ * remember it for the status view. */
++static bool btin_find_peer(char *mac, size_t len)
++{
++    DIR *d = opendir(BTIN_SYSFS_BT);
++
++    if (d)
++    {
++        struct dirent *de;
++        while ((de = readdir(d)))
++        {
++            if (strncmp(de->d_name, "hci0:", 5) != 0)
++                continue;
++
++            char path[64];
++            snprintf(path, sizeof(path), BTIN_SYSFS_BT "/%s/address",
++                     de->d_name);
++            FILE *f = fopen(path, "r");
++            if (!f)
++                continue;
++            if (fgets(mac, len, f))
++            {
++                char *nl = strchr(mac, '\n');
++                if (nl)
++                    *nl = '\0';
++                fclose(f);
++                /* D-Bus device lookups want canonical upper case. */
++                for (char *p = mac; *p; p++)
++                    *p = toupper((unsigned char)*p);
++                snprintf(btin_peer_mac, sizeof(btin_peer_mac), "%s", mac);
++                closedir(d);
++                return true;
++            }
++            fclose(f);
++        }
++        closedir(d);
++    }
++    return false;
++}
++
++/* Open the capture through a private config tree parsed from our own
++ * /tmp/btin.conf (never /etc/asound.conf). The tree is kept in *cfg for
++ * as long as the handle references it. */
++static int btin_open_capture(snd_pcm_t **pcm, snd_config_t **cfg)
++{
++    char mac[32];
++    snd_config_t *top = NULL;
++    snd_input_t *in = NULL;
++    int err;
++
++    if (!btin_find_peer(mac, sizeof(mac)))
++        return -ENOENT;
++
++    FILE *f = fopen(BTIN_CONF, "w");
++    if (!f)
++        return -EIO;
++    fprintf(f, "pcm.%s {\n"
++               "    type bluetooth\n"
++               "    device \"%s\"\n"
++               "    profile \"a2dp\"\n"
++               "}\n", BTIN_PCM_NAME, mac);
++    fclose(f);
++
++    err = snd_config_top(&top);
++    if (err >= 0)
++        err = snd_input_stdio_open(&in, BTIN_CONF, "r");
++    if (err >= 0)
++    {
++        err = snd_config_load(top, in);
++        snd_input_close(in);
++    }
++    if (err >= 0)
++        err = snd_pcm_open_lconf(pcm, BTIN_PCM_NAME, SND_PCM_STREAM_CAPTURE,
++                                 SND_PCM_NONBLOCK, top);
++
++    if (err >= 0)
++        *cfg = top;
++    else if (top)
++        snd_config_delete(top);
++
++    return err;
++}
++
++static void btin_close_capture(snd_pcm_t **pcm)
++{
++    snd_pcm_close(*pcm);
++    *pcm = NULL;
++    if (btin_cfg)
++    {
++        snd_config_delete(btin_cfg);
++        btin_cfg = NULL;
++    }
++}
++
++/* Configure the capture the way arecord does (M0 PoC): granular
++ * hw params with a rate near 44.1 kHz, tolerating whatever the plugin
++ * negotiated with the phone. snd_pcm_set_params() cannot be used here:
++ * it demands the exact requested rate and the bluetooth plugin reports
++ * the codec rate (96000 for LDAC), which fails with EINVAL. */
++static int btin_setup_stream(snd_pcm_t *pcm, unsigned int *rate_out)
++{
++    snd_pcm_hw_params_t *hw;
++    unsigned int rate = BTIN_RATE;
++    unsigned int buf_us = BTIN_LATENCY_US;
++    unsigned int per_us = BTIN_LATENCY_US / 4;
++    int err;
++
++    snd_pcm_hw_params_alloca(&hw);
++    err = snd_pcm_hw_params_any(pcm, hw);
++    if (err >= 0)
++        err = snd_pcm_hw_params_set_access(pcm, hw,
++                                           SND_PCM_ACCESS_RW_INTERLEAVED);
++    if (err >= 0)
++        err = snd_pcm_hw_params_set_format(pcm, hw, SND_PCM_FORMAT_S16_LE);
++    if (err >= 0)
++        err = snd_pcm_hw_params_set_channels(pcm, hw, 2);
++    if (err >= 0)
++    {
++        err = snd_pcm_hw_params_set_rate_near(pcm, hw, &rate, NULL);
++    }
++    if (err >= 0)
++    {
++        /* Granular requests the plugin may refuse without harm. */
++        snd_pcm_hw_params_set_buffer_time_near(pcm, hw, &buf_us, NULL);
++        snd_pcm_hw_params_set_period_time_near(pcm, hw, &per_us, NULL);
++        err = snd_pcm_hw_params(pcm, hw);
++    }
++    if (err < 0)
++        return err;
++
++    /* What the link actually runs at; the ring and the mixer follow. */
++    if (snd_pcm_hw_params_current(pcm, hw) >= 0)
++        snd_pcm_hw_params_get_rate(hw, rate_out, NULL);
++    else
++        *rate_out = rate;
++    return 0;
++}
++
++/* Drain the A2DP capture stream into the ring.
++ *
++ * This is a raw pthread, not a Rockbox thread, so it must use usleep()
++ * rather than the cooperative sleep() (which only the scheduler's own
++ * threads may call). */
++static void *btin_pump_thread(void *arg)
++{
++    const unsigned int gen = btin_gen;
++    snd_pcm_t *pcm = NULL;
++    bool dsp_init = false;
++    (void)arg;
++
++    /* The decode work happens inside the plugin's read path on this
++     * thread; keep it ahead of the UI threads so screen redraws cannot
++     * starve the received stream (we run as root, so this sticks). */
++    setpriority(PRIO_PROCESS, 0, -10);
++
++    while (btin_running && gen == btin_gen)
++    {
++        if (!pcm)
++        {
++            /* Transport not up yet: (re)open the capture for the
++             * current peer. Opened non-blocking so a wedged vendor
++             * stack can never pin this thread. */
++            snd_config_t *cfg = NULL;
++            int err = btin_open_capture(&pcm, &cfg);
++
++            if (err < 0)
++            {
++                pcm = NULL;
++                btin_link_ok = false;
++                if (!btin_fg)
++                {
++                    /* Screen closed and no link: nobody is waiting on
++                     * a reconnect, so wind down instead of spinning. */
++                    n3pro_bt_rx_stop();
++                    break;
++                }
++                usleep(500000);
++                continue;
++            }
++            btin_cfg = cfg;
++
++            unsigned int rate = 0;
++
++            err = btin_setup_stream(pcm, &rate);
++
++            if (err >= 0)
++                err = snd_pcm_prepare(pcm);
++            if (err < 0)
++            {
++                btin_close_capture(&pcm);
++                btin_link_ok = false;
++                if (!btin_fg)
++                {
++                    n3pro_bt_rx_stop();
++                    break;
++                }
++                usleep(500000);
++                continue;
++            }
++
++            /* Prepare the shared audio DSP chain on this thread, the
++             * same way usb-dac-hiby.c does for USB DAC input. */
++            if (!dsp_init)
++            {
++                btin_dsp = dsp_get_config(CODEC_IDX_AUDIO);
++                dsp_configure(btin_dsp, DSP_RESET, 0);
++                dsp_configure(btin_dsp, DSP_SET_STEREO_MODE, STEREO_INTERLEAVED);
++                dsp_configure(btin_dsp, DSP_SET_SAMPLE_DEPTH, 16);
++                dsp_init = true;
++            }
++
++            btin_head = btin_tail;   /* ring: drop stale audio */
++            btin_apply_rate(rate > 0 ? (int)rate : BTIN_RATE);
++            btin_ever_connected = true;
++            btin_link_ok = true;
++
++            /* Blocking reads from here on: the thread wakes exactly
++             * when the plugin has data, instead of polling. The open
++             * itself stays non-blocking (fails fast while the peer
++             * has no transport up). */
++            snd_pcm_nonblock(pcm, 0);
++        }
++
++        int16_t rbuf[BTIN_CHUNK_FRAMES * 2];
++        snd_pcm_sframes_t n = snd_pcm_readi(pcm, rbuf, BTIN_CHUNK_FRAMES);
++
++        if (n < 0)
++        {
++            if (n == -EAGAIN)
++            {
++                /* No data right now (phone paused): the transport is
++                 * still up, just quiet. */
++                usleep(5000);
++                continue;
++            }
++            /* Hard error: the transport dropped (peer left). Close and
++             * let the retry loop wait for the peer to return. */
++            btin_link_ok = false;
++            btin_close_capture(&pcm);
++            if (!btin_fg)
++            {
++                /* Running in the background: stop instead of
++                 * retrying; re-entering the screen restarts us. */
++                n3pro_bt_rx_stop();
++                break;
++            }
++            usleep(500000);
++            continue;
++        }
++
++        int frames = (int)n;
++        unsigned int head = btin_head;
++
++        /* Keep the capture alive when the ring is full: drop the
++         * oldest chunk so backpressure never stalls the plugin. */
++        if (head - btin_tail > BTIN_RING_FRAMES - BTIN_CHUNK_FRAMES)
++            btin_tail += BTIN_CHUNK_FRAMES;
++
++        /* Run the received PCM through the Rockbox DSP chain so the EQ
++         * and the other Sound settings apply. Bypassed while local
++         * playback runs: the codec thread owns the shared
++         * CODEC_IDX_AUDIO instance then. */
++        struct dsp_config *dsp = btin_dsp;
++        if (dsp && mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) == CHANNEL_STOPPED)
++        {
++            static int16_t dbuf[BTIN_CHUNK_FRAMES * 2];
++            struct dsp_buffer src, dst;
++
++            src.remcount = frames;
++            src.pin[0] = rbuf;
++            src.pin[1] = rbuf;
++            src.proc_mask = 0;
++            dst.remcount = 0;
++            dst.bufcount = BTIN_CHUNK_FRAMES;
++            dst.p16out = dbuf;
++            dsp_process(dsp, &src, &dst, false);
++
++            frames = dst.remcount;
++            for (int i = 0; i < frames; i++)
++            {
++                unsigned int idx = (head + i) & (BTIN_RING_FRAMES - 1);
++                btin_ring[2 * idx]     = dbuf[2 * i];
++                btin_ring[2 * idx + 1] = dbuf[2 * i + 1];
++            }
++        }
++        else
++        {
++            for (int i = 0; i < frames; i++)
++            {
++                unsigned int idx = (head + i) & (BTIN_RING_FRAMES - 1);
++                btin_ring[2 * idx]     = rbuf[2 * i];
++                btin_ring[2 * idx + 1] = rbuf[2 * i + 1];
++            }
++        }
++        btin_head = head + frames;
++    }
++
++    if (pcm)
++        btin_close_capture(&pcm);
++    return NULL;
++}
++
++bool n3pro_bt_rx_start(void)
++{
++    if (btin_running)
++        return true;
++
++    /* While local playback runs the output device and its rate belong
++     * to it (and the core refuses to start it while we run, see
++     * apps/playback.c). */
++    if (mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) != CHANNEL_STOPPED)
++        return false;
++
++    mixer_set_frequency(BTIN_RATE);
++
++    btin_head = btin_tail = 0;
++    btin_rate = 0;
++    btin_dsp = NULL;
++    btin_ever_connected = false;
++    btin_peer_mac[0] = '\0';
++    btin_link_ok = false;
++    btin_gen++;
++    btin_running = true;
++    if (pthread_create(&btin_thread, NULL, btin_pump_thread, NULL) != 0)
++    {
++        logf("btin pump thread failed");
++        btin_running = false;
++        return false;
++    }
++    /* Never joined: a pump blocked inside the plugin must not block us. */
++    pthread_detach(btin_thread);
++
++    /* Force the wired output wide open for as long as we run: the pin
++     * lives in audiohw_set_volume (not in the global setting), so any
++     * unclean end still leaves the user's own volume intact. */
++    sound_set_volume(global_status.volume);
++
++    mixer_channel_set_amplitude(PCM_MIXER_CHAN_BT_AUDIO, MIX_AMP_UNITY);
++    mixer_channel_play_data(PCM_MIXER_CHAN_BT_AUDIO, &btin_cbs, NULL, 0);
++    return true;
++}
++
++void n3pro_bt_rx_stop(void)
++{
++    if (!btin_running)
++        return;
++
++    /* The pump is detached (it may be inside the plugin): mark it stale
++     * and let it wind down on its own; joining here could deadlock. */
++    btin_running = false;
++    btin_gen++;
++    btin_dsp = NULL;
++    mixer_channel_stop(PCM_MIXER_CHAN_BT_AUDIO);
++
++    /* Re-apply the user's own volume now that the pinned branch in
++     * audiohw_set_volume no longer intercepts. */
++    sound_set_volume(global_status.volume);
++}
++
++bool n3pro_bt_rx_get_active(void)
++{
++    return btin_running;
++}
++
++void n3pro_bt_rx_set_fg(bool fg)
++{
++    btin_fg = fg;
++}
++
++bool n3pro_bt_rx_link_ok(void)
++{
++    return btin_link_ok;
++}
++
++enum n3pro_bt_rx_state n3pro_bt_rx_get_state(void)
++{
++    if (!btin_running)
++        return N3PRO_BT_RX_IDLE;
++    if (btin_link_ok)
++        return N3PRO_BT_RX_CONNECTED;
++    return btin_ever_connected ? N3PRO_BT_RX_DISCONNECTED
++                               : N3PRO_BT_RX_WAITING;
++}
++
++void n3pro_bt_rx_get_peer(char *buf, size_t len)
++{
++    if (!buf || !len)
++        return;
++    snprintf(buf, len, "%s", btin_peer_mac);
++}
++
++int n3pro_bt_rx_get_rate(void)
++{
++    return btin_rate;
++}
++
++int n3pro_bt_rx_get_fill_ms(void)
++{
++    int rate = btin_rate;
++
++    if (rate <= 0)
++        return 0;
++
++    unsigned int fill = btin_head - btin_tail;
++    if (fill > BTIN_RING_FRAMES)
++        fill = BTIN_RING_FRAMES;
++
++    return (int)((unsigned long long)fill * 1000 / (unsigned int)rate);
++}
+diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.h
+new file mode 100644
+index 0000000000..ba866e0610
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.h
+@@ -0,0 +1,74 @@
++/***************************************************************************
++ *             __________               __   ___.
++ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
++ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
++ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
++ *   Firmware  |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
++ *                     \/            \/     \/    \/            \/
++ *
++ * Copyright (C) 2026 by the Rockbox-N3PRO contributors
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software, either version 2 of the
++ * License, or (at your option) any later version.
++ *
++ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
++ * KIND, either express or implied.
++ *
++ ****************************************************************************/
++
++#ifndef __N3PRO_BT_INPUT_H__
++#define __N3PRO_BT_INPUT_H__
++
++#include <stdbool.h>
++
++/**
++ * Bluetooth A2DP receive pump (Cayin N3Pro hosted port).
++ *
++ * The vendor bluetoothd registers the A2DP sink role; the ALSA bluetooth
++ * plugin delivers the decoded phone stream in capture mode. The pump
++ * drains it into the PCM_MIXER_CHAN_BT_AUDIO mixer channel, running the
++ * CODEC_IDX_AUDIO DSP chain so EQ and the Sound settings apply.
++ *
++ * n3pro_bt_rx_start() returns false if local playback currently owns
++ * the output. While receiving, audiohw_set_volume() pins the wired
++ * output wide open (the phone is the volume control); the user's own
++ * volume setting is never modified, so any exit path is safe.
++ */
++bool n3pro_bt_rx_start(void);
++void n3pro_bt_rx_stop(void);
++
++/* True while the receive pump is running (screen lifetime). */
++bool n3pro_bt_rx_get_active(void);
++
++/* Marks whether the receive screen is open. The pump only retries for
++ * the phone while fg is set; in the background a lost or missing link
++ * stops it (and the mixer channel) instead of spinning idle. */
++void n3pro_bt_rx_set_fg(bool fg);
++
++/* True while the capture transport is up, false while waiting for the
++ * peer (reconnect loop). */
++bool n3pro_bt_rx_link_ok(void);
++
++/* Full status for the receive view. WAITING = never connected since the
++ * pump started; DISCONNECTED = was connected, peer dropped. */
++enum n3pro_bt_rx_state
++{
++    N3PRO_BT_RX_IDLE = 0,
++    N3PRO_BT_RX_WAITING,
++    N3PRO_BT_RX_CONNECTED,
++    N3PRO_BT_RX_DISCONNECTED,
++};
++enum n3pro_bt_rx_state n3pro_bt_rx_get_state(void);
++
++/* Last peer BD_ADDR seen ("" until one links up). */
++void n3pro_bt_rx_get_peer(char *buf, size_t len);
++
++/* Negotiated stream rate in Hz (0 while not up). */
++int n3pro_bt_rx_get_rate(void);
++
++/* Ring fill in ms (activity/debug indicator). */
++int n3pro_bt_rx_get_fill_ms(void);
++
++#endif /* __N3PRO_BT_INPUT_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 new file mode 100644
 index 0000000000..c280c4e0c6
@@ -17304,10 +18625,10 @@ index 0000000000..7ffc8b6996
 +    _usb_init = true;
 +}
 diff --git a/firmware/target/hosted/hiby/hibylinux_codec.c b/firmware/target/hosted/hiby/hibylinux_codec.c
-index 4cb445887d..7f02bf7372 100644
+index 4cb445887d..0e769964ad 100644
 --- a/firmware/target/hosted/hiby/hibylinux_codec.c
 +++ b/firmware/target/hosted/hiby/hibylinux_codec.c
-@@ -35,6 +35,14 @@
+@@ -35,6 +35,15 @@
  
  #include "logf.h"
  
@@ -17316,13 +18637,14 @@ index 4cb445887d..7f02bf7372 100644
 +#include "settings.h"
 +#include "sound.h"
 +#include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
++#include "n3pro-bt-input.h" /* n3pro_bt_rx_get_active() */
 +#include <alsa/asoundlib.h>
 +#endif
 +
  int hiby_has_valid_output(void);
  
  static int hw_init = 0;
-@@ -52,7 +60,11 @@ void audiohw_mute(int mute)
+@@ -52,7 +61,11 @@ void audiohw_mute(int mute)
  
      muted = mute;
  
@@ -17334,7 +18656,7 @@ index 4cb445887d..7f02bf7372 100644
  }
  
  int hiby_has_valid_output(void) {
-@@ -62,6 +74,26 @@ int hiby_has_valid_output(void) {
+@@ -62,6 +75,26 @@ int hiby_has_valid_output(void) {
  
      if (!hw_init) return ps;
  
@@ -17361,7 +18683,7 @@ index 4cb445887d..7f02bf7372 100644
      const char * const sysfs_hs_switch = "/sys/class/switch/headset/state";
      const char * const sysfs_bal_switch = "/sys/class/switch/balance/state";
  
-@@ -70,6 +102,7 @@ int hiby_has_valid_output(void) {
+@@ -70,6 +103,7 @@ int hiby_has_valid_output(void) {
  
      if (sysfs_get_int(sysfs_bal_switch, &status) && status)
          ps = 3; // balanced output
@@ -17369,7 +18691,7 @@ index 4cb445887d..7f02bf7372 100644
  
      return ps;
  }
-@@ -109,12 +142,22 @@ void audiohw_preinit(void)
+@@ -109,12 +143,22 @@ void audiohw_preinit(void)
      hw_init = 1;
  
      audiohw_mute(false);  /* No need ? */
@@ -17392,7 +18714,7 @@ index 4cb445887d..7f02bf7372 100644
  }
  
  void audiohw_close(void)
-@@ -129,6 +172,107 @@ void audiohw_set_frequency(int fsel)
+@@ -129,6 +173,107 @@ void audiohw_set_frequency(int fsel)
      (void)fsel;
  }
  
@@ -17500,7 +18822,7 @@ index 4cb445887d..7f02bf7372 100644
  void audiohw_set_volume(int vol_l, int vol_r)
  {
      logf("hw vol %d %d", vol_l, vol_r);
-@@ -138,26 +282,109 @@ void audiohw_set_volume(int vol_l, int vol_r)
+@@ -138,26 +283,123 @@ void audiohw_set_volume(int vol_l, int vol_r)
      vol_l_hw = vol_l;
      vol_r_hw = vol_r;
  
@@ -17527,6 +18849,20 @@ index 4cb445887d..7f02bf7372 100644
 +
 +    if (!hw_init)
 +        return;
++
++    /* Bluetooth receive: the wired output stays wide open (HW step
++     * 100, unity software gain) -- the phone is the volume control.
++     * Pinning it HERE instead of saving/restoring the global volume
++     * means an unclean end (crash, poweroff while waiting for the
++     * phone) can never leave a persisted maximum in the settings. */
++    if (n3pro_bt_rx_get_active())
++    {
++        l = r = 100;
++        alsa_controls_set_ints("Left Playback Volume", 1, &l);
++        alsa_controls_set_ints("Right Playback Volume", 1, &r);
++        pcm_set_mixer_volume(0, 0);
++        return;
++    }
 +
 +    int step_l = (vol_l + 1020) / 10;
 +    int step_r = (vol_r + 1020) / 10;
@@ -17611,7 +18947,7 @@ index 4cb445887d..7f02bf7372 100644
 +#endif
  
 diff --git a/firmware/target/hosted/hiby/usb-dac-hiby.c b/firmware/target/hosted/hiby/usb-dac-hiby.c
-index 469dc640b9..06d2b0191c 100644
+index 469dc640b9..fcdd2a9d4a 100644
 --- a/firmware/target/hosted/hiby/usb-dac-hiby.c
 +++ b/firmware/target/hosted/hiby/usb-dac-hiby.c
 @@ -37,6 +37,7 @@
@@ -17622,19 +18958,23 @@ index 469dc640b9..06d2b0191c 100644
  #include <string.h>
  #include <sys/ioctl.h>
  #include <unistd.h>
-@@ -49,6 +50,11 @@
- #include "thread.h"
+@@ -50,6 +51,15 @@
  #include "usb.h"
  #include "usb-dac-hiby.h"
+ 
++#if defined(CAYIN_N3PRO)
++#include "n3pro-bt-input.h"
++#endif
 +#if defined(CAYIN_N3PRO)
 +#include <stdlib.h>
 +#include <time.h>
 +#include "dsp_core.h"
 +#endif
- 
++
  /*#define LOGF_ENABLE*/
  #include "logf.h"
-@@ -70,7 +76,20 @@ static volatile unsigned int dac_head;  /* frames produced; pump only */
+ 
+@@ -70,7 +80,20 @@ static volatile unsigned int dac_head;  /* frames produced; pump only */
  static volatile unsigned int dac_tail;  /* frames consumed; mixer only */
  static pthread_t dac_thread;
  static volatile bool dac_running;
@@ -17655,7 +18995,7 @@ index 469dc640b9..06d2b0191c 100644
  
  /* Mixer callback (PCM feed context). Returns the next chunk from the ring,
   * zero-padded with silence on underrun so the stream never stalls. Double
-@@ -102,6 +121,94 @@ static void dac_get_more(const void **start, size_t *size)
+@@ -102,6 +125,94 @@ static void dac_get_more(const void **start, size_t *size)
      *size = DAC_CHUNK_FRAMES * 2 * sizeof(int16_t);
  }
  
@@ -17750,7 +19090,7 @@ index 469dc640b9..06d2b0191c 100644
  /* Drain /dev/uac_sa into the ring. The driver's only file
   * operations are open/read/ioctl (there is no poll()), so retry with a
   * short sleep when the host has not queued a full chunk yet.
-@@ -114,6 +221,169 @@ static void *dac_pump_thread(void *arg)
+@@ -114,6 +225,169 @@ static void *dac_pump_thread(void *arg)
      int32_t rbuf[DAC_READ_BYTES / sizeof(int32_t)];
      (void)arg;
  
@@ -17920,7 +19260,7 @@ index 469dc640b9..06d2b0191c 100644
      while (dac_running)
      {
          unsigned int head = dac_head;
-@@ -143,12 +413,46 @@ static void *dac_pump_thread(void *arg)
+@@ -143,12 +417,52 @@ static void *dac_pump_thread(void *arg)
      }
  
      return NULL;
@@ -17945,6 +19285,12 @@ index 469dc640b9..06d2b0191c 100644
 +    if (mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) != CHANNEL_STOPPED)
 +        return false;
 +
++    /* The Bluetooth receive path owns the output and the DSP the same
++     * way; the two inputs are mutually exclusive and usb_detect()
++     * retries, so the DAC still comes up once receiving stops. */
++    if (n3pro_bt_rx_get_active())
++        return false;
++
 +    /* The vendor driver's open()/read() block until the host streams, so
 +     * ALL device I/O is done by the pump thread; this function only sets
 +     * up the mixer and spawns it and can therefore never wedge the USB
@@ -17967,7 +19313,7 @@ index 469dc640b9..06d2b0191c 100644
      /* The node is created asynchronously when the UDC binds; during boot
       * the hotplug helper can lag behind, so wait briefly for it. This runs
       * on a Rockbox thread, so sleep() yields to the cooperative scheduler
-@@ -192,6 +496,7 @@ bool usb_dac_start(void)
+@@ -192,6 +506,7 @@ bool usb_dac_start(void)
          dac_fd = -1;
          return false;
      }
@@ -17975,7 +19321,7 @@ index 469dc640b9..06d2b0191c 100644
  
      mixer_channel_set_amplitude(PCM_MIXER_CHAN_USBAUDIO, MIX_AMP_UNITY);
      mixer_channel_play_data(PCM_MIXER_CHAN_USBAUDIO, &cbs, NULL, 0);
-@@ -203,6 +508,15 @@ void usb_dac_stop(void)
+@@ -203,6 +518,15 @@ void usb_dac_stop(void)
      if (!dac_running)
          return;
  
@@ -17991,7 +19337,7 @@ index 469dc640b9..06d2b0191c 100644
      dac_running = false;
      pthread_join(dac_thread, NULL);
      mixer_channel_stop(PCM_MIXER_CHAN_USBAUDIO);
-@@ -212,6 +526,7 @@ void usb_dac_stop(void)
+@@ -212,6 +536,7 @@ void usb_dac_stop(void)
          close(dac_fd);
          dac_fd = -1;
      }
@@ -18196,7 +19542,7 @@ index 63661a1254..06369efc21 100644
          redraw();
      }
 diff --git a/firmware/target/hosted/pcm-alsa.c b/firmware/target/hosted/pcm-alsa.c
-index 10b379b03d..84817bfc6f 100644
+index 10b379b03d..bb3f03edb1 100644
 --- a/firmware/target/hosted/pcm-alsa.c
 +++ b/firmware/target/hosted/pcm-alsa.c
 @@ -111,6 +111,12 @@ static snd_pcm_stream_t current_alsa_mode;  /* SND_PCM_STREAM_PLAYBACK / _CAPTUR
@@ -18212,7 +19558,36 @@ index 10b379b03d..84817bfc6f 100644
  void pcm_alsa_set_playback_device(const char *device)
  {
      playback_dev = device;
-@@ -381,6 +387,121 @@ static bool copy_frames(bool first)
+@@ -137,6 +143,20 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
+        Note these are in FRAMES, and are sized to be about 8.5ms
+        for the buffer and 2.1ms for the period
+      */
++#ifdef CAYIN_N3PRO
++    /* The X1000 smart-LCD update path can stall the kernel (and thus
++     * any thread) for tens of milliseconds when the screen wakes or
++     * redraws. The stock ~10ms hardware buffer underruns audibly on
++     * every such event, so keep ~200ms of audio in the hardware and
++     * let the poll thread catch up once the stall is over. */
++    {
++        unsigned long want = sampr / 5;          /* frames in 200ms */
++        buffer_size = (want + MIX_FRAME_SAMPLES - 1) & ~(unsigned long)(MIX_FRAME_SAMPLES - 1);
++        if (buffer_size < MIX_FRAME_SAMPLES * 4)
++            buffer_size = MIX_FRAME_SAMPLES * 4;
++        period_size = buffer_size / 8;
++    }
++#else
+     if (sampr > SAMPR_96) {
+         buffer_size = MIX_FRAME_SAMPLES * 4 * 4;
+         period_size = MIX_FRAME_SAMPLES * 4;
+@@ -147,6 +167,7 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
+         buffer_size = MIX_FRAME_SAMPLES * 4;
+         period_size = MIX_FRAME_SAMPLES;
+     }
++#endif
+ 
+     /* choose all parameters */
+     err = snd_pcm_hw_params_any(handle, params);
+@@ -381,6 +402,121 @@ static bool copy_frames(bool first)
      return true;
  }
  
@@ -18334,7 +19709,7 @@ index 10b379b03d..84817bfc6f 100644
  static void async_callback(snd_async_handler_t *ahandler)
  {
      int err;
-@@ -467,11 +588,15 @@ static void async_callback(snd_async_handler_t *ahandler)
+@@ -467,11 +603,15 @@ static void async_callback(snd_async_handler_t *ahandler)
                  }
  		continue;  /* buffer contents trashed, no sense in trying to copy */
              }
@@ -18355,7 +19730,7 @@ index 10b379b03d..84817bfc6f 100644
  
              /* start the fake DMA transfer */
              if (!copy_frames(false))
-@@ -496,11 +621,18 @@ static void async_callback(snd_async_handler_t *ahandler)
+@@ -496,11 +636,18 @@ static void async_callback(snd_async_handler_t *ahandler)
  abort:
      pthread_mutex_unlock(&pcm_mtx);
  }
@@ -18374,7 +19749,7 @@ index 10b379b03d..84817bfc6f 100644
      if (handle) {
          snd_pcm_drain(handle);
  #ifdef AUDIOHW_MUTE_ON_STOP
-@@ -534,6 +666,10 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -534,6 +681,10 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
  
      logf("opendev %s (%p)", device, handle);
  
@@ -18385,7 +19760,7 @@ index 10b379b03d..84817bfc6f 100644
      if (handle && device == current_alsa_device
  #ifdef HAVE_RECORDING
          && current_alsa_mode == mode
-@@ -542,16 +678,38 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -542,16 +693,38 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
      {
          return;
      }
@@ -18424,7 +19799,7 @@ index 10b379b03d..84817bfc6f 100644
      pthread_mutexattr_t attr;
      pthread_mutexattr_init(&attr);
      pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-@@ -585,6 +743,7 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -585,6 +758,7 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
      {
          panicf("Unable to install alternative signal stack: %s", strerror(err));
      }
