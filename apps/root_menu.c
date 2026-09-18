@@ -556,8 +556,8 @@ static struct menu_table menu_table[] = {
     { "radio", &fm },
 #endif
     { "playlists", &playlists },
-#ifdef CAYIN_N3PRO
-    { "bluetooth", &n3pro_bluetooth_root_item },
+#ifdef HAVE_BT_AUDIO
+    { "bluetooth", &bluetooth_root_item },
 #endif
 #ifdef HAVE_WIFI_MENU
     { "wifi", &wifi_root_item },

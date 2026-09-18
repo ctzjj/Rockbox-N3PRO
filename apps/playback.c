@@ -74,8 +74,8 @@
 #include "usbstack/usb_audio.h"
 #endif
 #include "usb.h"
-#if defined(CAYIN_N3PRO)
-#include "n3pro-bt-input.h"
+#ifdef HAVE_BT_INPUT
+#include "bt_input.h"
 #endif
 #include "splash.h"
 #include "lang.h"
@@ -3012,10 +3012,10 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
         return;
     }
 #endif
-#if defined(CAYIN_N3PRO)
+#ifdef HAVE_BT_INPUT
     /* Refuse playback while the Bluetooth receive pump owns the output
      * and the shared DSP chain (see gui_wps_show() for the splash). */
-    if (n3pro_bt_rx_get_active())
+    if (bt_input_active())
     {
         queue_reply(&audio_queue, 0);
         return;

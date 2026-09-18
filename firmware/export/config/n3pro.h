@@ -70,6 +70,11 @@
  * directory (n3pro-wifi.c, wpa_supplicant via wpa_cli). */
 #define HAVE_WIFI_MENU
 #define HAVE_NETFM
+/* Generic Bluetooth audio framework (apps/bluetooth.c) with its target
+ * driver half in target/hosted/cayin/n3pro/n3pro-bluetooth.c, and the
+ * A2DP receive pump (n3pro-bt-input.c). */
+#define HAVE_BT_AUDIO
+#define HAVE_BT_INPUT
 /* The generic web remote control (apps/web_control.c): HTTP +
  * WebSocket server; pages are shipped under .rockbox/web/control/.
  */

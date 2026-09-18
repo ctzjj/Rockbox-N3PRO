@@ -250,11 +250,11 @@ int pcm_alsa_switch_playback_device(const char *device)
  * modes MUST be wired in here. */
 bool n3pro_local_playback(void)
 {
-    extern bool n3pro_bt_rx_get_active(void);
+    extern bool bt_input_active(void);
 
     if (pcm_alsa_is_bluetooth_active())
         return false;
-    if (n3pro_bt_rx_get_active())
+    if (bt_input_active())
         return false;
 #if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
     {

@@ -42,8 +42,8 @@ extern const struct menu_item_ex
         audiohw_eq_tone_controls,   /* audiohw_eq_menu.c */
 #endif
         radio_settings_menu,        /* radio_menu.c     */
-#ifdef CAYIN_N3PRO
-        n3pro_bluetooth_root_item,  /* n3pro_bluetooth_menu.c */
+#ifdef HAVE_BT_AUDIO
+        bluetooth_root_item,        /* bluetooth_menu.c */
 #endif
 #ifdef HAVE_WIFI_MENU
         wifi_root_item,             /* wifi_menu.c */

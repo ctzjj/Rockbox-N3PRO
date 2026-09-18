@@ -22,8 +22,7 @@
  * comes from the stream engine (apps/netfm_stream.c) through the source
  * callbacks below; a dedicated thread runs the Rockbox decoder on it and
  * feeds the PCM into a ring that a mixer channel plays through the
- * normal output path (the same shape as the Bluetooth receive pump in
- * n3pro-bt-input.c).
+ * normal output path (the same shape as the bluetooth receive pump).
  *
  * Nothing of the local playback state (playlist, buffering, resume, id3
  * slots) is touched: a stream is a source of its own.

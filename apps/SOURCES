@@ -32,8 +32,8 @@ buffering.c
 voice_thread.c
 rbcodec_helpers.c
 menus/main_menu.c
-#ifdef CAYIN_N3PRO
-menus/n3pro_bluetooth_menu.c
+#ifdef HAVE_BT_AUDIO
+menus/bluetooth_menu.c
 #endif
 #ifdef HAVE_WIFI_MENU
 menus/wifi_menu.c
@@ -60,8 +60,8 @@ screens.c
 settings.c
 settings_list.c
 shortcuts.c
-#ifdef CAYIN_N3PRO
-n3pro_bluetooth.c
+#ifdef HAVE_BT_AUDIO
+bluetooth.c
 #endif
 #ifdef HAVE_WIFI_MENU
 wifi_menu.c

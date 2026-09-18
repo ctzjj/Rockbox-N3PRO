@@ -63,7 +63,7 @@
 /*#define LOGF_ENABLE*/
 #include "logf.h"
 
-#include "n3pro-bt-input.h"
+#include "bt_input.h"
 
 #define BTIN_PCM_NAME     "btin"
 #define BTIN_CONF         "/tmp/btin.conf"
@@ -335,7 +335,7 @@ static void *btin_pump_thread(void *arg)
                 {
                     /* Screen closed and no link: nobody is waiting on
                      * a reconnect, so wind down instead of spinning. */
-                    n3pro_bt_rx_stop();
+                    bt_input_stop();
                     break;
                 }
                 usleep(500000);
@@ -355,7 +355,7 @@ static void *btin_pump_thread(void *arg)
                 btin_link_ok = false;
                 if (!btin_fg)
                 {
-                    n3pro_bt_rx_stop();
+                    bt_input_stop();
                     break;
                 }
                 usleep(500000);
@@ -405,7 +405,7 @@ static void *btin_pump_thread(void *arg)
             {
                 /* Running in the background: stop instead of
                  * retrying; re-entering the screen restarts us. */
-                n3pro_bt_rx_stop();
+                bt_input_stop();
                 break;
             }
             usleep(500000);
@@ -464,7 +464,7 @@ static void *btin_pump_thread(void *arg)
     return NULL;
 }
 
-bool n3pro_bt_rx_start(void)
+bool bt_input_start(void)
 {
     if (btin_running)
         return true;
@@ -504,7 +504,7 @@ bool n3pro_bt_rx_start(void)
     return true;
 }
 
-void n3pro_bt_rx_stop(void)
+void bt_input_stop(void)
 {
     if (!btin_running)
         return;
@@ -521,44 +521,44 @@ void n3pro_bt_rx_stop(void)
     sound_set_volume(global_status.volume);
 }
 
-bool n3pro_bt_rx_get_active(void)
+bool bt_input_active(void)
 {
     return btin_running;
 }
 
-void n3pro_bt_rx_set_fg(bool fg)
+void bt_input_set_fg(bool fg)
 {
     btin_fg = fg;
 }
 
-bool n3pro_bt_rx_link_ok(void)
+bool bt_input_link_ok(void)
 {
     return btin_link_ok;
 }
 
-enum n3pro_bt_rx_state n3pro_bt_rx_get_state(void)
+enum bt_input_state bt_input_get_state(void)
 {
     if (!btin_running)
-        return N3PRO_BT_RX_IDLE;
+        return BT_INPUT_IDLE;
     if (btin_link_ok)
-        return N3PRO_BT_RX_CONNECTED;
-    return btin_ever_connected ? N3PRO_BT_RX_DISCONNECTED
-                               : N3PRO_BT_RX_WAITING;
+        return BT_INPUT_CONNECTED;
+    return btin_ever_connected ? BT_INPUT_DISCONNECTED
+                               : BT_INPUT_WAITING;
 }
 
-void n3pro_bt_rx_get_peer(char *buf, size_t len)
+void bt_input_get_peer(char *buf, size_t len)
 {
     if (!buf || !len)
         return;
     snprintf(buf, len, "%s", btin_peer_mac);
 }
 
-int n3pro_bt_rx_get_rate(void)
+int bt_input_get_rate(void)
 {
     return btin_rate;
 }
 
-int n3pro_bt_rx_get_fill_ms(void)
+int bt_input_get_fill_ms(void)
 {
     int rate = btin_rate;
 

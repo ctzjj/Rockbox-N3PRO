@@ -41,8 +41,8 @@
 #include "playback.h"
 #include "thread.h"
 #include "wifi_hal.h"
-#if defined(CAYIN_N3PRO)
-#include "n3pro-bt-input.h"
+#ifdef HAVE_BT_INPUT
+#include "bt_input.h"
 #endif
 #if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
 #include "usb.h"
@@ -1256,8 +1256,8 @@ bool netfm_stream_codec_start_now(void)
 
 static bool netfm_external_input_active(void)
 {
-#if defined(CAYIN_N3PRO)
-    if (n3pro_bt_rx_get_active())
+#ifdef HAVE_BT_INPUT
+    if (bt_input_active())
         return true;
 #endif
 #if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)

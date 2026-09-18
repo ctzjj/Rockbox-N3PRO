@@ -28,7 +28,7 @@
 #include "alsa-controls.h"
 #include "cayin-n3pro.h"
 #include "n3pro-bt-pcm.h"
-#include "n3pro-bt-input.h"
+#include "bt_input.h"
 
 #define TIMBRE_PATH      CAYIN_N3PRO_SYSFS_BASE "/timbre_select"
 
@@ -134,8 +134,8 @@ void cayin_tube_tick(int out_ps)
      *    Bluetooth INPUT streams to the jack through the mixer while
      *    the audio core stays idle -- count the receive link as
      *    playing.  Otherwise it is ordinary local playback. */
-    if (n3pro_bt_rx_get_active())
-        playing = n3pro_bt_rx_link_ok();
+    if (bt_input_active())
+        playing = bt_input_link_ok();
     else
     {
         int st = audio_status();

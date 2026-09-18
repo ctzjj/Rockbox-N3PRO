@@ -40,7 +40,7 @@
 #include "settings.h"
 #include "sound.h"
 #include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
-#include "n3pro-bt-input.h" /* n3pro_bt_rx_get_active() */
+#include "bt_input.h" /* bt_input_active() */
 #include <alsa/asoundlib.h>
 #endif
 
@@ -312,7 +312,7 @@ void audiohw_set_volume(int vol_l, int vol_r)
      * Pinning it HERE instead of saving/restoring the global volume
      * means an unclean end (crash, poweroff while waiting for the
      * phone) can never leave a persisted maximum in the settings. */
-    if (n3pro_bt_rx_get_active())
+    if (bt_input_active())
     {
         l = r = 100;
         alsa_controls_set_ints("Left Playback Volume", 1, &l);

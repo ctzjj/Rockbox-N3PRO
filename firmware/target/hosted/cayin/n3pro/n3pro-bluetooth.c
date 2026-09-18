@@ -1,13 +1,33 @@
 /***************************************************************************
- * Bluetooth audio (A2DP source) for the Cayin N3Pro hosted port.
+ *             __________               __   ___.
+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+ *                     \/            \/     \/            \/     \/
  *
- * Follows the HiBy R1 port's design: everything runs synchronously on the
- * menu thread -- there is no background thread and no link watcher.  The
- * stock HiByOS bluetooth stack is driven through the vendor /var/run/
- * sys_server socket (BT:LIST / BT:SCAN / BT:PAIR / BT:CONNECT / ...), and
- * the A2DP audio is played through the stock ALSA plugin by writing its
- * peer address into /etc/asound.conf and re-opening the playback PCM.
+ * Copyright (C) 2026 by the Rockbox-N3PRO contributors
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
  ****************************************************************************/
+
+/* Cayin N3Pro bluetooth audio driver: the target half of the generic
+ * framework in apps/bluetooth.c (firmware/export/bt_audio.h).
+ *
+ * A2DP source: everything runs synchronously on the menu thread -- there
+ * is no background thread and no link watcher.  The stock HiByOS bluetooth
+ * stack is driven through the vendor /var/run/sys_server socket (BT:LIST /
+ * BT:SCAN / BT:PAIR / BT:CONNECT / ...), and the A2DP audio is played
+ * through the stock ALSA plugin by writing its peer address into
+ * /etc/asound.conf and re-opening the playback PCM. */
+
 #include "config.h"
 
 #ifdef CAYIN_N3PRO
@@ -16,6 +36,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -24,19 +45,14 @@
 
 #include "kernel.h"
 #include "audio.h"
-#include "action.h"
-#include "menu.h"
 #include "splash.h"
 #include "lang.h"
 #include "settings.h"
 #include "sound.h"
-#include "screen_access.h"
-#include "viewport.h"
-#include "gui/list.h"
-#include "yesno.h"
 #include "pcm-alsa.h"
 #include "n3pro-bt-pcm.h"
-#include "n3pro-bt-input.h"
+#include "bt_audio.h"
+#include "bt_input.h"
 #include "statusbar_rf.h"
 
 /* str() yields const unsigned char *; keep the string call sites simple. */
@@ -46,37 +62,22 @@ static char *bt_str(int id)
 }
 
 #define BT_MAX_DEVICES 32
-#define BT_NAME_LEN 80
 #define BT_LOCAL_PLAYBACK_DEVICE "plughw:0,0"
 #define BT_ASOUND_CONF "/etc/asound.conf"
+/* The asound override is rewritten on every output route, so keep the real
+ * file on tmpfs and point /etc/asound.conf at it (once, lazily) instead of
+ * wearing the rootfs flash on every connect. */
+#define BT_ASOUND_TMPFS "/tmp/asound.conf"
 #define BT_AUDIO_CONF "/etc/bluetooth/audio.conf"
 #define BT_SYS_SOCKET "/var/run/sys_server"
 #define BT_LIST_FILE "/tmp/bt_list.txt"
 #define BT_SCAN_FILE "/tmp/bt_scan.txt"
 #define BT_SYS_REPLY_MAX 128
-#define BT_DEVICE_PICK_CANCEL (-1)
-#define BT_DEVICE_PICK_SCAN (-2)
 
-struct bt_device
-{
-    char mac[18];
-    char name[BT_NAME_LEN];
-    bool paired;
-};
-
-struct bt_device_menu_data
-{
-    struct bt_device *devices;
-    int count;
-    bool include_scan_item;
-    char connected_mac[18];
-};
-
-static char bt_selected_mac[18];
+static char bt_selected_mac[BT_AUDIO_MAC_LEN];
 static bool bt_prefer = false;   /* the user wants the bluetooth output */
 
 /* Output watchdog state (see bt_watchdog()). */
-static bool bt_want = false;   /* the user wants bluetooth output */
 static bool bt_busy = false;   /* a menu-driven route is in progress */
 static bool bt_peer_linked(const char *mac);
 static bool bt_watchdog_started = false;
@@ -89,67 +90,7 @@ static void bt_watchdog_start(void);
 static void bt_watchdog_stop(void);
 
 static bool bt_prepare_stack(void);
-static void bt_connect_device(const struct bt_device *device);
-
-static int bt_simplelist_ok_cancel(int action, struct gui_synclist *lists)
-{
-    (void)lists;
-    if (action == ACTION_STD_OK)
-        return ACTION_STD_CANCEL;
-    return action;
-}
-
-static const char *bt_action_name_cb(int selected_item, void *data,
-    char *buffer, size_t buffer_len)
-{
-    static const unsigned short ids[] =
-    {
-        LANG_BT_STATUS, LANG_BT_DEVICES, LANG_BT_DISCONNECT
-    };
-    (void)data;
-
-    if (selected_item < 0 || selected_item >= 3)
-    {
-        buffer[0] = '\0';
-        return buffer;
-    }
-    snprintf(buffer, buffer_len, "%s", bt_str(ids[selected_item]));
-    return buffer;
-}
-
-static const char *bt_device_name_cb(int selected_item, void *data,
-    char *buffer, size_t buffer_len)
-{
-    struct bt_device_menu_data *ctx = data;
-
-    if (ctx->include_scan_item)
-    {
-        if (selected_item == 0)
-        {
-            snprintf(buffer, buffer_len, "%s", bt_str(LANG_BT_SCAN));
-            return buffer;
-        }
-        selected_item--;
-    }
-
-    if (selected_item < 0 || selected_item >= ctx->count)
-    {
-        buffer[0] = '\0';
-        return buffer;
-    }
-
-    if (ctx->connected_mac[0] &&
-        !strcasecmp(ctx->devices[selected_item].mac, ctx->connected_mac))
-    {
-        snprintf(buffer, buffer_len, "%s  %s",
-                 ctx->devices[selected_item].name,
-                 bt_str(LANG_BT_CONNECTED_MARK));
-        return buffer;
-    }
-
-    snprintf(buffer, buffer_len, "%s", ctx->devices[selected_item].name);
-    return buffer;
-}
+static void bt_connect_device(const struct bt_audio_dev *device);
 
 static void bt_trim(char *s)
 {
@@ -216,7 +157,7 @@ static bool bt_extract_mac_from_line(const char *line, char *mac_out, size_t mac
     return false;
 }
 
-static int bt_add_device_unique_ex(struct bt_device *devices, int count, int max_devices,
+static int bt_add_device_unique_ex(struct bt_audio_dev *devices, int count, int max_devices,
     const char *mac, const char *name, bool paired)
 {
     int i;
@@ -251,8 +192,8 @@ static int bt_add_device_unique_ex(struct bt_device *devices, int count, int max
 
 static int bt_device_sort_cmp(const void *a, const void *b)
 {
-    const struct bt_device *da = a;
-    const struct bt_device *db = b;
+    const struct bt_audio_dev *da = a;
+    const struct bt_audio_dev *db = b;
 
     if (da->paired != db->paired)
         return da->paired ? -1 : 1;
@@ -423,14 +364,14 @@ static bool bt_get_file_stamp(const char *path, long *mtime, long *size)
 }
 
 static int bt_load_devices_from_json_file(const char *path,
-                                          struct bt_device *devices,
+                                          struct bt_audio_dev *devices,
                                           int max_devices,
                                           bool *ready)
 {
     FILE *fp;
     char line[512];
-    char mac[18] = "";
-    char name[BT_NAME_LEN] = "";
+    char mac[BT_AUDIO_MAC_LEN] = "";
+    char name[BT_AUDIO_NAME_LEN] = "";
     int paired = 0;
     int count = 0;
     bool has_device_key = false;
@@ -473,16 +414,16 @@ static int bt_load_devices_from_json_file(const char *path,
     return count;
 }
 
-static int bt_load_devices_from_bt_list_file(struct bt_device *devices, int max_devices,
+static int bt_load_devices_from_bt_list_file(struct bt_audio_dev *devices, int max_devices,
                                              bool *ready)
 {
     return bt_load_devices_from_json_file(BT_LIST_FILE, devices, max_devices, ready);
 }
 
-static int bt_merge_devices_from_bt_scan_file(struct bt_device *devices, int count,
+static int bt_merge_devices_from_bt_scan_file(struct bt_audio_dev *devices, int count,
                                               int max_devices, bool *ready)
 {
-    static struct bt_device scanned[BT_MAX_DEVICES];
+    static struct bt_audio_dev scanned[BT_MAX_DEVICES];
     int scanned_count;
     int i;
 
@@ -498,7 +439,7 @@ static int bt_merge_devices_from_bt_scan_file(struct bt_device *devices, int cou
     return count;
 }
 
-static int bt_load_devices_via_sys_list(struct bt_device *devices, int max_devices)
+static int bt_load_devices_via_sys_list(struct bt_audio_dev *devices, int max_devices)
 {
     char reply[BT_SYS_REPLY_MAX];
     long old_mtime = 0;
@@ -542,7 +483,7 @@ static int bt_load_devices_via_sys_list(struct bt_device *devices, int max_devic
  * firmware (the inquiry never reports the neighbourhood), so drive the
  * vendor discovery helper directly: it runs a full ~10 s inquiry and
  * writes the JSON list itself. */
-static int bt_scan_and_merge_devices(struct bt_device *devices, int count, int max_devices)
+static int bt_scan_and_merge_devices(struct bt_audio_dev *devices, int count, int max_devices)
 {
     bool ready = false;
 
@@ -584,40 +525,6 @@ static bool bt_current_connection(char *mac_out, size_t mac_out_len)
     return found;
 }
 
-static int bt_choose_device(const char *title, struct bt_device *devices, int count,
-                            bool include_scan_item)
-{
-    struct bt_device_menu_data data;
-    struct simplelist_info info;
-    int total_count = count + (include_scan_item ? 1 : 0);
-
-    if (total_count <= 0)
-    {
-        splash(HZ, bt_str(LANG_BT_NO_DEVICES));
-        return BT_DEVICE_PICK_CANCEL;
-    }
-
-    data.devices = devices;
-    data.count = count;
-    data.include_scan_item = include_scan_item;
-    bt_current_connection(data.connected_mac, sizeof(data.connected_mac));
-
-    simplelist_info_init(&info, (char *)title, total_count, &data);
-    info.get_name = bt_device_name_cb;
-    info.action_callback = bt_simplelist_ok_cancel;
-    info.selection = -1;
-    info.title_icon = Icon_Submenu;
-
-    simplelist_show_list(&info);
-    if (info.selection < 0 || info.selection >= total_count)
-        return BT_DEVICE_PICK_CANCEL;
-
-    if (include_scan_item && info.selection == 0)
-        return BT_DEVICE_PICK_SCAN;
-
-    return include_scan_item ? info.selection - 1 : info.selection;
-}
-
 static void bt_set_selected_mac(const char *mac)
 {
     if (mac && mac[0])
@@ -643,13 +550,41 @@ static void bt_kick_audio_if_playing(void)
     }
 }
 
+/* Where the runtime asound override really lives.  Prefer the tmpfs file
+ * with /etc/asound.conf symlinked to it; create the link lazily on first
+ * use and fall back to the plain rootfs file when that is impossible
+ * (read-only fs, no symlink support).  A dangling link after a reboot is
+ * fine: alsa-lib simply sees "no user config" and we recreate the file. */
+static const char *bt_asound_target(void)
+{
+    struct stat st;
+
+    if (lstat(BT_ASOUND_CONF, &st) == 0)
+    {
+        if (S_ISLNK(st.st_mode))
+            return BT_ASOUND_TMPFS;     /* already linked */
+    }
+    else if (errno != ENOENT)
+        return BT_ASOUND_CONF;          /* cannot inspect: write plainly */
+
+    /* A real file (or nothing): replace it with a link to the tmpfs. */
+    if (unlink(BT_ASOUND_CONF) != 0 && errno != ENOENT)
+        return BT_ASOUND_CONF;          /* read-only rootfs: write plainly */
+
+    if (symlink(BT_ASOUND_TMPFS, BT_ASOUND_CONF) != 0)
+        return BT_ASOUND_CONF;          /* cannot link: write plainly */
+
+    return BT_ASOUND_TMPFS;
+}
+
 /* Write the peer the stock bluetooth ALSA plugin must stream to.  The
  * vendor player rewrites this file at runtime, so we do the same - but
- * only when the content actually changes, so a routine reconnect does
- * not touch the flash. */
+ * only when the content actually changes, and on tmpfs once the symlink
+ * is in place. */
 static void bt_write_asound(const char *mac)
 {
     char buf[1024];
+    const char *path;
     int len = snprintf(buf, sizeof(buf),
         "pcm.bluetooth {\n"
         "    type bluetooth\n"
@@ -686,10 +621,12 @@ static void bt_write_asound(const char *mac)
     if (len <= 0 || len >= (int)sizeof(buf))
         return;
 
+    path = bt_asound_target();
+
     {
         char old[1024];
         size_t rn = 0;
-        FILE *rf = fopen(BT_ASOUND_CONF, "r");
+        FILE *rf = fopen(path, "r");
         if (rf)
         {
             rn = fread(old, 1, sizeof(old) - 1, rf);
@@ -697,10 +634,10 @@ static void bt_write_asound(const char *mac)
             old[rn] = '\0';
         }
         if (rn == (size_t)len && memcmp(old, buf, rn) == 0)
-            return;                 /* already correct - do not wear flash */
+            return;                 /* already correct - do not rewrite */
     }
 
-    FILE *f = fopen(BT_ASOUND_CONF, "w");
+    FILE *f = fopen(path, "w");
     if (!f)
         return;
     fwrite(buf, 1, (size_t)len, f);
@@ -993,22 +930,6 @@ static bool bt_prepare_stack(void)
     return false;
 }
 
-static const char *bt_device_action_name_cb(int selected_item, void *data,
-    char *buffer, size_t buffer_len)
-{
-    static const unsigned short ids[] = { LANG_BT_CONNECT, LANG_BT_DELETE };
-    (void)data;
-
-    if (selected_item < 0 || selected_item >= 2)
-    {
-        buffer[0] = '\0';
-        return buffer;
-    }
-
-    snprintf(buffer, buffer_len, "%s", bt_str(ids[selected_item]));
-    return buffer;
-}
-
 static void bt_delete_device(const char *mac)
 {
     char cmd[96];
@@ -1029,72 +950,7 @@ static void bt_delete_device(const char *mac)
     splash(HZ, bt_str(LANG_BT_DELETED));
 }
 
-/* Per-device action menu: pick Connect or Delete (unpair). */
-static void bt_device_menu(struct bt_device *devices, int *count, int idx)
-{
-    struct simplelist_info info;
-
-    simplelist_info_init(&info, (char *)devices[idx].name, 2, NULL);
-    info.get_name = bt_device_action_name_cb;
-    info.action_callback = bt_simplelist_ok_cancel;
-    info.selection = -1;
-    info.title_icon = Icon_Submenu;
-
-    simplelist_show_list(&info);
-
-    if (info.selection == 0)
-    {
-        bt_connect_device(&devices[idx]);
-    }
-    else if (info.selection == 1)
-    {
-        bt_delete_device(devices[idx].mac);
-        memmove(&devices[idx], &devices[idx + 1],
-                (size_t)(*count - idx - 1) * sizeof(devices[0]));
-        (*count)--;
-    }
-}
-
-static void bt_show_devices(void)
-{
-    static struct bt_device devices[BT_MAX_DEVICES];
-    int count;
-    int idx;
-
-    if (!bt_prepare_stack())
-    {
-        splash(HZ * 2, bt_str(LANG_BT_UNAVAILABLE));
-        return;
-    }
-
-    splash(0, bt_str(LANG_BT_LOADING));
-    count = bt_load_devices_via_sys_list(devices, BT_MAX_DEVICES);
-    if (count <= 0)
-    {
-        splash(0, bt_str(LANG_BT_SCANNING));
-        count = bt_scan_and_merge_devices(devices, count, BT_MAX_DEVICES);
-    }
-
-    while (1)
-    {
-        idx = bt_choose_device("Devices", devices, count, true);
-        if (idx == BT_DEVICE_PICK_SCAN)
-        {
-            splash(0, bt_str(LANG_BT_SCANNING));
-            count = bt_scan_and_merge_devices(devices, count, BT_MAX_DEVICES);
-            if (count <= 0)
-                splash(HZ, bt_str(LANG_BT_NO_DEVICES));
-            continue;
-        }
-
-        if (idx < 0 || idx >= count)
-            return;
-
-        bt_device_menu(devices, &count, idx);
-    }
-}
-
-static void bt_connect_device(const struct bt_device *device)
+static void bt_connect_device(const struct bt_audio_dev *device)
 {
     const char *mac;
     char cmd[96];
@@ -1167,10 +1023,7 @@ static void bt_connect_device(const struct bt_device *device)
     }
 
     if (routed)
-    {
-        bt_want = true;
         splash(HZ, bt_str(LANG_BT_CONNECTED));
-    }
     else
         splash(HZ * 2, bt_str(LANG_BT_NO_ROUTE));
 }
@@ -1231,8 +1084,8 @@ static void bt_reset_stack(void)
     char cmd[36], reply[BT_SYS_REPLY_MAX];
 
     /* Drop anything that holds the stack or the output busy. */
-    if (n3pro_bt_rx_get_active())
-        n3pro_bt_rx_stop();
+    if (bt_input_active())
+        bt_input_stop();
     if (bt_selected_mac[0])
     {
         snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
@@ -1251,12 +1104,6 @@ static void bt_reset_stack(void)
     bt_stack_on = false;
     sleep(HZ / 2);
     system("/usr/bin/bt_init >/dev/null 2>&1");
-}
-
-/* statusbar glyph query (statusbar_rf.h) */
-bool statusbar_rf_bt_on(void)
-{
-    return bt_stack_on;
 }
 
 static void bt_disconnect(void)
@@ -1375,7 +1222,7 @@ static void bt_watchdog(void)
 
         /* Never fight the receive path: while it is active the radio
          * belongs to it and the output stays on the wired jack. */
-        if (n3pro_bt_rx_get_active())
+        if (bt_input_active())
             continue;
 
         if (!TIME_AFTER(current_tick, last_check + 2 * HZ))
@@ -1404,7 +1251,7 @@ static void bt_watchdog(void)
              * them: probe the A2DP transport and pick the bluetooth
              * output up again.  bt_route_auto probes internally so no
              * extra cooldown is needed here. */
-            char mac[18];
+            char mac[BT_AUDIO_MAC_LEN];
 
             snprintf(mac, sizeof(mac), "%s", bt_selected_mac);
             bt_route_auto(mac);
@@ -1440,335 +1287,132 @@ static void bt_watchdog_stop(void)
     bt_watchdog_run = false;   /* the thread exits on its next wake-up */
 }
 
-static void bt_show_status(void)
+/* statusbar glyph query (statusbar_rf.h) */
+bool statusbar_rf_bt_on(void)
 {
-    struct simplelist_info info;
-
-    simplelist_info_init(&info, bt_str(LANG_BT_STATUS), 0, NULL);
-    simplelist_reset_lines();
-
-    if (bt_selected_mac[0])
-    {
-        simplelist_addline("%s: %s", bt_str(LANG_BT_MAC), bt_selected_mac);
-        /* Real link state from the peer's AVRCP input device; opening the
-         * PCM just to test readiness would block on the bluetooth stack. */
-        simplelist_addline("%s: %s", bt_str(LANG_BT_LINK),
-                           bt_peer_linked(bt_selected_mac)
-                               ? bt_str(LANG_ON) : bt_str(LANG_OFF));
-        simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC), bt_get_codec());
-    }
-    else
-    {
-        simplelist_addline("%s", bt_str(LANG_BT_DEVICE_LOCAL));
-    }
-
-    simplelist_addline("%s: %s", bt_str(LANG_BT_OUTPUT),
-                       pcm_alsa_is_bluetooth_active()
-                           ? bt_str(LANG_BLUETOOTH) : bt_str(LANG_BT_LOCAL));
-    simplelist_addline("%s: %s", bt_str(LANG_BT_RADIO),
-                       bt_radio_on() ? bt_str(LANG_ON) : bt_str(LANG_OFF));
-
-    info.count = simplelist_get_line_count();
-    simplelist_show_list(&info);
+    return bt_stack_on;
 }
 
-/* Bluetooth output submenu: status, device list, disconnect. */
-static int bt_output_menu(void)
+/* ------------------------------------------------------------------ */
+/* generic framework contract (firmware/export/bt_audio.h)             */
+/* ------------------------------------------------------------------ */
+
+bool bt_audio_prepare(void)
 {
-    int action = -1;
-
-    /* Output and receive are mutually exclusive: while the receive
-     * path owns the radio and the wired output, refuse to route. */
-    if (n3pro_bt_rx_get_active())
-    {
-        splash(HZ * 2, bt_str(LANG_BT_RX_ACTIVE));
-        return 0;
-    }
-
-    while (true)
-    {
-        struct simplelist_info info;
-
-        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
-        info.get_name = bt_action_name_cb;
-        info.action_callback = bt_simplelist_ok_cancel;
-        info.selection = -1;
-        info.title_icon = Icon_Submenu;
-
-        simplelist_show_list(&info);
-        action = info.selection;
-        if (action < 0)
-            break;
-
-        switch (action)
-        {
-            case 0:
-                bt_show_status();
-                break;
-            case 1:
-                bt_busy = true;
-                bt_show_devices();
-                bt_busy = false;
-                break;
-            case 2:
-                bt_busy = true;
-                bt_disconnect();
-                bt_busy = false;
-                break;
-            default:
-                break;
-        }
-    }
-    return 0;
+    return bt_prepare_stack();
 }
 
-/* Bluetooth receive screen: live status lines plus a selectable
- * "Disconnect" entry at the bottom. Choosing it drops the phone link,
- * stops the pump and powers the radio down. Back leaves the receiver
- * running in the background (like USB DAC mode) so the menus stay
- * usable; local playback is refused while it runs (apps/playback.c).
- * The list refreshes itself when the link state changes (checked on
- * the 2 s input timeout). */
-#define BT_RX_ROWS 5
-
-static const char *bt_rx_name_cb(int selected_item, void *data,
-                                 char *buffer, size_t buffer_len)
+bool bt_audio_stack_on(void)
 {
-    char peer[18];
-    const char *str;
-
-    (void)data;
-
-    if (selected_item < 0 || selected_item >= BT_RX_ROWS)
-    {
-        buffer[0] = '\0';
-        return buffer;
-    }
-
-    switch (selected_item)
-    {
-        case 0:
-            switch (n3pro_bt_rx_get_state())
-            {
-                case N3PRO_BT_RX_CONNECTED:
-                    str = bt_str(LANG_BT_CONNECTED);
-                    break;
-                case N3PRO_BT_RX_DISCONNECTED:
-                    str = bt_str(LANG_BT_DISCONNECTED);
-                    break;
-                default:
-                    str = bt_str(LANG_BT_RX_WAITING);
-                    break;
-            }
-            snprintf(buffer, buffer_len, "%s: %s",
-                     bt_str(LANG_BT_STATUS), str);
-            break;
-        case 1:
-            n3pro_bt_rx_get_peer(peer, sizeof(peer));
-            snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_MAC),
-                     peer[0] ? peer : "-");
-            break;
-        case 2:
-            snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_CODEC),
-                     bt_get_codec());
-            break;
-        case 3:
-        {
-            int rate = n3pro_bt_rx_get_rate();
-
-            if (rate > 0)
-                snprintf(buffer, buffer_len, "%s: %d Hz",
-                         bt_str(LANG_BT_RX_RATE), rate);
-            else
-                snprintf(buffer, buffer_len, "%s: -", bt_str(LANG_BT_RX_RATE));
-            break;
-        }
-        default:
-            snprintf(buffer, buffer_len, "%s", bt_str(LANG_BT_DISCONNECT));
-            break;
-    }
-    return buffer;
+    return bt_stack_on;
 }
 
-static int bt_rx_action_cb(int action, struct gui_synclist *lists)
+bool bt_audio_radio_on(void)
 {
-    static int last_state = -1;
-    static int last_rate = -1;
-    static char last_peer[18];
-
-    if (action == ACTION_STD_OK)
-    {
-        if (gui_synclist_get_sel_pos(lists) == BT_RX_ROWS - 1)
-            return ACTION_STD_CANCEL;    /* "Disconnect": exit list */
-        return ACTION_NONE;               /* status rows do nothing */
-    }
-
-    if (action == ACTION_NONE)
-    {
-        /* Input timeout: redraw only when something changed. */
-        char peer[18];
-        int state = n3pro_bt_rx_get_state();
-        int rate = n3pro_bt_rx_get_rate();
-
-        n3pro_bt_rx_get_peer(peer, sizeof(peer));
-        if (state != last_state || rate != last_rate ||
-            strcmp(peer, last_peer) != 0)
-        {
-            last_state = state;
-            last_rate = rate;
-            snprintf(last_peer, sizeof(last_peer), "%s", peer);
-            return ACTION_REDRAW;
-        }
-    }
-    return action;
+    return bt_radio_on();
 }
 
-static void bt_rx_screen(void)
+void bt_audio_power_off(void)
 {
-    struct simplelist_info info;
-
-    /* Incoming pairings/connections need sys_server's agent: it does
-     * not survive the hand-off into Rockbox, so bring the stack up
-     * before waiting for the phone. */
-    bt_busy = true;
-    bt_prepare_stack();
-    bt_busy = false;
-
-    /* Receive and output are mutually exclusive: if an earphone route
-     * is up, drop it (without powering the radio down -- receiving
-     * needs it) and stop the output watchdog. */
-    if (!n3pro_bt_rx_get_active() && bt_selected_mac[0])
-    {
-        char cmd[36], reply[BT_SYS_REPLY_MAX];
-
-        snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
-        bt_sys_command(cmd, reply, sizeof(reply));
-        bt_prefer = false;
-        bt_watchdog_stop();
-        bt_route_to_local(false);
-        bt_set_selected_mac(NULL);
-    }
-
-    /* The receive path owns the output, like USB DAC mode: stop any
-     * running playback first. */
-    if (audio_status() & (AUDIO_STATUS_PLAY | AUDIO_STATUS_PAUSE))
-        audio_stop();
-
-    /* The pump may keep waiting for the phone only while this screen
-     * is open; in the background it winds itself down on link loss.
-     * Set the flag BEFORE starting the pump -- its very first open
-     * usually fails (no transport yet) and must retry, not wind down. */
-    n3pro_bt_rx_set_fg(true);
-
-    if (!n3pro_bt_rx_get_active() && !n3pro_bt_rx_start())
-    {
-        n3pro_bt_rx_set_fg(false);
-        splash(HZ * 2, bt_str(LANG_BT_UNAVAILABLE));
-        return;
-    }
-
-    simplelist_info_init(&info, bt_str(LANG_BT_RX), BT_RX_ROWS, NULL);
-    info.get_name = bt_rx_name_cb;
-    info.action_callback = bt_rx_action_cb;
-    info.timeout = HZ * 2;
-    info.selection = BT_RX_ROWS - 1;
-    info.title_icon = Icon_Submenu;
-
-    simplelist_show_list(&info);
-
-    n3pro_bt_rx_set_fg(false);
-
-    if (info.selection == BT_RX_ROWS - 1)
-    {
-        /* "Disconnect": full stop -- drop the phone link, stop the
-         * pump and power the radio down before returning. */
-        char peer[18], cmd[36], reply[BT_SYS_REPLY_MAX];
-
-        n3pro_bt_rx_get_peer(peer, sizeof(peer));
-        if (peer[0])
-        {
-            snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", peer);
-            bt_sys_command(cmd, reply, sizeof(reply));
-        }
-        n3pro_bt_rx_stop();
-        bt_power_off();
-        splash(HZ, bt_str(LANG_BT_RX_STOPPED));
-    }
-    /* Back (selection < 0): receiving keeps running in the background;
-     * local playback and the earphone route stay locked out until it
-     * is stopped from this screen. */
+    bt_power_off();
 }
 
-static void bt_reset_screen(void)
+void bt_audio_reset_stack(void)
 {
-    struct viewport vp;
-    struct screen *sc = &screens[SCREEN_MAIN];
-
-    if (!yesno_pop(bt_str(LANG_BT_RESET_CONFIRM)))
-        return;
-
-    /* The re-init blocks for several seconds (firmware download,
-     * bluetoothd start); keep a message on screen while it runs.
-     * The parent menu redraws on return. */
-    viewport_set_defaults(&vp, SCREEN_MAIN);
-    sc->set_viewport(&vp);
-    sc->clear_display();
-    sc->puts(0, 0, bt_str(LANG_BT_RESETTING));
-    sc->update_viewport();
-    sc->set_viewport(NULL);
-
     bt_reset_stack();
 }
 
-static const char *bt_top_name_cb(int selected_item, void *data,
-                                  char *buffer, size_t buffer_len)
+int bt_audio_list(struct bt_audio_dev *out, int max)
 {
-    static const unsigned short ids[] =
-    {
-        LANG_BT_AUDIO_OUT, LANG_BT_AUDIO_IN, LANG_BT_RESET
-    };
-    (void)data;
-
-    if (selected_item < 0 || selected_item >= 3)
-    {
-        buffer[0] = '\0';
-        return buffer;
-    }
-    snprintf(buffer, buffer_len, "%s", bt_str(ids[selected_item]));
-    return buffer;
+    return bt_load_devices_via_sys_list(out, max);
 }
 
-int n3pro_bluetooth_menu(void)
+int bt_audio_scan(struct bt_audio_dev *out, int count, int max)
 {
-    while (true)
-    {
-        struct simplelist_info info;
+    return bt_scan_and_merge_devices(out, count, max);
+}
 
-        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
-        info.get_name = bt_top_name_cb;
-        info.selection = -1;
-        info.title_icon = Icon_Submenu;
+bool bt_audio_current(char *mac, size_t len)
+{
+    return bt_current_connection(mac, len);
+}
 
-        simplelist_show_list(&info);
-        if (info.selection < 0)
-            break;
+bool bt_audio_linked(const char *mac)
+{
+    return bt_peer_linked(mac);
+}
 
-        switch (info.selection)
-        {
-            case 0:
-                bt_output_menu();
-                break;
-            case 1:
-                bt_rx_screen();
-                break;
-            case 2:
-                bt_reset_screen();
-                break;
-            default:
-                break;
-        }
-    }
-    return 0;
+void bt_audio_connect(const struct bt_audio_dev *dev)
+{
+    bt_connect_device(dev);
+}
+
+void bt_audio_unpair(const char *mac)
+{
+    bt_delete_device(mac);
+}
+
+void bt_audio_disconnect(void)
+{
+    bt_disconnect();
+}
+
+/* Drop the output route and the peer link but keep the radio powered. */
+void bt_audio_release(void)
+{
+    char cmd[96], reply[BT_SYS_REPLY_MAX];
+
+    if (!bt_selected_mac[0])
+        return;
+
+    snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
+    bt_sys_command(cmd, reply, sizeof(reply));
+    bt_prefer = false;
+    bt_watchdog_stop();
+    bt_route_to_local(false);
+    bt_set_selected_mac(NULL);
+}
+
+void bt_audio_disconnect_peer(const char *mac)
+{
+    char cmd[96];
+    char reply[BT_SYS_REPLY_MAX];
+
+    if (!mac || !mac[0])
+        return;
+
+    snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", mac);
+    bt_sys_command(cmd, reply, sizeof(reply));
+}
+
+const char *bt_audio_codec(void)
+{
+    return bt_get_codec();
+}
+
+bool bt_audio_output_active(void)
+{
+    return pcm_alsa_is_bluetooth_active();
+}
+
+void bt_audio_watchdog_start(void)
+{
+    bt_watchdog_start();
+}
+
+void bt_audio_watchdog_stop(void)
+{
+    bt_watchdog_stop();
+}
+
+void bt_audio_busy(bool on)
+{
+    bt_busy = on;
+}
+
+const char *bt_audio_selected(void)
+{
+    return bt_selected_mac;
 }
 
 #endif /* CAYIN_N3PRO */

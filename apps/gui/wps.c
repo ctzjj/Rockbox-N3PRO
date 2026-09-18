@@ -34,8 +34,8 @@
 #include "skin_engine/skin_engine.h"
 #include "audio.h"
 #include "usb.h"
-#if defined(CAYIN_N3PRO)
-#include "n3pro-bt-input.h"
+#ifdef HAVE_BT_INPUT
+#include "bt_input.h"
 #endif
 #include "status.h"
 #include "storage.h"
@@ -725,8 +725,8 @@ long gui_wps_show(void)
         splash(HZ*2, ID2P(LANG_USB_DAC_ACTIVE));
     }
 #endif
-#if defined(CAYIN_N3PRO)
-    if (n3pro_bt_rx_get_active())
+#ifdef HAVE_BT_INPUT
+    if (bt_input_active())
     {
         splash(HZ*2, ID2P(LANG_BT_RX_ACTIVE));
     }

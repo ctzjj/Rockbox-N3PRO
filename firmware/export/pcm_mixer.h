@@ -75,7 +75,7 @@ enum pcm_mixer_channel
     PCM_MIXER_CHAN_USBAUDIO,
 #endif
 #if defined(CAYIN_N3PRO)
-    /* Bluetooth A2DP receive; see target/hosted/cayin/n3pro/n3pro-bt-input.c */
+    /* Bluetooth A2DP receive (generic bt_input_* contract) */
     PCM_MIXER_CHAN_BT_AUDIO,
 #endif
 #ifdef HAVE_NETFM
