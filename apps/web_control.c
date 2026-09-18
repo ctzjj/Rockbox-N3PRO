@@ -56,17 +56,29 @@
 #if defined(HAVE_WIFI_MENU)
 #include "wifi_hal.h"
 #endif
-
-#ifdef CAYIN_N3PRO
-#include "n3pro-bt-pcm.h"
+#ifdef HAVE_BT_AUDIO
+#include "bt_audio.h"
+#endif
+#ifdef HAVE_BT_INPUT
+#include "bt_input.h"
+#endif
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+#include "usb.h"
 #endif
 
 #define WEB_PORT_MAIN    80
 #define WEB_PORT_ALT     8080
 #define WEB_CMD_Q        8
 #define WEB_WS_MAX       4
-#define WEB_FILES_MAX    400
+#define WEB_FILES_MAX    2000
 #define WEB_NAME_MAX     120
+#define WEB_PL_MAX       2000
+#define WEB_JSON_MAX     (512 * 1024)
+/* artwork lookup retries after a track change: spread over time because
+ * Rockbox prefetches the NEXT track's metadata but not the previous one,
+ * so going back needs a while before embedded art is parsed */
+#define WEB_AA_RETRY_MAX     10
+#define WEB_AA_RETRY_DELAY   (HZ / 4)   /* 250 ms between attempts */
 /* Rockbox-vfs paths: "/" is the storage root, the page lives in
  * <storage>/.rockbox/web/control/ (same layout as langs/themes). */
 #define WEB_PAGE_DIR     ROCKBOX_DIR "/web/control"
@@ -99,6 +111,7 @@ struct web_state
     char token[17];
 
     pthread_mutex_t mutex;
+    pthread_mutex_t fs_mutex;      /* serializes the static listing buffers */
     pthread_t accept_pt;
     int listen_fd;
 
@@ -131,6 +144,7 @@ struct web_state
 static struct web_state W =
 {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
+    .fs_mutex = PTHREAD_MUTEX_INITIALIZER,
     .listen_fd = -1,
 };
 
@@ -141,6 +155,13 @@ struct web_entry
     long mtime;
     int attr;                   /* ATTR_DIRECTORY or filetype bits */
 };
+
+/* Static scratch for the directory/playlist listings.  Rockbox forbids
+ * dynamic allocation; these are shared by every connection thread and
+ * therefore serialized by W.fs_mutex. */
+static char web_json_buf[WEB_JSON_MAX];
+static char web_names_buf[WEB_PL_MAX * 128];
+static struct web_entry web_ents_buf[WEB_FILES_MAX];
 
 static int web_collect_dir(const char *path, struct web_entry *ents,
                            int max, bool audio_only);
@@ -162,9 +183,9 @@ static void web_sha1(const uint8_t *data, size_t len, uint8_t out[20])
                       0x10325476, 0xC3D2E1F0 };
     uint64_t bits = (uint64_t)len * 8;
     size_t total = ((len + 9 + 63) / 64) * 64;   /* padded size */
-    uint8_t *buf = malloc(total);
+    uint8_t buf[256];                            /* static scratch, no heap */
 
-    if (!buf)
+    if (total > sizeof(buf))
     {
         memset(out, 0, 20);
         return;
@@ -203,7 +224,6 @@ static void web_sha1(const uint8_t *data, size_t len, uint8_t out[20])
         }
         h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e;
     }
-    free(buf);
 
     for (int i = 0; i < 5; i++)
     {
@@ -348,6 +368,7 @@ static void web_refresh_snapshot(void)
 
         static char last_track[260] = "";
         static int aa_retries = 0;
+        static long aa_next_tick = 0;
         if (strcmp(last_track, id3->path) != 0)
         {
             snprintf(last_track, sizeof(last_track), "%s", id3->path);
@@ -358,13 +379,18 @@ static void web_refresh_snapshot(void)
             web_snap_albumart(id3);
 
             /* right after a skip the metadata may not be parsed yet
-             * (embedded art missing from the half-filled id3); retry
-             * twice so late artwork is still found */
-            aa_retries = W.snap.aa ? 0 : 2;
+             * (embedded art missing from the half-filled id3); keep
+             * retrying over the next couple of seconds so late artwork
+             * is still found - this is what makes "previous" (whose
+             * metadata is not prefetched) show its cover */
+            aa_retries = W.snap.aa ? 0 : WEB_AA_RETRY_MAX;
+            aa_next_tick = current_tick + WEB_AA_RETRY_DELAY;
         }
-        else if (!W.snap.aa && aa_retries > 0)
+        else if (!W.snap.aa && aa_retries > 0 &&
+                 (long)(current_tick - aa_next_tick) >= 0)
         {
             aa_retries--;
+            aa_next_tick = current_tick + WEB_AA_RETRY_DELAY;
             web_snap_albumart(id3);
             if (W.snap.aa)
                 W.snap.serial++;   /* page must refetch the cover */
@@ -610,13 +636,21 @@ static bool web_local_playback(void)
 {
     /* Positive check: the web remote drives the local file player only.
      * Anything that is not plainly local file playback (USB DAC input,
-     * bluetooth receive, bluetooth output route -- and any future
-     * external mode registered in the target helper) refuses to run. */
-#ifdef CAYIN_N3PRO
-    return n3pro_local_playback();
-#else
-    return true;
+     * bluetooth receive, bluetooth output route) refuses to run.  Uses
+     * the same generic HAL queries as the other shared consumers. */
+#ifdef HAVE_BT_INPUT
+    if (bt_input_active())
+        return false;
 #endif
+#ifdef HAVE_BT_AUDIO
+    if (bt_audio_output_active())
+        return false;
+#endif
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+    if (usb_audio_get_active())
+        return false;
+#endif
+    return true;
 }
 
 static void web_worker_thread(void)
@@ -915,8 +949,6 @@ static long web_parse_param(const char *body, const char *key)
  * track; "cur" marks the playing track's slot and the web page
  * jumps by converting the slot to an offset (audio_skip).  Runs on
  * the connection thread. */
-#define WEB_PL_MAX 500
-
 static void web_serve_playlist(int fd)
 {
     int n = playlist_amount();
@@ -925,32 +957,30 @@ static void web_serve_playlist(int fd)
     if (n > WEB_PL_MAX)
         n = WEB_PL_MAX;
 
+    pthread_mutex_lock(&W.fs_mutex);
+    char *names = web_names_buf;
+    char *buf = web_json_buf;
+    const size_t cap = sizeof(web_json_buf);
+
+    if (n > 0)
+        memset(names, 0, (size_t)n * 128);
+
     /* Enumerate the playlist CONTENT the way the on-device playlist
      * viewer does: by index, ordered by display position.  playlist_
      * peek() cannot be used for listing - it follows repeat-mode
      * navigation, and under Repeat One every step resolves to the
      * current track, so the whole list would show the same song. */
-    char *names = NULL;
-    if (n > 0)
+    for (int i = 0; i < n; i++)
     {
-        names = calloc((size_t)n, 128);
-        if (!names)
-        {
-            web_json_reply(fd, 500, "Server Error", "{\"error\":\"oom\"}");
-            return;
-        }
-        for (int i = 0; i < n; i++)
-        {
-            struct playlist_track_info info;
-            if (playlist_get_track_info(NULL, i, &info) < 0)
-                continue;
-            int slot = info.display_index - 1;
-            if (slot < 0 || slot >= n)
-                continue;
-            const char *base = strrchr(info.filename, '/');
-            base = base ? base + 1 : info.filename;
-            snprintf(names + (size_t)slot * 128, 128, "%s", base);
-        }
+        struct playlist_track_info info;
+        if (playlist_get_track_info(NULL, i, &info) < 0)
+            continue;
+        int slot = info.display_index - 1;
+        if (slot < 0 || slot >= n)
+            continue;
+        const char *base = strrchr(info.filename, '/');
+        base = base ? base + 1 : info.filename;
+        snprintf(names + (size_t)slot * 128, 128, "%s", base);
     }
 
     int cur = playlist_get_display_index() - 1;
@@ -958,15 +988,6 @@ static void web_serve_playlist(int fd)
         cur = 0;
     if (cur > n - 1)
         cur = n - 1;
-
-    size_t cap = 16 * 1024;
-    char *buf = malloc(cap);
-    if (!buf)
-    {
-        free(names);
-        web_json_reply(fd, 500, "Server Error", "{\"error\":\"oom\"}");
-        return;
-    }
 
     size_t o = (size_t)snprintf(buf, cap, "{\"cur\":%d,\"tracks\":[", cur);
 
@@ -982,13 +1003,7 @@ static void web_serve_playlist(int fd)
 
         size_t need = strlen(esc) + 8;
         if (o + need + 4 > cap)
-        {
-            cap *= 2;
-            char *nb = realloc(buf, cap);
-            if (!nb)
-                break;
-            buf = nb;
-        }
+            break;              /* static buffer full: truncate the list */
         o += (size_t)snprintf(buf + o, cap - o, "%s\"%s\"",
                               k ? "," : "", esc);
     }
@@ -996,8 +1011,7 @@ static void web_serve_playlist(int fd)
     o += (size_t)snprintf(buf + o, cap - o, "]}");
     web_http_head(fd, 200, "OK", "application/json", (long)o);
     web_send_all(fd, buf, o);
-    free(buf);
-    free(names);
+    pthread_mutex_unlock(&W.fs_mutex);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1138,26 +1152,16 @@ static void web_serve_files(int fd, const char *qpath)
     else
         snprintf(fixed, sizeof(fixed), "/%s", dir);
 
-    struct web_entry *ents = malloc((size_t)WEB_FILES_MAX * sizeof(*ents));
-    if (!ents)
-    {
-        web_json_reply(fd, 500, "Server Error", "{\"error\":\"oom\"}");
-        return;
-    }
+    pthread_mutex_lock(&W.fs_mutex);
+    struct web_entry *ents = web_ents_buf;
+    char *buf = web_json_buf;
+    const size_t cap = sizeof(web_json_buf);
+
     int n = web_collect_dir(fixed, ents, WEB_FILES_MAX, false);
     if (n < 0)
     {
-        free(ents);
+        pthread_mutex_unlock(&W.fs_mutex);
         web_json_reply(fd, 404, "Not Found", "{\"error\":\"nodir\"}");
-        return;
-    }
-
-    size_t cap = 16 * 1024;
-    char *buf = malloc(cap);
-    if (!buf)
-    {
-        free(ents);
-        web_json_reply(fd, 500, "Server Error", "{\"error\":\"oom\"}");
         return;
     }
 
@@ -1177,19 +1181,7 @@ static void web_serve_files(int fd, const char *qpath)
             web_json_escape(esc, sizeof(esc), ents[i].name);
             size_t need = strlen(esc) + 8;
             if (o + need + 4 > cap)
-            {
-                cap *= 2;
-                char *nb = realloc(buf, cap);
-                if (!nb)
-                {
-                    free(buf);
-                    free(ents);
-                    web_json_reply(fd, 500, "Server Error",
-                                   "{\"error\":\"oom\"}");
-                    return;
-                }
-                buf = nb;
-            }
+                break;          /* static buffer full: truncate the list */
             o += (size_t)snprintf(buf + o, cap - o, "%s\"%s\"",
                                   first ? "" : ",", esc);
             first = false;
@@ -1201,8 +1193,7 @@ static void web_serve_files(int fd, const char *qpath)
 
     web_http_head(fd, 200, "OK", "application/json", (long)o);
     web_send_all(fd, buf, o);
-    free(buf);
-    free(ents);
+    pthread_mutex_unlock(&W.fs_mutex);
 }
 
 /* POST /api/fileop?op=play|del&path=...  Play goes through the command
