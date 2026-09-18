@@ -18667,3 +18667,17 @@
     *: "停止"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_BT_BUSY_OUTPUT
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "Disconnect Bluetooth output first"
+  </source>
+  <dest>
+    *: "请先断开蓝牙输出"
+  </dest>
+  <voice>
+    *: "Disconnect Bluetooth output first"
+  </voice>
+</phrase>

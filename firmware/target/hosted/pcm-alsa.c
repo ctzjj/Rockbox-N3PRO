@@ -122,6 +122,18 @@ void pcm_alsa_set_playback_device(const char *device)
     playback_dev = device;
 }
 
+#if defined(CAYIN_N3PRO)
+/* The stock bluetooth PCM is configured when it is opened and the vendor
+ * plugin rejects later reconfiguration, so report its real rate: generic
+ * rate changes are then clamped to it and the DSP resamples the stream. */
+unsigned int pcm_sink_fixed_rate(void)
+{
+    if (real_sample_rate && pcm_alsa_is_bluetooth_active())
+        return real_sample_rate;
+    return 0;
+}
+#endif
+
 #ifdef HAVE_RECORDING
 void pcm_alsa_set_capture_device(const char *device)
 {
@@ -173,14 +185,25 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
     err = snd_pcm_hw_params_any(handle, params);
     if (err < 0)
     {
+#if defined(CAYIN_N3PRO)
+        /* The bluetooth endpoint keeps the A2DP transport in flux (the
+         * earpiece may have just re-connected); a rejected configuration
+         * must not panic - fail softly so the router can fall back. */
+        logf("Broken configuration for playback: no configurations available: %s", snd_strerror(err));
+#else
         panicf("Broken configuration for playback: no configurations available: %s", snd_strerror(err));
+#endif
         goto error;
     }
     /* set the interleaved read/write format */
     err = snd_pcm_hw_params_set_access(handle, params, access_);
     if (err < 0)
     {
+#if defined(CAYIN_N3PRO)
+        logf("Access type not available for playback: %s", snd_strerror(err));
+#else
         panicf("Access type not available for playback: %s", snd_strerror(err));
+#endif
         goto error;
     }
     /* set the sample format */
@@ -846,6 +869,18 @@ static void sink_dma_start(const void *addr, size_t size)
 
 #if !defined(AUDIOHW_MUTE_ON_STOP) && defined(AUDIOHW_MUTE_ON_SRATE_CHANGE)
     audiohw_mute(false);
+#endif
+
+#if defined(CAYIN_N3PRO)
+    /* The dedicated poll thread (n3pro_pcm_after_open) pumps the PCM and
+     * runs the ALSA state machine for this target.  Waiting for
+     * SND_PCM_STATE_RUNNING on the caller would busy-spin a raw pthread
+     * forever when the stock bluetooth plugin stays in PREPARED/DRAINING
+     * (e.g. after a failed BT_OPEN), freezing the whole engine.  A drained
+     * PCM is left in SETUP, which the pump skips, so re-prepare it here. */
+    if (handle && snd_pcm_state(handle) == SND_PCM_STATE_SETUP)
+        snd_pcm_prepare(handle);
+    return;
 #endif
 
     while (1)

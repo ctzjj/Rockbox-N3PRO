@@ -60,10 +60,10 @@ index 9812851388..1411aca776 100644
  toolsicon.130x130x16.bmp
 diff --git a/apps/bluetooth.c b/apps/bluetooth.c
 new file mode 100644
-index 0000000000..54e9afef1d
+index 0000000000..c0da9bc84c
 --- /dev/null
 +++ b/apps/bluetooth.c
-@@ -0,0 +1,562 @@
+@@ -0,0 +1,565 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -500,11 +500,14 @@ index 0000000000..54e9afef1d
 +    bt_audio_prepare();
 +    bt_audio_busy(false);
 +
-+    /* Receive and output are mutually exclusive: if an earphone route
-+     * is up, drop it (without powering the radio down -- receiving
-+     * needs it) and stop the output watchdog. */
-+    if (!bt_input_active() && bt_audio_selected()[0])
-+        bt_audio_release();
++    /* Receive and output are mutually exclusive: the vendor stack cannot
++     * safely open the receive PCM while the earphone output PCM is still
++     * routed, so ask the user to disconnect the output first. */
++    if (!bt_input_active() && bt_audio_output_active())
++    {
++        splash(HZ * 2, bt_str(LANG_BT_BUSY_OUTPUT));
++        return;
++    }
 +
 +    /* The receive path owns the output, like USB DAC mode: stop any
 +     * running playback first. */
@@ -1433,10 +1436,10 @@ index 3d046e9351..db2335d937 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..e4c24b440b 100644
+index 3c8be16c72..6825a051d4 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,1502 @@
+@@ -17168,3 +17168,1516 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -2939,11 +2942,25 @@ index 3c8be16c72..e4c24b440b 100644
 +    *: "停止"
 +  </voice>
 +</phrase>
++<phrase>
++  id: LANG_BT_BUSY_OUTPUT
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "Disconnect Bluetooth output first"
++  </source>
++  <dest>
++    *: "请先断开蓝牙输出"
++  </dest>
++  <voice>
++    *: "Disconnect Bluetooth output first"
++  </voice>
++</phrase>
 diff --git a/apps/lang/chinese-trad.lang b/apps/lang/chinese-trad.lang
-index 2ffee1e338..0238b7e485 100644
+index 2ffee1e338..15e949de13 100644
 --- a/apps/lang/chinese-trad.lang
 +++ b/apps/lang/chinese-trad.lang
-@@ -11238,3 +11238,1502 @@
+@@ -11238,3 +11238,1516 @@
      ibassodx50,ibassodx90: "CPU頻率管理器"
    </voice>
  </phrase>
@@ -4446,6 +4463,20 @@ index 2ffee1e338..0238b7e485 100644
 +    *: "停止"
 +  </voice>
 +</phrase>
++<phrase>
++  id: LANG_BT_BUSY_OUTPUT
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "Disconnect Bluetooth output first"
++  </source>
++  <dest>
++    *: "請先中斷藍牙輸出"
++  </dest>
++  <voice>
++    *: "Disconnect Bluetooth output first"
++  </voice>
++</phrase>
 diff --git a/apps/lang/czech.lang b/apps/lang/czech.lang
 index 170b57de93..3991c49022 100644
 --- a/apps/lang/czech.lang
@@ -4917,7 +4948,7 @@ index 55028062cd..ae85f0a296 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..051f05edbb 100644
+index 4c2f0d58b0..37068b2140 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -4983,7 +5014,7 @@ index 4c2f0d58b0..051f05edbb 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,1446 @@
+@@ -17231,3 +17287,1460 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -6428,6 +6459,20 @@ index 4c2f0d58b0..051f05edbb 100644
 +  </dest>
 +  <voice>
 +    *: "Stop"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_BT_BUSY_OUTPUT
++  desc: bluetooth error
++  user: core
++  <source>
++    *: "Disconnect Bluetooth output first"
++  </source>
++  <dest>
++    *: "Disconnect Bluetooth output first"
++  </dest>
++  <voice>
++    *: "Disconnect Bluetooth output first"
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/espanol.lang b/apps/lang/espanol.lang
@@ -10396,10 +10441,10 @@ index 0000000000..6d40258209
 +#endif
 diff --git a/apps/netfm_playback.c b/apps/netfm_playback.c
 new file mode 100644
-index 0000000000..7f90f21266
+index 0000000000..6743be33e7
 --- /dev/null
 +++ b/apps/netfm_playback.c
-@@ -0,0 +1,427 @@
+@@ -0,0 +1,437 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -10430,8 +10475,11 @@ index 0000000000..7f90f21266
 +#ifdef HAVE_NETFM
 +
 +#include <errno.h>
++#include <fcntl.h>
 +#include <pthread.h>
 +#include <sched.h>
++#include <stdarg.h>
++#include <sys/syscall.h>
 +#include <stdbool.h>
 +#include <stdint.h>
 +#include <stdio.h>
@@ -10522,11 +10570,18 @@ index 0000000000..7f90f21266
 +
 +    nf_tail = nf_head;              /* drop audio from the old rate */
 +
++    /* Hand the DSP the source rate; a fixed-rate output (bluetooth)
++     * clamps mixer_set_frequency() to what it can actually run, so read
++     * the real output rate back and let the DSP resample to it. */
 +    mixer_set_frequency(rate);
++    int out = mixer_get_frequency();
++    if (out < 8000 || out > 192000)
++        out = rate;
++
 +    if (nf_dsp)
 +    {
 +        dsp_configure(nf_dsp, DSP_SET_FREQUENCY, rate);
-+        dsp_configure(nf_dsp, DSP_SET_OUT_FREQUENCY, rate);
++        dsp_configure(nf_dsp, DSP_SET_OUT_FREQUENCY, out);
 +    }
 +    /* mixer_set_frequency() stops the PCM driver; re-kick our channel. */
 +    mixer_channel_play_data(PCM_MIXER_CHAN_NETFM, &nf_cbs, NULL, 0);
@@ -23044,6 +23099,24 @@ index d0b7f8c706..45095f687b 100644
  void audiohw_mute(int mute);
  void hiby_set_output(int ps);
  int hiby_get_outputs(void);
+diff --git a/firmware/export/pcm-internal.h b/firmware/export/pcm-internal.h
+index 7ffbb08b36..15ce8043c5 100644
+--- a/firmware/export/pcm-internal.h
++++ b/firmware/export/pcm-internal.h
+@@ -82,6 +82,13 @@ bool pcm_is_playing(void);
+ 
+ void pcm_set_frequency(unsigned int samplerate);
+ unsigned int pcm_get_frequency(void);
++#if defined(CAYIN_N3PRO)
++/* Backend hook: the real rate of a fixed-rate output (e.g. bluetooth,
++ * which is configured once at open and cannot be reconfigured later).
++ * Non-zero means "clamp rate changes to this rate"; 0 means the output
++ * follows the requested rate. */
++unsigned int pcm_sink_fixed_rate(void);
++#endif
+ /* apply settings to hardware immediately */
+ void pcm_apply_settings(void);
+ 
 diff --git a/firmware/export/pcm_mixer.h b/firmware/export/pcm_mixer.h
 index bbc2c2c9cd..8139446432 100644
 --- a/firmware/export/pcm_mixer.h
@@ -23189,6 +23262,63 @@ index 0000000000..10ff5545b0
 +bool wifi_hal_get_status(struct wifi_hal_status *st);
 +
 +#endif /* WIFI_HAL_H */
+diff --git a/firmware/pcm.c b/firmware/pcm.c
+index bea1edb376..319ca35e80 100644
+--- a/firmware/pcm.c
++++ b/firmware/pcm.c
+@@ -163,8 +163,15 @@ void pcm_play_stop_int(void)
+ 
+ static void pcm_wait_for_init(void)
+ {
++#if defined(CAYIN_N3PRO)
++    /* sleep(0) is a cooperative yield that a raw pthread never gets woken
++     * from; the dedicated poll thread handles initialisation, so a caller
++     * must not spin waiting here. */
++    (void)0;
++#else
+     while (!pcm_is_ready[cur_sink])
+         sleep(0);
++#endif
+ }
+ 
+ /**
+@@ -431,6 +438,16 @@ void pcm_set_frequency(unsigned int samplerate)
+     samplerate = pcm_sampr_to_hw_sampr(samplerate, type);
+ #endif /* CONFIG_SAMPR_TYPES */
+ 
++#if defined(CAYIN_N3PRO)
++    /* A fixed-rate output (bluetooth) can only run at the rate it was
++     * opened with; clamp to it and let the DSP resample everything else. */
++    {
++        unsigned int fixed = pcm_sink_fixed_rate();
++        if (fixed)
++            samplerate = fixed;
++    }
++#endif
++
+     struct pcm_sink* sink = sinks[cur_sink];
+     index = round_value_to_list32(samplerate, sink->caps.samprs, sink->caps.num_samprs, false);
+ 
+diff --git a/firmware/pcm_mixer.c b/firmware/pcm_mixer.c
+index 7c17255990..5355dd1f3b 100644
+--- a/firmware/pcm_mixer.c
++++ b/firmware/pcm_mixer.c
+@@ -526,6 +526,15 @@ void mixer_reset(void)
+ /* Set output samplerate */
+ void mixer_set_frequency(unsigned int samplerate)
+ {
++#if defined(CAYIN_N3PRO)
++    /* A fixed-rate output is already where it must be: don't stop and
++     * reconfigure it for a rate it cannot adopt. */
++    {
++        unsigned int fixed = pcm_sink_fixed_rate();
++        if (fixed && pcm_get_frequency() == fixed)
++            return;
++    }
++#endif
+     if(pcm_get_frequency() == samplerate)
+         return;
+ 
 diff --git a/firmware/sound.c b/firmware/sound.c
 index c7d510dc2f..48f071a7dd 100644
 --- a/firmware/sound.c
@@ -24098,10 +24228,10 @@ index 0000000000..a25dcfbfc2
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..cacfa10fce
+index 0000000000..139e3329cf
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1418 @@
+@@ -0,0 +1,1566 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -24140,6 +24270,7 @@ index 0000000000..cacfa10fce
 +#include <string.h>
 +#include <stdlib.h>
 +#include <ctype.h>
++#include <dirent.h>
 +#include <errno.h>
 +#include <unistd.h>
 +#include <sys/socket.h>
@@ -24174,16 +24305,19 @@ index 0000000000..cacfa10fce
 +#define BT_ASOUND_TMPFS "/tmp/asound.conf"
 +#define BT_AUDIO_CONF "/etc/bluetooth/audio.conf"
 +#define BT_SYS_SOCKET "/var/run/sys_server"
-+#define BT_LIST_FILE "/tmp/bt_list.txt"
++/* The vendor sys_server writes the paired-device JSON here (read-only for
++ * us, so reading it costs no flash wear); our own discovery output goes to
++ * tmpfs since we create it. */
++#define BT_LIST_FILE "/data/bt_list.txt"
 +#define BT_SCAN_FILE "/tmp/bt_scan.txt"
 +#define BT_SYS_REPLY_MAX 128
 +
 +static char bt_selected_mac[BT_AUDIO_MAC_LEN];
-+static bool bt_prefer = false;   /* the user wants the bluetooth output */
 +
 +/* Output watchdog state (see bt_watchdog()). */
 +static bool bt_busy = false;   /* a menu-driven route is in progress */
 +static bool bt_peer_linked(const char *mac);
++static bool bt_wait_linked(const char *mac, int ms);
 +static bool bt_watchdog_started = false;
 +static volatile bool bt_watchdog_run = false;
 +/* radio powered - tracked at the power transitions so the statusbar
@@ -24600,6 +24734,57 @@ index 0000000000..cacfa10fce
 +    return count;
 +}
 +
++/* MAC of a currently ACL-connected peer, read from the kernel's sysfs
++ * nodes (/sys/class/bluetooth/hci0:NN/address).  The vendor stack keeps
++ * these up to date for every live link and they need no forking, so this
++ * is the primary "is it connected" source; hcitool is only a fallback.
++ * There is at most one peer on this player. */
++static bool bt_acl_peer(char *mac_out, size_t mac_out_len)
++{
++    DIR *d;
++    struct dirent *de;
++
++    if (!mac_out || mac_out_len < 18)
++        return false;
++    mac_out[0] = '\0';
++
++    d = opendir("/sys/class/bluetooth");
++    if (!d)
++        return false;
++
++    while ((de = readdir(d)))
++    {
++        char path[64];
++        FILE *f;
++
++        if (strncmp(de->d_name, "hci0:", 5) != 0)
++            continue;
++
++        snprintf(path, sizeof(path), "/sys/class/bluetooth/%s/address",
++                 de->d_name);
++        f = fopen(path, "r");
++        if (!f)
++            continue;
++        if (fgets(mac_out, mac_out_len, f))
++        {
++            char *nl = strchr(mac_out, '\n');
++            char *p;
++
++            if (nl)
++                *nl = '\0';
++            for (p = mac_out; *p; p++)
++                *p = toupper((unsigned char)*p);
++            fclose(f);
++            closedir(d);
++            return mac_out[0] != '\0';
++        }
++        fclose(f);
++    }
++
++    closedir(d);
++    return false;
++}
++
 +/* MAC of the currently linked device (there is at most one on this
 + * player), used to flag it in the device list. */
 +static bool bt_current_connection(char *mac_out, size_t mac_out_len)
@@ -24612,6 +24797,9 @@ index 0000000000..cacfa10fce
 +        return false;
 +    mac_out[0] = '\0';
 +
++    if (bt_acl_peer(mac_out, mac_out_len))
++        return true;
++
 +    fp = popen("/usr/bin/hcitool con 2>/dev/null", "r");
 +    if (fp)
 +    {
@@ -24619,6 +24807,10 @@ index 0000000000..cacfa10fce
 +        {
 +            if (bt_extract_mac_from_line(line, mac_out, mac_out_len))
 +            {
++                char *p;
++
++                for (p = mac_out; *p; p++)
++                    *p = toupper((unsigned char)*p);
 +                found = true;
 +                break;
 +            }
@@ -24787,7 +24979,9 @@ index 0000000000..cacfa10fce
 +        if (i > 0)
 +        {
 +            if (!bt_peer_linked(mac))
++            {
 +                break;
++            }
 +
 +            snprintf(cmd, sizeof(cmd),
 +                     "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
@@ -24801,14 +24995,18 @@ index 0000000000..cacfa10fce
 +        for (t = 0; t < probes; t++)
 +        {
 +            if (pcm_alsa_bt_probe() == 0)
++            {
 +                return bt_codec_pref[i];
++            }
 +            sleep(HZ / 4);
 +        }
 +
 +        /* Nothing came up and the link is gone: cycling would only wedge
 +         * the stack further. */
 +        if (!bt_peer_linked(mac))
++        {
 +            break;
++        }
 +    }
 +
 +    return NULL;
@@ -24895,6 +25093,7 @@ index 0000000000..cacfa10fce
 +
 +static bool bt_route_to_bluetooth(const char *mac)
 +{
++
 +    if (!mac || !mac[0])
 +        return false;
 +
@@ -24902,17 +25101,22 @@ index 0000000000..cacfa10fce
 +
 +    /* Pick the highest codec the earphone supports; on success the A2DP
 +     * transport is already up, so no extra wait is needed. */
-+    if (!bt_pick_codec(mac))
 +    {
-+        bt_route_to_local(false);
-+        return false;
++        const char *codec = bt_pick_codec(mac);
++
++        if (!codec)
++        {
++            bt_route_to_local(false);
++            return false;
++        }
 +    }
 +
-+    if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0)
++    if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0 &&
++        bt_peer_linked(mac))
 +    {
 +        /* Switch to the independent bluetooth volume (the softvol follows
 +         * it); the earpiece volume is left alone. */
-+        bt_prefer = true;
++        pcm_alsa_bt_link_lost_clear();
 +        bt_watchdog_start();
 +        bt_vol_enter_bt();
 +        bt_kick_audio_if_playing();
@@ -24943,12 +25147,14 @@ index 0000000000..cacfa10fce
 +        if (pcm_alsa_bt_probe() == 0 &&
 +            pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0)
 +        {
++            pcm_alsa_bt_link_lost_clear();
++            bt_watchdog_start();
 +            bt_set_selected_mac(mac);
 +            bt_vol_enter_bt();
 +            bt_kick_audio_if_playing();
 +            return true;
 +        }
-+        sleep(HZ / 2);
++        sleep(HZ / 4);
 +    }
 +
 +    bt_route_to_local(false);
@@ -25022,6 +25228,9 @@ index 0000000000..cacfa10fce
 +            bt_sys_reply_ok(reply, "BT:LIST"))
 +        {
 +            bt_stack_on = true;
++            /* Watch for a trusted earpiece auto-connecting while the
++             * output is still wired, so it can be routed automatically. */
++            bt_watchdog_start();
 +            return true;
 +        }
 +
@@ -25110,9 +25319,25 @@ index 0000000000..cacfa10fce
 +        return;
 +    }
 +
++    if (!bt_wait_linked(mac, 3000))
++    {
++        /* sys_server's connect can answer OK without the link really
++         * coming up; drive the vendor BlueZ client as a fallback. */
++        snprintf(cmd, sizeof(cmd),
++                 "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
++        system(cmd);
++    }
++
++    if (!bt_peer_linked(mac))
++    {
++        splash(HZ * 2, bt_str(LANG_BT_CONNECT_FAILED));
++        return;
++    }
++
 +    bt_set_selected_mac(mac);
 +
 +    routed = bt_route_to_bluetooth(mac);
++
 +    if (!routed)
 +    {
 +        if (device->paired)
@@ -25174,6 +25399,7 @@ index 0000000000..cacfa10fce
 +        system("/usr/sbin/hciconfig hci0 down >/dev/null 2>&1");
 +
 +    bt_stack_on = false;
++    bt_watchdog_stop();
 +}
 +
 +/* Reset the whole bluetooth stack to the boot-time state: stop any
@@ -25194,7 +25420,6 @@ index 0000000000..cacfa10fce
 +    {
 +        snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
 +        bt_sys_command(cmd, reply, sizeof(reply));
-+        bt_prefer = false;
 +        bt_watchdog_stop();
 +        bt_route_to_local(false);
 +        bt_set_selected_mac(NULL);
@@ -25221,7 +25446,6 @@ index 0000000000..cacfa10fce
 +        bt_sys_command(cmd, reply, sizeof(reply));
 +    }
 +
-+    bt_prefer = false;
 +    bt_watchdog_stop();
 +    bt_route_to_local(false);
 +    bt_set_selected_mac(NULL);
@@ -25234,12 +25458,17 @@ index 0000000000..cacfa10fce
 + * away: a fork-free way to notice a disconnect. */
 +static bool bt_peer_linked(const char *mac)
 +{
++    char acl[BT_AUDIO_MAC_LEN];
 +    char path[64];
 +    char name[80];
 +    int i;
 +
 +    if (!mac || !mac[0])
 +        return false;
++
++    /* Primary: the kernel ACL node for a live link. */
++    if (bt_acl_peer(acl, sizeof(acl)) && !strcasecmp(acl, mac))
++        return true;
 +
 +    for (i = 0; i < 16; i++)
 +    {
@@ -25267,39 +25496,64 @@ index 0000000000..cacfa10fce
 +    return false;
 +}
 +
-+/* True while any peer (MAC-named) input device exists; used as a fallback
-+ * when the selected address is not known. */
-+static bool bt_any_peer_input(void)
++/* Wait up to ms for the peer's ACL link to come up.  The stock plugin can
++ * open its PCM before the link really exists, which is a false
++ * "connected", so the menu path waits for the kernel to agree. */
++static bool bt_wait_linked(const char *mac, int ms)
 +{
-+    char path[64];
-+    char name[80];
 +    int i;
 +
-+    for (i = 0; i < 16; i++)
++    for (i = 0; i < ms / 100; i++)
 +    {
-+        FILE *f;
-+
-+        snprintf(path, sizeof(path), "/sys/class/input/input%d/name", i);
-+        f = fopen(path, "r");
-+        if (!f)
-+            continue;
-+
-+        name[0] = '\0';
-+        if (fgets(name, sizeof(name), f))
-+        {
-+            char *nl = strchr(name, '\n');
-+
-+            if (nl)
-+                *nl = '\0';
-+        }
-+        fclose(f);
-+
-+        /* Peer devices are named after their MAC address. */
-+        if (strlen(name) == 17 && name[2] == ':' && name[5] == ':')
++        if (bt_peer_linked(mac))
 +            return true;
++        sleep(HZ / 10);
 +    }
++    return bt_peer_linked(mac);
++}
 +
-+    return false;
++/* True when the vendor's paired list marks this MAC as an A2DP sink (an
++ * output device), so the watchdog only auto-routes to something we can
++ * actually send audio to.  Cached per MAC. */
++static bool bt_peer_is_sink(const char *mac)
++{
++    static char cached_mac[BT_AUDIO_MAC_LEN];
++    static bool cached;
++    FILE *f;
++    char line[512];
++    char cur[BT_AUDIO_MAC_LEN] = "";
++    bool match = false;
++    bool sink = false;
++
++    if (!mac || !mac[0])
++        return false;
++
++    if (!strcasecmp(cached_mac, mac))
++        return cached;
++
++    f = fopen(BT_LIST_FILE, "r");
++    if (!f)
++        return false;
++
++    while (fgets(line, sizeof(line), f))
++    {
++        if (strstr(line, "\"MAC\""))
++        {
++            cur[0] = '\0';
++            bt_extract_mac_from_line(line, cur, sizeof(cur));
++            match = cur[0] && !strcasecmp(cur, mac);
++            sink = false;
++        }
++        if (match && strstr(line, "AudioSink"))
++            sink = true;
++        if (match && strchr(line, '}'))
++            break;
++    }
++    fclose(f);
++
++    snprintf(cached_mac, sizeof(cached_mac), "%s", mac);
++    cached = sink;
++    return sink;
 +}
 +
 +/* ------------------------------------------------------------------ */
@@ -25316,6 +25570,8 @@ index 0000000000..cacfa10fce
 +{
 +    long last_check = 0;
 +    long last_fallback = 0;
++    long last_auto = 0;
++    int lost_streak = 0;
 +
 +    while (bt_watchdog_run)
 +    {
@@ -25327,20 +25583,33 @@ index 0000000000..cacfa10fce
 +        /* Never fight the receive path: while it is active the radio
 +         * belongs to it and the output stays on the wired jack. */
 +        if (bt_input_active())
++        {
++            lost_streak = 0;
 +            continue;
++        }
 +
-+        if (!TIME_AFTER(current_tick, last_check + 2 * HZ))
++        if (!TIME_AFTER(current_tick, last_check + 1 * HZ))
 +            continue;
 +        last_check = current_tick;
++
++        char mac[BT_AUDIO_MAC_LEN];
++        bool have_peer = bt_acl_peer(mac, sizeof(mac));
 +
 +        if (pcm_alsa_is_bluetooth_active())
 +        {
 +            bool lost = pcm_alsa_bt_link_lost() ||
 +                        (bt_selected_mac[0] ? !bt_peer_linked(bt_selected_mac)
-+                                            : !bt_any_peer_input());
++                                            : !have_peer);
 +
-+            if (lost && TIME_AFTER(current_tick, last_fallback + 2 * HZ))
++            /* A single "link lost" during stream setup is transient
++             * (the plugin reports DISCONNECTED until the transport is
++             * fully up); only fall back once it persists. */
++            lost_streak = lost ? lost_streak + 1 : 0;
++
++            if (lost_streak >= 2 &&
++                TIME_AFTER(current_tick, last_fallback + 2 * HZ))
 +            {
++                lost_streak = 0;
 +                last_fallback = current_tick;
 +                pcm_alsa_bt_link_lost_clear();
 +                bt_route_to_local(false);
@@ -25348,17 +25617,27 @@ index 0000000000..cacfa10fce
 +                 * needs the adapter alive to auto-reconnect the earpiece. */
 +            }
 +        }
-+        else if (bt_prefer && bt_selected_mac[0] &&
-+                 bt_peer_linked(bt_selected_mac))
++        else
 +        {
-+            /* The earpieces came back and the vendor stack reconnected
-+             * them: probe the A2DP transport and pick the bluetooth
-+             * output up again.  bt_route_auto probes internally so no
-+             * extra cooldown is needed here. */
-+            char mac[BT_AUDIO_MAC_LEN];
++            lost_streak = 0;
 +
-+            snprintf(mac, sizeof(mac), "%s", bt_selected_mac);
-+            bt_route_auto(mac);
++            if (have_peer && TIME_AFTER(current_tick, last_auto + 4 * HZ))
++            {
++                /* A peer connected while the output is still on the wired
++                 * jack: pick the bluetooth route up automatically when it
++                 * is an output device we know (a paired A2DP sink).  The
++                 * vendor stack auto-connects trusted earpieces, so this is
++                 * what makes them just work. */
++                bool known = bt_selected_mac[0] &&
++                             !strcasecmp(mac, bt_selected_mac);
++
++                if (known || bt_peer_is_sink(mac))
++                {
++                    last_auto = current_tick;
++                    bt_set_selected_mac(mac);
++                    bt_route_auto(mac);
++                }
++            }
 +        }
 +    }
 +
@@ -25471,7 +25750,6 @@ index 0000000000..cacfa10fce
 +
 +    snprintf(cmd, sizeof(cmd), "BT:DISCONNECT:%s", bt_selected_mac);
 +    bt_sys_command(cmd, reply, sizeof(reply));
-+    bt_prefer = false;
 +    bt_watchdog_stop();
 +    bt_route_to_local(false);
 +    bt_set_selected_mac(NULL);
@@ -25522,10 +25800,10 @@ index 0000000000..cacfa10fce
 +#endif /* CAYIN_N3PRO */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.c b/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.c
 new file mode 100644
-index 0000000000..da15519367
+index 0000000000..e86c6c3adf
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-input.c
-@@ -0,0 +1,573 @@
+@@ -0,0 +1,579 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -25580,6 +25858,7 @@ index 0000000000..da15519367
 +#include "kernel.h"
 +#include "pcm_mixer.h"
 +#include "pcm_sampr.h"
++#include "n3pro-bt-pcm.h"
 +#include "system.h"
 +#include "thread.h"
 +#include "dsp_core.h"
@@ -26003,6 +26282,11 @@ index 0000000000..da15519367
 +    if (mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) != CHANNEL_STOPPED)
 +        return false;
 +
++    /* The earphone output route owns the bluetooth PCM; refuse to start
++     * receiving while it is up (the two are mutually exclusive). */
++    if (pcm_alsa_is_bluetooth_active())
++        return false;
++
 +    mixer_set_frequency(BTIN_RATE);
 +
 +    btin_head = btin_tail = 0;
@@ -26101,10 +26385,10 @@ index 0000000000..da15519367
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 new file mode 100644
-index 0000000000..792c68a122
+index 0000000000..b0d759a2d7
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
-@@ -0,0 +1,269 @@
+@@ -0,0 +1,285 @@
 +/***************************************************************************
 + * N3Pro dynamic PCM routing hooks for the shared hosted ALSA backend.
 + *
@@ -26146,6 +26430,7 @@ index 0000000000..792c68a122
 +static pthread_t n3pro_poll_thread;
 +static volatile bool n3pro_poll_run = false;
 +static bool n3pro_poll_started = false;
++static pthread_mutex_t n3pro_poll_mtx = PTHREAD_MUTEX_INITIALIZER;
 +static bool n3pro_mtx_init = false;
 +/* Config tree backing the currently open bluetooth handle, and a separate
 + * one for the (handle-less) readiness probe so probing never frees the
@@ -26197,7 +26482,8 @@ index 0000000000..792c68a122
 +        snd_input_close(in);
 +    }
 +    if (err >= 0)
-+        err = snd_pcm_open_lconf(pcm, N3PRO_BT_DEVICE, mode, 0, top);
++        err = snd_pcm_open_lconf(pcm, N3PRO_BT_DEVICE, mode,
++                                 SND_PCM_NONBLOCK, top);
 +
 +    if (err >= 0)
 +        *slot = top;
@@ -26257,26 +26543,32 @@ index 0000000000..792c68a122
 + * still alive (matches the R1 port's hiby_pcm_keep_hwdev()). */
 +static bool n3pro_pcm_keep_hwdev(const char *device, snd_pcm_stream_t mode)
 +{
++    bool keep;
 +    (void)mode;
 +
-+    if (!(handle && current_alsa_device &&
-+          !strcmp(current_alsa_device, device)))
-+        return false;
++    keep = handle && current_alsa_device &&
++           !strcmp(current_alsa_device, device) &&
++           snd_pcm_state(handle) != SND_PCM_STATE_DISCONNECTED;
 +
-+    return snd_pcm_state(handle) != SND_PCM_STATE_DISCONNECTED;
++    return keep;
 +}
 +
 +/* Re-apply the current sample rate on a freshly opened handle (called with
 + * pcm_mtx held, from the switch). */
-+static void n3pro_pcm_reapply_nolock(unsigned int rate)
++static int n3pro_pcm_reapply_nolock(unsigned int rate)
 +{
++    int err;
++
 +    if (!handle || rate == 0)
-+        return;
++        return -1;
 +
 +    snd_pcm_drop(handle);
 +    last_sample_rate = rate;
-+    set_hwparams(handle, rate);
++    err = set_hwparams(handle, rate);
++    if (err < 0)
++        return err;
 +    set_swparams(handle);
++    return 0;
 +}
 +
 +static void *n3pro_poll_thread_fn(void *arg)
@@ -26304,33 +26596,41 @@ index 0000000000..792c68a122
 + * while snd_pcm_close() frees it.  Re-started by n3pro_pcm_after_open(). */
 +static void n3pro_pcm_stop_poll(void)
 +{
-+    if (!n3pro_poll_started)
-+        return;
++    pthread_mutex_lock(&n3pro_poll_mtx);
 +
-+    n3pro_poll_run = false;
-+    pthread_join(n3pro_poll_thread, NULL);
-+    n3pro_poll_started = false;
++    if (n3pro_poll_started)
++    {
++        n3pro_poll_run = false;
++        pthread_join(n3pro_poll_thread, NULL);
++        n3pro_poll_started = false;
++    }
++
++    pthread_mutex_unlock(&n3pro_poll_mtx);
 +}
 +
 +/* Start the pump once, for the whole runtime. */
 +static void n3pro_pcm_after_open(void)
 +{
 +    n3pro_pcm_mutex_init_once();
++    pthread_mutex_lock(&n3pro_poll_mtx);
 +
-+    if (n3pro_poll_started)
-+        return;
++    if (!n3pro_poll_started)
++    {
++        n3pro_poll_run = true;
++        if (pthread_create(&n3pro_poll_thread, NULL, n3pro_poll_thread_fn, NULL) == 0)
++            n3pro_poll_started = true;
++        else
++            n3pro_poll_run = false;
++    }
 +
-+    n3pro_poll_run = true;
-+    if (pthread_create(&n3pro_poll_thread, NULL, n3pro_poll_thread_fn, NULL) == 0)
-+        n3pro_poll_started = true;
-+    else
-+        n3pro_poll_run = false;
++    pthread_mutex_unlock(&n3pro_poll_mtx);
 +}
 +
 +int pcm_alsa_switch_playback_device(const char *device)
 +{
 +    unsigned int rate;
 +    bool ok;
++    int err;
 +
 +    if (!device || !*device)
 +        return -1;
@@ -26343,9 +26643,9 @@ index 0000000000..792c68a122
 +    rate = last_sample_rate ? last_sample_rate : real_sample_rate;
 +
 +    open_hwdev(device, SND_PCM_STREAM_PLAYBACK);
-+    n3pro_pcm_reapply_nolock(rate);
++    err = n3pro_pcm_reapply_nolock(rate);
 +
-+    ok = handle != NULL && current_alsa_device &&
++    ok = err == 0 && handle != NULL && current_alsa_device &&
 +         !strcmp(current_alsa_device, device);
 +
 +    pthread_mutex_unlock(&pcm_mtx);
@@ -28480,10 +28780,10 @@ index 63661a1254..06369efc21 100644
          redraw();
      }
 diff --git a/firmware/target/hosted/pcm-alsa.c b/firmware/target/hosted/pcm-alsa.c
-index 10b379b03d..bb3f03edb1 100644
+index 10b379b03d..7b6eaefc66 100644
 --- a/firmware/target/hosted/pcm-alsa.c
 +++ b/firmware/target/hosted/pcm-alsa.c
-@@ -111,6 +111,12 @@ static snd_pcm_stream_t current_alsa_mode;  /* SND_PCM_STREAM_PLAYBACK / _CAPTUR
+@@ -111,11 +111,29 @@ static snd_pcm_stream_t current_alsa_mode;  /* SND_PCM_STREAM_PLAYBACK / _CAPTUR
  
  static const char *current_alsa_device;
  
@@ -28496,7 +28796,24 @@ index 10b379b03d..bb3f03edb1 100644
  void pcm_alsa_set_playback_device(const char *device)
  {
      playback_dev = device;
-@@ -137,6 +143,20 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
+ }
+ 
++#if defined(CAYIN_N3PRO)
++/* The stock bluetooth PCM is configured when it is opened and the vendor
++ * plugin rejects later reconfiguration, so report its real rate: generic
++ * rate changes are then clamped to it and the DSP resamples the stream. */
++unsigned int pcm_sink_fixed_rate(void)
++{
++    if (real_sample_rate && pcm_alsa_is_bluetooth_active())
++        return real_sample_rate;
++    return 0;
++}
++#endif
++
+ #ifdef HAVE_RECORDING
+ void pcm_alsa_set_capture_device(const char *device)
+ {
+@@ -137,6 +155,20 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
         Note these are in FRAMES, and are sized to be about 8.5ms
         for the buffer and 2.1ms for the period
       */
@@ -28517,7 +28834,7 @@ index 10b379b03d..bb3f03edb1 100644
      if (sampr > SAMPR_96) {
          buffer_size = MIX_FRAME_SAMPLES * 4 * 4;
          period_size = MIX_FRAME_SAMPLES * 4;
-@@ -147,6 +167,7 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
+@@ -147,19 +179,31 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
          buffer_size = MIX_FRAME_SAMPLES * 4;
          period_size = MIX_FRAME_SAMPLES;
      }
@@ -28525,7 +28842,31 @@ index 10b379b03d..bb3f03edb1 100644
  
      /* choose all parameters */
      err = snd_pcm_hw_params_any(handle, params);
-@@ -381,6 +402,121 @@ static bool copy_frames(bool first)
+     if (err < 0)
+     {
++#if defined(CAYIN_N3PRO)
++        /* The bluetooth endpoint keeps the A2DP transport in flux (the
++         * earpiece may have just re-connected); a rejected configuration
++         * must not panic - fail softly so the router can fall back. */
++        logf("Broken configuration for playback: no configurations available: %s", snd_strerror(err));
++#else
+         panicf("Broken configuration for playback: no configurations available: %s", snd_strerror(err));
++#endif
+         goto error;
+     }
+     /* set the interleaved read/write format */
+     err = snd_pcm_hw_params_set_access(handle, params, access_);
+     if (err < 0)
+     {
++#if defined(CAYIN_N3PRO)
++        logf("Access type not available for playback: %s", snd_strerror(err));
++#else
+         panicf("Access type not available for playback: %s", snd_strerror(err));
++#endif
+         goto error;
+     }
+     /* set the sample format */
+@@ -381,6 +425,121 @@ static bool copy_frames(bool first)
      return true;
  }
  
@@ -28647,7 +28988,7 @@ index 10b379b03d..bb3f03edb1 100644
  static void async_callback(snd_async_handler_t *ahandler)
  {
      int err;
-@@ -467,11 +603,15 @@ static void async_callback(snd_async_handler_t *ahandler)
+@@ -467,11 +626,15 @@ static void async_callback(snd_async_handler_t *ahandler)
                  }
  		continue;  /* buffer contents trashed, no sense in trying to copy */
              }
@@ -28668,7 +29009,7 @@ index 10b379b03d..bb3f03edb1 100644
  
              /* start the fake DMA transfer */
              if (!copy_frames(false))
-@@ -496,11 +636,18 @@ static void async_callback(snd_async_handler_t *ahandler)
+@@ -496,11 +659,18 @@ static void async_callback(snd_async_handler_t *ahandler)
  abort:
      pthread_mutex_unlock(&pcm_mtx);
  }
@@ -28687,7 +29028,7 @@ index 10b379b03d..bb3f03edb1 100644
      if (handle) {
          snd_pcm_drain(handle);
  #ifdef AUDIOHW_MUTE_ON_STOP
-@@ -534,6 +681,10 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -534,6 +704,10 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
  
      logf("opendev %s (%p)", device, handle);
  
@@ -28698,7 +29039,7 @@ index 10b379b03d..bb3f03edb1 100644
      if (handle && device == current_alsa_device
  #ifdef HAVE_RECORDING
          && current_alsa_mode == mode
-@@ -542,16 +693,38 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -542,16 +716,38 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
      {
          return;
      }
@@ -28737,7 +29078,7 @@ index 10b379b03d..bb3f03edb1 100644
      pthread_mutexattr_t attr;
      pthread_mutexattr_init(&attr);
      pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-@@ -585,6 +758,7 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -585,6 +781,7 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
      {
          panicf("Unable to install alternative signal stack: %s", strerror(err));
      }
@@ -28745,6 +29086,25 @@ index 10b379b03d..bb3f03edb1 100644
  
  #ifdef HAVE_RECORDING
      current_alsa_mode = mode;
+@@ -674,6 +871,18 @@ static void sink_dma_start(const void *addr, size_t size)
+     audiohw_mute(false);
+ #endif
+ 
++#if defined(CAYIN_N3PRO)
++    /* The dedicated poll thread (n3pro_pcm_after_open) pumps the PCM and
++     * runs the ALSA state machine for this target.  Waiting for
++     * SND_PCM_STATE_RUNNING on the caller would busy-spin a raw pthread
++     * forever when the stock bluetooth plugin stays in PREPARED/DRAINING
++     * (e.g. after a failed BT_OPEN), freezing the whole engine.  A drained
++     * PCM is left in SETUP, which the pump skips, so re-prepare it here. */
++    if (handle && snd_pcm_state(handle) == SND_PCM_STATE_SETUP)
++        snd_pcm_prepare(handle);
++    return;
++#endif
++
+     while (1)
+     {
+         snd_pcm_state_t state = snd_pcm_state(handle);
 diff --git a/firmware/target/hosted/sdl/sim-ui-defines.h b/firmware/target/hosted/sdl/sim-ui-defines.h
 index 5a08b27adf..61963a1926 100644
 --- a/firmware/target/hosted/sdl/sim-ui-defines.h

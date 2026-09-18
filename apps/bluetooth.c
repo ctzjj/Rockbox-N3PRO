@@ -434,11 +434,14 @@ static void bt_rx_screen(void)
     bt_audio_prepare();
     bt_audio_busy(false);
 
-    /* Receive and output are mutually exclusive: if an earphone route
-     * is up, drop it (without powering the radio down -- receiving
-     * needs it) and stop the output watchdog. */
-    if (!bt_input_active() && bt_audio_selected()[0])
-        bt_audio_release();
+    /* Receive and output are mutually exclusive: the vendor stack cannot
+     * safely open the receive PCM while the earphone output PCM is still
+     * routed, so ask the user to disconnect the output first. */
+    if (!bt_input_active() && bt_audio_output_active())
+    {
+        splash(HZ * 2, bt_str(LANG_BT_BUSY_OUTPUT));
+        return;
+    }
 
     /* The receive path owns the output, like USB DAC mode: stop any
      * running playback first. */

@@ -18730,3 +18730,17 @@
     *: "Stop"
   </voice>
 </phrase>
+<phrase>
+  id: LANG_BT_BUSY_OUTPUT
+  desc: bluetooth error
+  user: core
+  <source>
+    *: "Disconnect Bluetooth output first"
+  </source>
+  <dest>
+    *: "Disconnect Bluetooth output first"
+  </dest>
+  <voice>
+    *: "Disconnect Bluetooth output first"
+  </voice>
+</phrase>

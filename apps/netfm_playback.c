@@ -28,8 +28,11 @@
 #ifdef HAVE_NETFM
 
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
+#include <stdarg.h>
+#include <sys/syscall.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -120,11 +123,18 @@ static void nf_apply_rate(int rate)
 
     nf_tail = nf_head;              /* drop audio from the old rate */
 
+    /* Hand the DSP the source rate; a fixed-rate output (bluetooth)
+     * clamps mixer_set_frequency() to what it can actually run, so read
+     * the real output rate back and let the DSP resample to it. */
     mixer_set_frequency(rate);
+    int out = mixer_get_frequency();
+    if (out < 8000 || out > 192000)
+        out = rate;
+
     if (nf_dsp)
     {
         dsp_configure(nf_dsp, DSP_SET_FREQUENCY, rate);
-        dsp_configure(nf_dsp, DSP_SET_OUT_FREQUENCY, rate);
+        dsp_configure(nf_dsp, DSP_SET_OUT_FREQUENCY, out);
     }
     /* mixer_set_frequency() stops the PCM driver; re-kick our channel. */
     mixer_channel_play_data(PCM_MIXER_CHAN_NETFM, &nf_cbs, NULL, 0);

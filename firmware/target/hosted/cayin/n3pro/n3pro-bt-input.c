@@ -52,6 +52,7 @@
 #include "kernel.h"
 #include "pcm_mixer.h"
 #include "pcm_sampr.h"
+#include "n3pro-bt-pcm.h"
 #include "system.h"
 #include "thread.h"
 #include "dsp_core.h"
@@ -473,6 +474,11 @@ bool bt_input_start(void)
      * to it (and the core refuses to start it while we run, see
      * apps/playback.c). */
     if (mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) != CHANNEL_STOPPED)
+        return false;
+
+    /* The earphone output route owns the bluetooth PCM; refuse to start
+     * receiving while it is up (the two are mutually exclusive). */
+    if (pcm_alsa_is_bluetooth_active())
         return false;
 
     mixer_set_frequency(BTIN_RATE);

@@ -39,6 +39,7 @@ static int set_swparams(snd_pcm_t *handle);
 static pthread_t n3pro_poll_thread;
 static volatile bool n3pro_poll_run = false;
 static bool n3pro_poll_started = false;
+static pthread_mutex_t n3pro_poll_mtx = PTHREAD_MUTEX_INITIALIZER;
 static bool n3pro_mtx_init = false;
 /* Config tree backing the currently open bluetooth handle, and a separate
  * one for the (handle-less) readiness probe so probing never frees the
@@ -90,7 +91,8 @@ static int n3pro_bt_open_ex(snd_pcm_t **pcm, snd_pcm_stream_t mode,
         snd_input_close(in);
     }
     if (err >= 0)
-        err = snd_pcm_open_lconf(pcm, N3PRO_BT_DEVICE, mode, 0, top);
+        err = snd_pcm_open_lconf(pcm, N3PRO_BT_DEVICE, mode,
+                                 SND_PCM_NONBLOCK, top);
 
     if (err >= 0)
         *slot = top;
@@ -150,26 +152,32 @@ void pcm_alsa_bt_link_lost_clear(void)
  * still alive (matches the R1 port's hiby_pcm_keep_hwdev()). */
 static bool n3pro_pcm_keep_hwdev(const char *device, snd_pcm_stream_t mode)
 {
+    bool keep;
     (void)mode;
 
-    if (!(handle && current_alsa_device &&
-          !strcmp(current_alsa_device, device)))
-        return false;
+    keep = handle && current_alsa_device &&
+           !strcmp(current_alsa_device, device) &&
+           snd_pcm_state(handle) != SND_PCM_STATE_DISCONNECTED;
 
-    return snd_pcm_state(handle) != SND_PCM_STATE_DISCONNECTED;
+    return keep;
 }
 
 /* Re-apply the current sample rate on a freshly opened handle (called with
  * pcm_mtx held, from the switch). */
-static void n3pro_pcm_reapply_nolock(unsigned int rate)
+static int n3pro_pcm_reapply_nolock(unsigned int rate)
 {
+    int err;
+
     if (!handle || rate == 0)
-        return;
+        return -1;
 
     snd_pcm_drop(handle);
     last_sample_rate = rate;
-    set_hwparams(handle, rate);
+    err = set_hwparams(handle, rate);
+    if (err < 0)
+        return err;
     set_swparams(handle);
+    return 0;
 }
 
 static void *n3pro_poll_thread_fn(void *arg)
@@ -197,33 +205,41 @@ static void *n3pro_poll_thread_fn(void *arg)
  * while snd_pcm_close() frees it.  Re-started by n3pro_pcm_after_open(). */
 static void n3pro_pcm_stop_poll(void)
 {
-    if (!n3pro_poll_started)
-        return;
+    pthread_mutex_lock(&n3pro_poll_mtx);
 
-    n3pro_poll_run = false;
-    pthread_join(n3pro_poll_thread, NULL);
-    n3pro_poll_started = false;
+    if (n3pro_poll_started)
+    {
+        n3pro_poll_run = false;
+        pthread_join(n3pro_poll_thread, NULL);
+        n3pro_poll_started = false;
+    }
+
+    pthread_mutex_unlock(&n3pro_poll_mtx);
 }
 
 /* Start the pump once, for the whole runtime. */
 static void n3pro_pcm_after_open(void)
 {
     n3pro_pcm_mutex_init_once();
+    pthread_mutex_lock(&n3pro_poll_mtx);
 
-    if (n3pro_poll_started)
-        return;
+    if (!n3pro_poll_started)
+    {
+        n3pro_poll_run = true;
+        if (pthread_create(&n3pro_poll_thread, NULL, n3pro_poll_thread_fn, NULL) == 0)
+            n3pro_poll_started = true;
+        else
+            n3pro_poll_run = false;
+    }
 
-    n3pro_poll_run = true;
-    if (pthread_create(&n3pro_poll_thread, NULL, n3pro_poll_thread_fn, NULL) == 0)
-        n3pro_poll_started = true;
-    else
-        n3pro_poll_run = false;
+    pthread_mutex_unlock(&n3pro_poll_mtx);
 }
 
 int pcm_alsa_switch_playback_device(const char *device)
 {
     unsigned int rate;
     bool ok;
+    int err;
 
     if (!device || !*device)
         return -1;
@@ -236,9 +252,9 @@ int pcm_alsa_switch_playback_device(const char *device)
     rate = last_sample_rate ? last_sample_rate : real_sample_rate;
 
     open_hwdev(device, SND_PCM_STREAM_PLAYBACK);
-    n3pro_pcm_reapply_nolock(rate);
+    err = n3pro_pcm_reapply_nolock(rate);
 
-    ok = handle != NULL && current_alsa_device &&
+    ok = err == 0 && handle != NULL && current_alsa_device &&
          !strcmp(current_alsa_device, device);
 
     pthread_mutex_unlock(&pcm_mtx);
