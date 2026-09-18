@@ -11573,10 +11573,10 @@ index 0000000000..6d40258209
 +#endif
 diff --git a/apps/netfm_playback.c b/apps/netfm_playback.c
 new file mode 100644
-index 0000000000..08dd397eaf
+index 0000000000..7f90f21266
 --- /dev/null
 +++ b/apps/netfm_playback.c
-@@ -0,0 +1,542 @@
+@@ -0,0 +1,427 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -11607,16 +11607,13 @@ index 0000000000..08dd397eaf
 +#ifdef HAVE_NETFM
 +
 +#include <errno.h>
-+#include <fcntl.h>
 +#include <pthread.h>
 +#include <sched.h>
-+#include <stdarg.h>
 +#include <stdbool.h>
 +#include <stdint.h>
 +#include <stdio.h>
 +#include <string.h>
 +#include <sys/resource.h>
-+#include <sys/syscall.h>
 +#include <unistd.h>
 +
 +#include "codecs.h"
@@ -11629,35 +11626,6 @@ index 0000000000..08dd397eaf
 +#include "thread.h"
 +
 +#include "netfm_playback.h"
-+
-+/* ---- temporary diagnostics (NETFM_DBG) ---- */
-+#define NETFM_DBG 0
-+#define NETFM_DBG_VERBOSE 0
-+static void nf_log(const char *fmt, ...)
-+{
-+#if NETFM_DBG
-+    char buf[256];
-+    va_list ap;
-+    int n;
-+    va_start(ap, fmt);
-+    n = vsnprintf(buf, sizeof buf, fmt, ap);
-+    va_end(ap);
-+    if (n > 0)
-+    {
-+        /* bypass app_open(): write to the host /tmp tmpfs, not the SD card */
-+        int fd = (int)syscall(SYS_openat, AT_FDCWD, "/tmp/nfplay.log",
-+                              O_WRONLY | O_CREAT | O_APPEND, 0644);
-+        if (fd >= 0)
-+        {
-+            syscall(SYS_write, fd, buf, (size_t)n);
-+            syscall(SYS_close, fd);
-+        }
-+    }
-+#else
-+    (void)fmt;
-+#endif
-+}
-+#define NFLOG(...) nf_log(__VA_ARGS__)
 +
 +#define NF_PCM_FRAMES     32768  /* S16 stereo, ~370 ms at 44.1 kHz */
 +#define NF_CHUNK_FRAMES   512
@@ -11676,7 +11644,6 @@ index 0000000000..08dd397eaf
 +
 +static pthread_t nf_thread;
 +static volatile bool nf_running;    /* the decoder thread must keep going */
-+static volatile bool nf_finished;   /* the decoder thread has returned */
 +static volatile bool nf_stop_req;   /* ask the decoder to return */
 +static const struct netfm_playback_src *nf_src;
 +static char nf_codec[12];
@@ -11693,7 +11660,6 @@ index 0000000000..08dd397eaf
 +{
 +    static int16_t out[2][NF_CHUNK_FRAMES * 2];
 +    static unsigned int which;
-+    static unsigned int dbg_calls, dbg_under, dbg_pad;
 +    int16_t *buf;
 +
 +    which ^= 1;
@@ -11701,20 +11667,6 @@ index 0000000000..08dd397eaf
 +
 +    unsigned int tail = nf_tail;
 +    unsigned int avail = nf_head - tail;
-+
-+    if (avail < NF_CHUNK_FRAMES)
-+    {
-+        dbg_under++;
-+        dbg_pad += NF_CHUNK_FRAMES - avail;
-+    }
-+    if (++dbg_calls == 200)
-+    {
-+        if (NETFM_DBG_VERBOSE)
-+            NFLOG("play: get_more calls=%u under=%u pad=%u head=%u tail=%u t=%ld\n",
-+                  dbg_calls, dbg_under, dbg_pad, nf_head, nf_tail,
-+                  (long)current_tick);
-+        dbg_calls = 0; dbg_under = 0; dbg_pad = 0;
-+    }
 +
 +    avail = MIN(avail, NF_CHUNK_FRAMES);
 +    for (unsigned int i = 0; i < avail; i++)
@@ -11725,21 +11677,6 @@ index 0000000000..08dd397eaf
 +    }
 +    memset(&buf[2 * avail], 0, (NF_CHUNK_FRAMES - avail) * 2 * sizeof(int16_t));
 +    nf_tail = tail + avail;
-+
-+    {
-+        static unsigned int dbg_dump_out;
-+        if (0)
-+        {
-+            int fd = open("/tmp/netfm.pcm", O_WRONLY | O_CREAT, 0644);
-+            if (fd >= 0)
-+            {
-+                lseek(fd, 0, SEEK_END);
-+                write(fd, buf, NF_CHUNK_FRAMES * 2 * sizeof(int16_t));
-+                close(fd);
-+            }
-+            dbg_dump_out++;
-+        }
-+    }
 +
 +    *start = buf;
 +    *size = NF_CHUNK_FRAMES * 2 * sizeof(int16_t);
@@ -11758,8 +11695,6 @@ index 0000000000..08dd397eaf
 +        return;
 +    if (rate == nf_rate)
 +        return;
-+    NFLOG("play: apply_rate req=%d old=%d pcm_before=%u\n",
-+          rate, nf_rate, mixer_get_frequency());
 +    nf_rate = rate;
 +
 +    nf_tail = nf_head;              /* drop audio from the old rate */
@@ -11772,7 +11707,6 @@ index 0000000000..08dd397eaf
 +    }
 +    /* mixer_set_frequency() stops the PCM driver; re-kick our channel. */
 +    mixer_channel_play_data(PCM_MIXER_CHAN_NETFM, &nf_cbs, NULL, 0);
-+    NFLOG("play: apply_rate done pcm_after=%u\n", mixer_get_frequency());
 +}
 +
 +/* ---------------------------------------------------------------- */
@@ -11825,15 +11759,12 @@ index 0000000000..08dd397eaf
 +    switch (setting)
 +    {
 +        case DSP_SET_FREQUENCY:
-+            NFLOG("play: configure FREQ=%d\n", (int)value);
 +            nf_apply_rate((int)value);
 +            break;
 +        case DSP_SET_SAMPLE_DEPTH:
-+            NFLOG("play: configure DEPTH=%d\n", (int)value);
 +            nf_depth = (int)value;
 +            break;
 +        case DSP_SET_STEREO_MODE:
-+            NFLOG("play: configure STEREO=%d\n", (int)value);
 +            nf_stereo_mode = (int)value;
 +            break;
 +        default:
@@ -11884,7 +11815,6 @@ index 0000000000..08dd397eaf
 +    int done = 0;
 +    /* input samples are 32-bit past 16-bit depth (all our codecs) */
 +    const size_t sample_size = nf_depth > 16 ? sizeof(int32_t) : sizeof(int16_t);
-+    static unsigned int dbg_chunks, dbg_in, dbg_out, dbg_waits;
 +
 +    while (done < count && !nf_stop_req)
 +    {
@@ -11897,7 +11827,6 @@ index 0000000000..08dd397eaf
 +        while (!nf_stop_req &&
 +               (nf_head - nf_tail) > NF_PCM_FRAMES - NF_CHUNK_FRAMES)
 +        {
-+            dbg_waits++;
 +            usleep(5000);           /* ring full: let the mixer drain it */
 +        }
 +        if (nf_stop_req)
@@ -11915,22 +11844,6 @@ index 0000000000..08dd397eaf
 +
 +        static int16_t dbuf[NF_CHUNK_FRAMES * 4];
 +        struct dsp_buffer src, dst;
-+
-+        {
-+            static unsigned int dbg_dump_in;
-+            if (0)
-+            {
-+                int fd = open("/tmp/netfm.dec", O_WRONLY | O_CREAT, 0644);
-+                if (fd >= 0)
-+                {
-+                    lseek(fd, 0, SEEK_END);
-+                    write(fd, p1, (size_t)frames * sample_size);
-+                    write(fd, p2, (size_t)frames * sample_size);
-+                    close(fd);
-+                }
-+                dbg_dump_in++;
-+            }
-+        }
 +
 +        src.remcount = frames;
 +        src.pin[0] = p1;
@@ -11954,12 +11867,6 @@ index 0000000000..08dd397eaf
 +        }
 +        nf_head += out;
 +        done += frames;
-+        dbg_chunks++; dbg_in += frames; dbg_out += out;
-+        if (dbg_chunks == 1 || (dbg_chunks % 200) == 0)
-+            if (NETFM_DBG_VERBOSE)
-+                NFLOG("play: insert chunks=%u in=%u out=%u waits=%u ring=%u t=%ld pcm=%u\n",
-+                      dbg_chunks, dbg_in, dbg_out, dbg_waits, nf_head - nf_tail,
-+                      (long)current_tick, mixer_get_frequency());
 +    }
 +}
 +
@@ -11978,14 +11885,10 @@ index 0000000000..08dd397eaf
 +
 +    int status = codec_load_file(nf_codec, &nf_ci);
 +
-+    NFLOG("play: dec load -> %d\n", status);
 +    if (status >= 0)
 +        status = codec_run_proc();
-+    NFLOG("play: dec run -> %d closing\n", status);
 +    codec_close();
-+    NFLOG("play: dec closed\n");
 +
-+    nf_finished = true;
 +    return NULL;
 +}
 +
@@ -12059,11 +11962,7 @@ index 0000000000..08dd397eaf
 +    nf_depth = 16;
 +    nf_stereo_mode = STEREO_NONINTERLEAVED;
 +    nf_stop_req = false;
-+    nf_finished = false;
 +    nf_codec_api_init(id3);
-+    NFLOG("play: start codec=%s id3freq=%d bitrate=%d pcm=%u\n",
-+          codec, (int)id3->frequency, (int)id3->bitrate,
-+          mixer_get_frequency());
 +
 +    mixer_channel_set_amplitude(PCM_MIXER_CHAN_NETFM, MIX_AMP_UNITY);
 +    mixer_channel_play_data(PCM_MIXER_CHAN_NETFM, &nf_cbs, NULL, 0);
@@ -12080,20 +11979,8 @@ index 0000000000..08dd397eaf
 +
 +void netfm_playback_request_stop(void)
 +{
-+    NFLOG("play: request_stop\n");
 +    nf_stop_req = true;             /* the codec returns; the decoder thread
 +                                     * then exits and the ring drains */
-+}
-+
-+bool netfm_playback_wait_finished(int ms)
-+{
-+    /* cooperative sleep: this runs on a Rockbox scheduler thread (the
-+     * audio thread), so yield instead of holding the host pthread */
-+    int ticks = (ms * HZ) / 1000;
-+    for (int i = 0; i < ticks && !nf_finished; i++)
-+        sleep(1);
-+    NFLOG("play: wait_finished -> %d\n", (int)nf_finished);
-+    return nf_finished;
 +}
 +
 +void netfm_playback_stop(void)
@@ -12101,7 +11988,6 @@ index 0000000000..08dd397eaf
 +    if (!nf_running)
 +        return;
 +
-+    NFLOG("play: stop enter finished=%d\n", nf_finished);
 +    nf_stop_req = true;             /* the codec returns CODEC_ACTION_HALT */
 +
 +    /* Bluetooth-style: stop the mixer channel now and do not wait for the
@@ -12110,7 +11996,6 @@ index 0000000000..08dd397eaf
 +
 +    nf_running = false;
 +    pthread_detach(nf_thread);
-+    NFLOG("play: stop done\n");
 +}
 +
 +bool netfm_playback_active(void)
@@ -12121,10 +12006,10 @@ index 0000000000..08dd397eaf
 +#endif /* HAVE_NETFM */
 diff --git a/apps/netfm_playback.h b/apps/netfm_playback.h
 new file mode 100644
-index 0000000000..d6b17aa263
+index 0000000000..fbc1b681dd
 --- /dev/null
 +++ b/apps/netfm_playback.h
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,63 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -12185,17 +12070,15 @@ index 0000000000..d6b17aa263
 +void netfm_playback_stop(void);
 +/* flag-only stop: safe from the audio thread (no locks, no mixer calls) */
 +void netfm_playback_request_stop(void);
-+/* wait up to `ms` for the decoder thread to release the shared codec */
-+bool netfm_playback_wait_finished(int ms);
 +bool netfm_playback_active(void);
 +
 +#endif /* NETFM_PLAYBACK_H */
 diff --git a/apps/netfm_stream.c b/apps/netfm_stream.c
 new file mode 100644
-index 0000000000..1f8b72ba8c
+index 0000000000..bd14b9db9e
 --- /dev/null
 +++ b/apps/netfm_stream.c
-@@ -0,0 +1,1586 @@
+@@ -0,0 +1,1515 @@
 +/***************************************************************************
 + * Network radio stream engine (generic).
 + *
@@ -12226,10 +12109,8 @@ index 0000000000..1f8b72ba8c
 +#include <string.h>
 +#include <sys/select.h>
 +#include <sys/socket.h>
-+#include <sys/syscall.h>
 +#include <sys/time.h>
 +#include <unistd.h>
-+#include <stdarg.h>
 +
 +#include "audio.h"
 +#include "netfm_playback.h"
@@ -12247,35 +12128,6 @@ index 0000000000..1f8b72ba8c
 +#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
 +#include "usb.h"
 +#endif
-+
-+/* ---- temporary diagnostics (NETFM_DBG) ---- */
-+#define NETFM_STREAM_DBG 0
-+#define NETFM_STREAM_DBG_VERBOSE 0
-+static void ns_log(const char *fmt, ...)
-+{
-+#if NETFM_STREAM_DBG
-+    char buf[256];
-+    va_list ap;
-+    int n;
-+    va_start(ap, fmt);
-+    n = vsnprintf(buf, sizeof buf, fmt, ap);
-+    va_end(ap);
-+    if (n > 0)
-+    {
-+        /* bypass app_open(): write to the host /tmp tmpfs, not the SD card */
-+        int fd = (int)syscall(SYS_openat, AT_FDCWD, "/tmp/nfstream.log",
-+                              O_WRONLY | O_CREAT | O_APPEND, 0644);
-+        if (fd >= 0)
-+        {
-+            syscall(SYS_write, fd, buf, (size_t)n);
-+            syscall(SYS_close, fd);
-+        }
-+    }
-+#else
-+    (void)fmt;
-+#endif
-+}
-+#define NSLOG(...) ns_log(__VA_ARGS__)
 +
 +
 +#define NETFM_RING_SIZE      (192 * 1024)
@@ -12898,8 +12750,6 @@ index 0000000000..1f8b72ba8c
 +            if (sfi < 13 && aac_samplerates[sfi] &&
 +                source.id3.frequency != aac_samplerates[sfi])
 +            {
-+                NSLOG("stream: adts sfi=%d rate=%d probe_only=%d\n",
-+                      sfi, aac_samplerates[sfi], (int)ts_probe_only);
 +                source.id3.frequency = aac_samplerates[sfi];
 +                pthread_mutex_lock(&source.lock);
 +                source.status.sample_rate = aac_samplerates[sfi];
@@ -12993,9 +12843,7 @@ index 0000000000..1f8b72ba8c
 +
 +static bool hls_fetch_playlist(void)
 +{
-+    NSLOG("worker: fetch pl t=%ld\n", (long)current_tick);
 +    size_t len = fetch_http(source.playlist_url);
-+    NSLOG("worker: pl len=%d t=%ld\n", (int)len, (long)current_tick);
 +    if (len == 0)
 +    {
 +        return false;
@@ -13032,16 +12880,13 @@ index 0000000000..1f8b72ba8c
 +        if (!source.sequence_init || seq >= source.next_sequence)
 +        {
 +            resolve_url(source.playlist_url, line, segment, sizeof(segment));
-+            NSLOG("worker: fetch seg seq=%u t=%ld\n", seq, (long)current_tick);
 +            size_t tslen = fetch_http(segment);
-+            NSLOG("worker: seg len=%d t=%ld\n", (int)tslen, (long)current_tick);
 +            if (tslen)
 +            {
 +                if (source.pes_len)
 +                    ts_emit_pes(source.pes, source.pes_len);
 +                source.pes_len = 0;
 +                ts_feed(http_buf, tslen);
-+                NSLOG("worker: fed t=%ld\n", (long)current_tick);
 +                fetched_any = true;
 +            }
 +            source.next_sequence = seq + 1;
@@ -13157,17 +13002,14 @@ index 0000000000..1f8b72ba8c
 +                pthread_mutex_lock(&source.lock);
 +                source.status.state = NETFM_STREAM_PLAYING;
 +                pthread_mutex_unlock(&source.lock);
-+                NSLOG("stream: hls segment ok seq=%u\n", source.next_sequence);
 +                usleep(500 * 1000);
 +            }
 +            else
 +            {
-+                NSLOG("stream: hls segment FAIL seq=%u\n", source.next_sequence);
 +                set_state(NETFM_STREAM_DISCONNECTED);
 +                usleep(NETFM_RECONNECT_US);
 +            }
 +        }
-+        NSLOG("stream: hls worker exit running=%d\n", (int)source.running);
 +        worker_done();
 +        return NULL;
 +    }
@@ -13282,8 +13124,6 @@ index 0000000000..1f8b72ba8c
 +        {
 +            if (waiting)
 +            {
-+                if (NETFM_STREAM_DBG_VERBOSE)
-+                    NSLOG("stream: read resume t=%ld\n", (long)current_tick);
 +                waiting = false;
 +            }
 +            size_t n = MIN(size - done, avail);
@@ -13299,15 +13139,10 @@ index 0000000000..1f8b72ba8c
 +        pthread_mutex_unlock(&s->lock);
 +        if (!s->running)
 +        {
-+            NSLOG("stream: read_source stop (done=%u want=%u)\n",
-+                  (unsigned)done, (unsigned)size);
 +            break;
 +        }
 +        if (!waiting)
 +        {
-+            if (NETFM_STREAM_DBG_VERBOSE)
-+                NSLOG("stream: read starve t=%ld done=%u/%u\n",
-+                      (long)current_tick, (unsigned)done, (unsigned)size);
 +            waiting = true;
 +        }
 +        /* raw decoder pthread: the cooperative sleep() never wakes it */
@@ -13485,10 +13320,7 @@ index 0000000000..1f8b72ba8c
 +
 +    /* hand the compressed ring to our own decoder thread; it plays
 +     * through its own mixer channel (see netfm_playback.c) */
-+    NSLOG("stream: codec_start_now codec=%s id3freq=%d\n",
-+          codec, (int)source.id3.frequency);
 +    ok = netfm_playback_start(codec, &source.id3, &netfm_src_ops);
-+    NSLOG("stream: codec_start_now -> %d\n", ok);
 +
 +    pthread_mutex_lock(&source.lock);
 +    source.starting = false;
@@ -13537,7 +13369,6 @@ index 0000000000..1f8b72ba8c
 +    if (is_tls && !netfm_tls_load())
 +        return false;                      /* TLS unavailable */
 +
-+    NSLOG("stream: start name=%s url=%s\n", name, url);
 +    netfm_stream_stop();
 +
 +    /* A previous worker that is still winding down (e.g. a station whose
@@ -13622,25 +13453,21 @@ index 0000000000..1f8b72ba8c
 +
 +void netfm_stream_stop(void)
 +{
-+    NSLOG("stream: stop enter tid=%lu\n", (unsigned long)pthread_self());
 +    pthread_mutex_lock(&source.lock);
 +    source.running = false;
 +    source.active = false;
 +    pthread_cond_broadcast(&source.ready);
 +    source.status.state = NETFM_STREAM_IDLE;
 +    pthread_mutex_unlock(&source.lock);
-+    NSLOG("stream: stop 1 flags\n");
 +
 +    if (active_conn && active_conn->fd >= 0)
 +        shutdown(active_conn->fd, SHUT_RDWR);
-+    NSLOG("stream: stop 2 shutdown done\n");
 +
 +    /* Bluetooth-style teardown: stop the mixer channel at once and never
 +     * wait for the worker/decoder - they wind down on their own.  Waiting
 +     * (here, on the monitor, or on the audio thread) is what wedged the
 +     * cooperative scheduler. */
 +    netfm_playback_stop();
-+    NSLOG("stream: stop 3 playback_stop done\n");
 +
 +    /* Drop the metadata handed to the decoder and the ring state: a
 +     * stale stream id3 must not leak into a later local playback. */
@@ -13657,7 +13484,6 @@ index 0000000000..1f8b72ba8c
 +    source.head = source.tail = 0;
 +    req_len = req_pos = 0;
 +    pthread_mutex_unlock(&source.lock);
-+    NSLOG("stream: stop done tid=%lu\n", (unsigned long)pthread_self());
 +}
 +
 +/* Quick stop used by the local-playback takeover (apps/playback.c): free
@@ -13665,27 +13491,21 @@ index 0000000000..1f8b72ba8c
 + * own - the full stop() would block the audio thread for seconds. */
 +void netfm_stream_stop_async(void)
 +{
-+    NSLOG("stream: stop_async enter tid=%lu\n", (unsigned long)pthread_self());
-+    NSLOG("stream: sa A prelock\n");
 +    pthread_mutex_lock(&source.lock);
-+    NSLOG("stream: sa B locked\n");
 +    source.running = false;
 +    source.active = false;
 +    pthread_cond_broadcast(&source.ready);
 +    source.status.state = NETFM_STREAM_IDLE;
 +    pthread_mutex_unlock(&source.lock);
-+    NSLOG("stream: sa C unlocked\n");
 +
 +    if (active_conn && active_conn->fd >= 0)
 +        shutdown(active_conn->fd, SHUT_RDWR);
-+    NSLOG("stream: sa D shutdown\n");
 +
 +    /* Only flag the decoder: stopping the mixer channel here would take
 +     * pcm_play_lock, which the audio thread may already hold (this runs
 +     * on the audio thread during the local-playback takeover) and would
 +     * deadlock.  The monitor thread finishes the teardown. */
 +    netfm_playback_request_stop();
-+    NSLOG("stream: stop_async done tid=%lu\n", (unsigned long)pthread_self());
 +}
 +
 +bool netfm_stream_get_status(struct netfm_stream_status *status)
@@ -13737,13 +13557,8 @@ index 0000000000..1f8b72ba8c
 +
 +static void netfm_monitor_thread(void)
 +{
-+    NSLOG("stream: monitor start tid=%lu\n", (unsigned long)pthread_self());
-+    int mon_loops = 0;
 +    while (netfm_stream_is_active())
 +    {
-+        NSLOG("stream: mon loop=%d active=%d running=%d nf=%d t=%ld\n",
-+              ++mon_loops, (int)source.active, (int)source.running,
-+              (int)netfm_playback_active(), (long)current_tick);
 +        if (netfm_stream_codec_pending())
 +            netfm_stream_codec_start_now();
 +
@@ -13760,13 +13575,10 @@ index 0000000000..1f8b72ba8c
 +    /* A local-playback takeover only flags the stop from the audio thread
 +     * (see netfm_stream_stop_async): finish the teardown here, on a
 +     * normal thread, where stopping the mixer channel is safe. */
-+    NSLOG("stream: monitor loop exit running=%d active=%d playback=%d\n",
-+          (int)source.running, (int)source.active, netfm_playback_active());
 +    if (!source.running && netfm_playback_active())
 +        netfm_stream_stop();
 +
 +    netfm_mon_running = false;
-+    NSLOG("stream: monitor exit done\n");
 +}
 +
 +static void netfm_monitor_start(void)
@@ -13784,10 +13596,10 @@ index 0000000000..1f8b72ba8c
 +#endif /* HAVE_NETFM */
 diff --git a/apps/netfm_stream.h b/apps/netfm_stream.h
 new file mode 100644
-index 0000000000..571fcdccab
+index 0000000000..14d91904d0
 --- /dev/null
 +++ b/apps/netfm_stream.h
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,44 @@
 +#ifndef NETFM_STREAM_H
 +#define NETFM_STREAM_H
 +
@@ -13830,8 +13642,6 @@ index 0000000000..571fcdccab
 + * from a Rockbox thread when it becomes ready */
 +bool netfm_stream_codec_pending(void);
 +bool netfm_stream_codec_start_now(void);
-+
-+/* TEMP diagnostics: emit a timestamped mark into the netfm log */
 +
 +#endif
 diff --git a/apps/playback.c b/apps/playback.c

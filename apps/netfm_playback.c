@@ -28,16 +28,13 @@
 #ifdef HAVE_NETFM
 
 #include <errno.h>
-#include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/resource.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "codecs.h"
@@ -50,35 +47,6 @@
 #include "thread.h"
 
 #include "netfm_playback.h"
-
-/* ---- temporary diagnostics (NETFM_DBG) ---- */
-#define NETFM_DBG 0
-#define NETFM_DBG_VERBOSE 0
-static void nf_log(const char *fmt, ...)
-{
-#if NETFM_DBG
-    char buf[256];
-    va_list ap;
-    int n;
-    va_start(ap, fmt);
-    n = vsnprintf(buf, sizeof buf, fmt, ap);
-    va_end(ap);
-    if (n > 0)
-    {
-        /* bypass app_open(): write to the host /tmp tmpfs, not the SD card */
-        int fd = (int)syscall(SYS_openat, AT_FDCWD, "/tmp/nfplay.log",
-                              O_WRONLY | O_CREAT | O_APPEND, 0644);
-        if (fd >= 0)
-        {
-            syscall(SYS_write, fd, buf, (size_t)n);
-            syscall(SYS_close, fd);
-        }
-    }
-#else
-    (void)fmt;
-#endif
-}
-#define NFLOG(...) nf_log(__VA_ARGS__)
 
 #define NF_PCM_FRAMES     32768  /* S16 stereo, ~370 ms at 44.1 kHz */
 #define NF_CHUNK_FRAMES   512
@@ -97,7 +65,6 @@ static int nf_stereo_mode;
 
 static pthread_t nf_thread;
 static volatile bool nf_running;    /* the decoder thread must keep going */
-static volatile bool nf_finished;   /* the decoder thread has returned */
 static volatile bool nf_stop_req;   /* ask the decoder to return */
 static const struct netfm_playback_src *nf_src;
 static char nf_codec[12];
@@ -114,7 +81,6 @@ static void nf_get_more(const void **start, size_t *size)
 {
     static int16_t out[2][NF_CHUNK_FRAMES * 2];
     static unsigned int which;
-    static unsigned int dbg_calls, dbg_under, dbg_pad;
     int16_t *buf;
 
     which ^= 1;
@@ -122,20 +88,6 @@ static void nf_get_more(const void **start, size_t *size)
 
     unsigned int tail = nf_tail;
     unsigned int avail = nf_head - tail;
-
-    if (avail < NF_CHUNK_FRAMES)
-    {
-        dbg_under++;
-        dbg_pad += NF_CHUNK_FRAMES - avail;
-    }
-    if (++dbg_calls == 200)
-    {
-        if (NETFM_DBG_VERBOSE)
-            NFLOG("play: get_more calls=%u under=%u pad=%u head=%u tail=%u t=%ld\n",
-                  dbg_calls, dbg_under, dbg_pad, nf_head, nf_tail,
-                  (long)current_tick);
-        dbg_calls = 0; dbg_under = 0; dbg_pad = 0;
-    }
 
     avail = MIN(avail, NF_CHUNK_FRAMES);
     for (unsigned int i = 0; i < avail; i++)
@@ -146,21 +98,6 @@ static void nf_get_more(const void **start, size_t *size)
     }
     memset(&buf[2 * avail], 0, (NF_CHUNK_FRAMES - avail) * 2 * sizeof(int16_t));
     nf_tail = tail + avail;
-
-    {
-        static unsigned int dbg_dump_out;
-        if (0)
-        {
-            int fd = open("/tmp/netfm.pcm", O_WRONLY | O_CREAT, 0644);
-            if (fd >= 0)
-            {
-                lseek(fd, 0, SEEK_END);
-                write(fd, buf, NF_CHUNK_FRAMES * 2 * sizeof(int16_t));
-                close(fd);
-            }
-            dbg_dump_out++;
-        }
-    }
 
     *start = buf;
     *size = NF_CHUNK_FRAMES * 2 * sizeof(int16_t);
@@ -179,8 +116,6 @@ static void nf_apply_rate(int rate)
         return;
     if (rate == nf_rate)
         return;
-    NFLOG("play: apply_rate req=%d old=%d pcm_before=%u\n",
-          rate, nf_rate, mixer_get_frequency());
     nf_rate = rate;
 
     nf_tail = nf_head;              /* drop audio from the old rate */
@@ -193,7 +128,6 @@ static void nf_apply_rate(int rate)
     }
     /* mixer_set_frequency() stops the PCM driver; re-kick our channel. */
     mixer_channel_play_data(PCM_MIXER_CHAN_NETFM, &nf_cbs, NULL, 0);
-    NFLOG("play: apply_rate done pcm_after=%u\n", mixer_get_frequency());
 }
 
 /* ---------------------------------------------------------------- */
@@ -246,15 +180,12 @@ static void nf_configure(int setting, intptr_t value)
     switch (setting)
     {
         case DSP_SET_FREQUENCY:
-            NFLOG("play: configure FREQ=%d\n", (int)value);
             nf_apply_rate((int)value);
             break;
         case DSP_SET_SAMPLE_DEPTH:
-            NFLOG("play: configure DEPTH=%d\n", (int)value);
             nf_depth = (int)value;
             break;
         case DSP_SET_STEREO_MODE:
-            NFLOG("play: configure STEREO=%d\n", (int)value);
             nf_stereo_mode = (int)value;
             break;
         default:
@@ -305,7 +236,6 @@ static void nf_pcm_insert(const void *channel1, const void *channel2, int count)
     int done = 0;
     /* input samples are 32-bit past 16-bit depth (all our codecs) */
     const size_t sample_size = nf_depth > 16 ? sizeof(int32_t) : sizeof(int16_t);
-    static unsigned int dbg_chunks, dbg_in, dbg_out, dbg_waits;
 
     while (done < count && !nf_stop_req)
     {
@@ -318,7 +248,6 @@ static void nf_pcm_insert(const void *channel1, const void *channel2, int count)
         while (!nf_stop_req &&
                (nf_head - nf_tail) > NF_PCM_FRAMES - NF_CHUNK_FRAMES)
         {
-            dbg_waits++;
             usleep(5000);           /* ring full: let the mixer drain it */
         }
         if (nf_stop_req)
@@ -336,22 +265,6 @@ static void nf_pcm_insert(const void *channel1, const void *channel2, int count)
 
         static int16_t dbuf[NF_CHUNK_FRAMES * 4];
         struct dsp_buffer src, dst;
-
-        {
-            static unsigned int dbg_dump_in;
-            if (0)
-            {
-                int fd = open("/tmp/netfm.dec", O_WRONLY | O_CREAT, 0644);
-                if (fd >= 0)
-                {
-                    lseek(fd, 0, SEEK_END);
-                    write(fd, p1, (size_t)frames * sample_size);
-                    write(fd, p2, (size_t)frames * sample_size);
-                    close(fd);
-                }
-                dbg_dump_in++;
-            }
-        }
 
         src.remcount = frames;
         src.pin[0] = p1;
@@ -375,12 +288,6 @@ static void nf_pcm_insert(const void *channel1, const void *channel2, int count)
         }
         nf_head += out;
         done += frames;
-        dbg_chunks++; dbg_in += frames; dbg_out += out;
-        if (dbg_chunks == 1 || (dbg_chunks % 200) == 0)
-            if (NETFM_DBG_VERBOSE)
-                NFLOG("play: insert chunks=%u in=%u out=%u waits=%u ring=%u t=%ld pcm=%u\n",
-                      dbg_chunks, dbg_in, dbg_out, dbg_waits, nf_head - nf_tail,
-                      (long)current_tick, mixer_get_frequency());
     }
 }
 
@@ -399,14 +306,10 @@ static void *nf_decode_thread(void *arg)
 
     int status = codec_load_file(nf_codec, &nf_ci);
 
-    NFLOG("play: dec load -> %d\n", status);
     if (status >= 0)
         status = codec_run_proc();
-    NFLOG("play: dec run -> %d closing\n", status);
     codec_close();
-    NFLOG("play: dec closed\n");
 
-    nf_finished = true;
     return NULL;
 }
 
@@ -480,11 +383,7 @@ bool netfm_playback_start(const char *codec, struct mp3entry *id3,
     nf_depth = 16;
     nf_stereo_mode = STEREO_NONINTERLEAVED;
     nf_stop_req = false;
-    nf_finished = false;
     nf_codec_api_init(id3);
-    NFLOG("play: start codec=%s id3freq=%d bitrate=%d pcm=%u\n",
-          codec, (int)id3->frequency, (int)id3->bitrate,
-          mixer_get_frequency());
 
     mixer_channel_set_amplitude(PCM_MIXER_CHAN_NETFM, MIX_AMP_UNITY);
     mixer_channel_play_data(PCM_MIXER_CHAN_NETFM, &nf_cbs, NULL, 0);
@@ -501,20 +400,8 @@ bool netfm_playback_start(const char *codec, struct mp3entry *id3,
 
 void netfm_playback_request_stop(void)
 {
-    NFLOG("play: request_stop\n");
     nf_stop_req = true;             /* the codec returns; the decoder thread
                                      * then exits and the ring drains */
-}
-
-bool netfm_playback_wait_finished(int ms)
-{
-    /* cooperative sleep: this runs on a Rockbox scheduler thread (the
-     * audio thread), so yield instead of holding the host pthread */
-    int ticks = (ms * HZ) / 1000;
-    for (int i = 0; i < ticks && !nf_finished; i++)
-        sleep(1);
-    NFLOG("play: wait_finished -> %d\n", (int)nf_finished);
-    return nf_finished;
 }
 
 void netfm_playback_stop(void)
@@ -522,7 +409,6 @@ void netfm_playback_stop(void)
     if (!nf_running)
         return;
 
-    NFLOG("play: stop enter finished=%d\n", nf_finished);
     nf_stop_req = true;             /* the codec returns CODEC_ACTION_HALT */
 
     /* Bluetooth-style: stop the mixer channel now and do not wait for the
@@ -531,7 +417,6 @@ void netfm_playback_stop(void)
 
     nf_running = false;
     pthread_detach(nf_thread);
-    NFLOG("play: stop done\n");
 }
 
 bool netfm_playback_active(void)

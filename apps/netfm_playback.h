@@ -58,8 +58,6 @@ bool netfm_playback_start(const char *codec, struct mp3entry *id3,
 void netfm_playback_stop(void);
 /* flag-only stop: safe from the audio thread (no locks, no mixer calls) */
 void netfm_playback_request_stop(void);
-/* wait up to `ms` for the decoder thread to release the shared codec */
-bool netfm_playback_wait_finished(int ms);
 bool netfm_playback_active(void);
 
 #endif /* NETFM_PLAYBACK_H */

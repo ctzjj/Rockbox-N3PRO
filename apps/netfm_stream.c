@@ -28,10 +28,8 @@
 #include <string.h>
 #include <sys/select.h>
 #include <sys/socket.h>
-#include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <stdarg.h>
 
 #include "audio.h"
 #include "netfm_playback.h"
@@ -49,35 +47,6 @@
 #if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
 #include "usb.h"
 #endif
-
-/* ---- temporary diagnostics (NETFM_DBG) ---- */
-#define NETFM_STREAM_DBG 0
-#define NETFM_STREAM_DBG_VERBOSE 0
-static void ns_log(const char *fmt, ...)
-{
-#if NETFM_STREAM_DBG
-    char buf[256];
-    va_list ap;
-    int n;
-    va_start(ap, fmt);
-    n = vsnprintf(buf, sizeof buf, fmt, ap);
-    va_end(ap);
-    if (n > 0)
-    {
-        /* bypass app_open(): write to the host /tmp tmpfs, not the SD card */
-        int fd = (int)syscall(SYS_openat, AT_FDCWD, "/tmp/nfstream.log",
-                              O_WRONLY | O_CREAT | O_APPEND, 0644);
-        if (fd >= 0)
-        {
-            syscall(SYS_write, fd, buf, (size_t)n);
-            syscall(SYS_close, fd);
-        }
-    }
-#else
-    (void)fmt;
-#endif
-}
-#define NSLOG(...) ns_log(__VA_ARGS__)
 
 
 #define NETFM_RING_SIZE      (192 * 1024)
@@ -700,8 +669,6 @@ static void ts_emit_pes(const unsigned char *pes, size_t len)
             if (sfi < 13 && aac_samplerates[sfi] &&
                 source.id3.frequency != aac_samplerates[sfi])
             {
-                NSLOG("stream: adts sfi=%d rate=%d probe_only=%d\n",
-                      sfi, aac_samplerates[sfi], (int)ts_probe_only);
                 source.id3.frequency = aac_samplerates[sfi];
                 pthread_mutex_lock(&source.lock);
                 source.status.sample_rate = aac_samplerates[sfi];
@@ -795,9 +762,7 @@ static void ts_feed(const unsigned char *ts, size_t len)
 
 static bool hls_fetch_playlist(void)
 {
-    NSLOG("worker: fetch pl t=%ld\n", (long)current_tick);
     size_t len = fetch_http(source.playlist_url);
-    NSLOG("worker: pl len=%d t=%ld\n", (int)len, (long)current_tick);
     if (len == 0)
     {
         return false;
@@ -834,16 +799,13 @@ static bool hls_fetch_playlist(void)
         if (!source.sequence_init || seq >= source.next_sequence)
         {
             resolve_url(source.playlist_url, line, segment, sizeof(segment));
-            NSLOG("worker: fetch seg seq=%u t=%ld\n", seq, (long)current_tick);
             size_t tslen = fetch_http(segment);
-            NSLOG("worker: seg len=%d t=%ld\n", (int)tslen, (long)current_tick);
             if (tslen)
             {
                 if (source.pes_len)
                     ts_emit_pes(source.pes, source.pes_len);
                 source.pes_len = 0;
                 ts_feed(http_buf, tslen);
-                NSLOG("worker: fed t=%ld\n", (long)current_tick);
                 fetched_any = true;
             }
             source.next_sequence = seq + 1;
@@ -959,17 +921,14 @@ static void *download_thread(void *unused)
                 pthread_mutex_lock(&source.lock);
                 source.status.state = NETFM_STREAM_PLAYING;
                 pthread_mutex_unlock(&source.lock);
-                NSLOG("stream: hls segment ok seq=%u\n", source.next_sequence);
                 usleep(500 * 1000);
             }
             else
             {
-                NSLOG("stream: hls segment FAIL seq=%u\n", source.next_sequence);
                 set_state(NETFM_STREAM_DISCONNECTED);
                 usleep(NETFM_RECONNECT_US);
             }
         }
-        NSLOG("stream: hls worker exit running=%d\n", (int)source.running);
         worker_done();
         return NULL;
     }
@@ -1084,8 +1043,6 @@ static size_t read_source(void *context, void *ptr, size_t size)
         {
             if (waiting)
             {
-                if (NETFM_STREAM_DBG_VERBOSE)
-                    NSLOG("stream: read resume t=%ld\n", (long)current_tick);
                 waiting = false;
             }
             size_t n = MIN(size - done, avail);
@@ -1101,15 +1058,10 @@ static size_t read_source(void *context, void *ptr, size_t size)
         pthread_mutex_unlock(&s->lock);
         if (!s->running)
         {
-            NSLOG("stream: read_source stop (done=%u want=%u)\n",
-                  (unsigned)done, (unsigned)size);
             break;
         }
         if (!waiting)
         {
-            if (NETFM_STREAM_DBG_VERBOSE)
-                NSLOG("stream: read starve t=%ld done=%u/%u\n",
-                      (long)current_tick, (unsigned)done, (unsigned)size);
             waiting = true;
         }
         /* raw decoder pthread: the cooperative sleep() never wakes it */
@@ -1287,10 +1239,7 @@ bool netfm_stream_codec_start_now(void)
 
     /* hand the compressed ring to our own decoder thread; it plays
      * through its own mixer channel (see netfm_playback.c) */
-    NSLOG("stream: codec_start_now codec=%s id3freq=%d\n",
-          codec, (int)source.id3.frequency);
     ok = netfm_playback_start(codec, &source.id3, &netfm_src_ops);
-    NSLOG("stream: codec_start_now -> %d\n", ok);
 
     pthread_mutex_lock(&source.lock);
     source.starting = false;
@@ -1339,7 +1288,6 @@ bool netfm_stream_start(const char *name, const char *url)
     if (is_tls && !netfm_tls_load())
         return false;                      /* TLS unavailable */
 
-    NSLOG("stream: start name=%s url=%s\n", name, url);
     netfm_stream_stop();
 
     /* A previous worker that is still winding down (e.g. a station whose
@@ -1424,25 +1372,21 @@ bool netfm_stream_start(const char *name, const char *url)
 
 void netfm_stream_stop(void)
 {
-    NSLOG("stream: stop enter tid=%lu\n", (unsigned long)pthread_self());
     pthread_mutex_lock(&source.lock);
     source.running = false;
     source.active = false;
     pthread_cond_broadcast(&source.ready);
     source.status.state = NETFM_STREAM_IDLE;
     pthread_mutex_unlock(&source.lock);
-    NSLOG("stream: stop 1 flags\n");
 
     if (active_conn && active_conn->fd >= 0)
         shutdown(active_conn->fd, SHUT_RDWR);
-    NSLOG("stream: stop 2 shutdown done\n");
 
     /* Bluetooth-style teardown: stop the mixer channel at once and never
      * wait for the worker/decoder - they wind down on their own.  Waiting
      * (here, on the monitor, or on the audio thread) is what wedged the
      * cooperative scheduler. */
     netfm_playback_stop();
-    NSLOG("stream: stop 3 playback_stop done\n");
 
     /* Drop the metadata handed to the decoder and the ring state: a
      * stale stream id3 must not leak into a later local playback. */
@@ -1459,7 +1403,6 @@ void netfm_stream_stop(void)
     source.head = source.tail = 0;
     req_len = req_pos = 0;
     pthread_mutex_unlock(&source.lock);
-    NSLOG("stream: stop done tid=%lu\n", (unsigned long)pthread_self());
 }
 
 /* Quick stop used by the local-playback takeover (apps/playback.c): free
@@ -1467,27 +1410,21 @@ void netfm_stream_stop(void)
  * own - the full stop() would block the audio thread for seconds. */
 void netfm_stream_stop_async(void)
 {
-    NSLOG("stream: stop_async enter tid=%lu\n", (unsigned long)pthread_self());
-    NSLOG("stream: sa A prelock\n");
     pthread_mutex_lock(&source.lock);
-    NSLOG("stream: sa B locked\n");
     source.running = false;
     source.active = false;
     pthread_cond_broadcast(&source.ready);
     source.status.state = NETFM_STREAM_IDLE;
     pthread_mutex_unlock(&source.lock);
-    NSLOG("stream: sa C unlocked\n");
 
     if (active_conn && active_conn->fd >= 0)
         shutdown(active_conn->fd, SHUT_RDWR);
-    NSLOG("stream: sa D shutdown\n");
 
     /* Only flag the decoder: stopping the mixer channel here would take
      * pcm_play_lock, which the audio thread may already hold (this runs
      * on the audio thread during the local-playback takeover) and would
      * deadlock.  The monitor thread finishes the teardown. */
     netfm_playback_request_stop();
-    NSLOG("stream: stop_async done tid=%lu\n", (unsigned long)pthread_self());
 }
 
 bool netfm_stream_get_status(struct netfm_stream_status *status)
@@ -1539,13 +1476,8 @@ static volatile bool netfm_mon_running;
 
 static void netfm_monitor_thread(void)
 {
-    NSLOG("stream: monitor start tid=%lu\n", (unsigned long)pthread_self());
-    int mon_loops = 0;
     while (netfm_stream_is_active())
     {
-        NSLOG("stream: mon loop=%d active=%d running=%d nf=%d t=%ld\n",
-              ++mon_loops, (int)source.active, (int)source.running,
-              (int)netfm_playback_active(), (long)current_tick);
         if (netfm_stream_codec_pending())
             netfm_stream_codec_start_now();
 
@@ -1562,13 +1494,10 @@ static void netfm_monitor_thread(void)
     /* A local-playback takeover only flags the stop from the audio thread
      * (see netfm_stream_stop_async): finish the teardown here, on a
      * normal thread, where stopping the mixer channel is safe. */
-    NSLOG("stream: monitor loop exit running=%d active=%d playback=%d\n",
-          (int)source.running, (int)source.active, netfm_playback_active());
     if (!source.running && netfm_playback_active())
         netfm_stream_stop();
 
     netfm_mon_running = false;
-    NSLOG("stream: monitor exit done\n");
 }
 
 static void netfm_monitor_start(void)

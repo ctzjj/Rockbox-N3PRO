@@ -41,6 +41,4 @@ bool netfm_stream_can_start(void);
 bool netfm_stream_codec_pending(void);
 bool netfm_stream_codec_start_now(void);
 
-/* TEMP diagnostics: emit a timestamped mark into the netfm log */
-
 #endif
