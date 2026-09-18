@@ -65,6 +65,7 @@ n3pro_bluetooth.c
 #endif
 #ifdef HAVE_WIFI_MENU
 wifi_menu.c
+net_time.c
 #endif
 #ifdef HAVE_WEB_CONTROL
 web_control.c

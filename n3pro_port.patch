@@ -1,6 +1,6 @@
 # rockbox-base: 1784c9b8a7f1f2c8c535d8cb9dc965db0fe29e29
 diff --git a/apps/SOURCES b/apps/SOURCES
-index f81261f766..ff28a9fbbd 100644
+index f81261f766..8baa38d1c2 100644
 --- a/apps/SOURCES
 +++ b/apps/SOURCES
 @@ -32,6 +32,12 @@ buffering.c
@@ -16,7 +16,7 @@ index f81261f766..ff28a9fbbd 100644
  menus/playback_menu.c
  menus/playlist_menu.c
  #ifdef HAVE_RECORDING
-@@ -54,6 +60,15 @@ screens.c
+@@ -54,6 +60,16 @@ screens.c
  settings.c
  settings_list.c
  shortcuts.c
@@ -25,6 +25,7 @@ index f81261f766..ff28a9fbbd 100644
 +#endif
 +#ifdef HAVE_WIFI_MENU
 +wifi_menu.c
++net_time.c
 +#endif
 +#ifdef HAVE_WEB_CONTROL
 +web_control.c
@@ -32,7 +33,7 @@ index f81261f766..ff28a9fbbd 100644
  status.c
  cuesheet.c
  talk.c
-@@ -306,4 +321,6 @@ keymaps/keymap-3ds.c
+@@ -306,4 +322,6 @@ keymaps/keymap-3ds.c
  keymaps/keymap-hibyr3proii.c
  #elif CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD
  keymaps/keymap-hidizsap80max.c
@@ -52,6 +53,134 @@ index 9812851388..1411aca776 100644
  hibyicon.130x130x16.bmp
  rockboxicon.130x130x16.bmp
  toolsicon.130x130x16.bmp
+diff --git a/apps/gui/statusbar.c b/apps/gui/statusbar.c
+index 842d8c9e75..226bbe0258 100644
+--- a/apps/gui/statusbar.c
++++ b/apps/gui/statusbar.c
+@@ -36,6 +36,7 @@
+ #include "status.h" /* needed for battery_state global var */
+ #include "action.h" /* for keys_locked */
+ #include "statusbar.h"
++#include "statusbar_rf.h"
+ #ifdef HAVE_RECORDING
+ #include "audio.h"
+ #include "recording.h"
+@@ -152,6 +153,11 @@ static void gui_statusbar_icon_recording_info(struct screen * display);
+ static void gui_statusbar_time(struct screen * display, struct tm *time);
+ #endif
+ 
++#ifdef HAVE_STATUSBAR_RF_ICONS
++static void gui_statusbar_icon_rf(struct screen *display,
++                                  const struct status_info *info);
++#endif
++
+ /* End prototypes */
+ 
+ 
+@@ -247,6 +253,10 @@ static struct screen * sb_fill_bar_info(struct gui_statusbar * bar)
+     if(!display->has_disk_led)
+         bar->info.led = led_read(HZ/2); /* delay should match polling interval */
+ #endif
++#ifdef HAVE_STATUSBAR_RF_ICONS
++    bar->info.rf_bt = statusbar_rf_bt_on();
++    bar->info.rf_wifi = statusbar_rf_wifi_on();
++#endif
+ 
+     return display;
+ }
+@@ -328,6 +338,9 @@ void gui_statusbar_draw(struct gui_statusbar * bar, bool force_redraw, struct vi
+         {
+             gui_statusbar_led(display);
+         }
++#endif
++#ifdef HAVE_STATUSBAR_RF_ICONS
++        gui_statusbar_icon_rf(display, &bar->info);
+ #endif
+         display->setfont(FONT_UI);
+         display->set_viewport(last_vp);
+@@ -567,6 +580,67 @@ static void gui_statusbar_led(struct screen * display)
+ }
+ #endif
+ 
++#ifdef HAVE_STATUSBAR_RF_ICONS
++/* Statusbar RF icons, plotted pixel-by-pixel with fillrect: the
++ * column/bit packing of the bitmap helpers is ambiguous across
++ * ports, and fillrect makes every pixel deterministic.
++ * Coordinates are relative to the icon's top-left corner; both
++ * glyphs span the full bar height (12 rows).  wifi = three
++ * concentric arcs above a dot; bt = the Hagall/Bjarkan bind
++ * rune (stem with interleaved arms). */
++#define RF_ICON_ROWS 12
++#define RF_WIFI_W    16
++#define RF_BT_W      10
++
++static const unsigned char rf_wifi_px[][2] = {
++    {6,3},{7,3},{8,3},{9,3},{4,4},{5,4},{6,4},{9,4},{10,4},{11,4},
++    {2,5},{3,5},{12,5},{13,5},{2,6},{5,6},{6,6},{7,6},{8,6},{9,6},
++    {10,6},{13,6},{1,7},{4,7},{11,7},{14,7},{3,8},{6,8},{7,8},{8,8},
++    {9,8},{12,8},{5,9},{6,9},{9,9},{10,9},{7,10},{8,10},{7,11},{8,11},
++};
++static const unsigned char rf_bt_px[][2] = {
++    {4,0},{5,0},{1,1},{4,1},{5,1},{6,1},{2,2},{4,2},{5,2},{7,2},
++    {2,3},{4,3},{5,3},{8,3},{3,4},{4,4},{5,4},{6,4},{7,4},{4,5},
++    {5,5},{3,6},{4,6},{5,6},{6,6},{7,6},{2,7},{4,7},{5,7},{8,7},
++    {2,8},{4,8},{5,8},{7,8},{1,9},{4,9},{5,9},{6,9},{4,10},{5,10},
++};
++
++static void gui_statusbar_rf_plot(struct screen *display,
++                                  const unsigned char px[][2],
++                                  int count, int x, int y)
++{
++    for (int i = 0; i < count; i++)
++        display->fillrect(x + px[i][0], y + px[i][1], 1, 1);
++}
++
++static void gui_statusbar_icon_rf(struct screen *display,
++                                  const struct status_info *info)
++{
++    /* the clock hugs the right edge, rendered in the sysfont -
++     * measure it the same way the time renderer does instead of
++     * guessing its width, and stack the icons to its left */
++    unsigned int cw, ch;
++    font_getstringsize("00:00", &cw, &ch, FONT_SYSFIXED);
++    int x = STATUSBAR_TIME_X_END(display->getwidth()) - (int)cw - 3;
++    int y = (STATUSBAR_HEIGHT - RF_ICON_ROWS) / 2;
++    if (y < 0)
++        y = 0;
++
++    if (info->rf_wifi)
++    {
++        x -= RF_WIFI_W;
++        gui_statusbar_rf_plot(display, rf_wifi_px,
++                              (int)(sizeof(rf_wifi_px) / 2), x, y);
++    }
++    if (info->rf_bt)
++    {
++        x -= 2 + RF_BT_W;
++        gui_statusbar_rf_plot(display, rf_bt_px,
++                              (int)(sizeof(rf_bt_px) / 2), x, y);
++    }
++}
++#endif
++
+ #if CONFIG_RTC
+ /*
+  * Print time to status bar
+diff --git a/apps/gui/statusbar.h b/apps/gui/statusbar.h
+index e503365546..a0d815adbe 100644
+--- a/apps/gui/statusbar.h
++++ b/apps/gui/statusbar.h
+@@ -48,6 +48,10 @@ struct status_info {
+ #if (CONFIG_LED == LED_VIRTUAL) || defined(HAVE_REMOTE_LCD)
+     bool led; /* disk LED simulation in the status bar */
+ #endif
++#ifdef HAVE_STATUSBAR_RF_ICONS
++    bool rf_bt;   /* bluetooth radio powered */
++    bool rf_wifi; /* wifi radio powered */
++#endif
+ 
+ };
+ 
 diff --git a/apps/gui/wps.c b/apps/gui/wps.c
 index 12fda68824..dcc6665abd 100644
 --- a/apps/gui/wps.c
@@ -8454,10 +8583,10 @@ index 0000000000..5a33fc4b2c
 +#endif /* HAVE_WIFI_MENU */
 diff --git a/apps/n3pro_bluetooth.c b/apps/n3pro_bluetooth.c
 new file mode 100644
-index 0000000000..5fb6082083
+index 0000000000..a16ec95293
 --- /dev/null
 +++ b/apps/n3pro_bluetooth.c
-@@ -0,0 +1,1739 @@
+@@ -0,0 +1,1755 @@
 +/***************************************************************************
 + * Bluetooth audio (A2DP source) for the Cayin N3Pro hosted port.
 + *
@@ -8497,6 +8626,7 @@ index 0000000000..5fb6082083
 +#include "pcm-alsa.h"
 +#include "n3pro-bt-pcm.h"
 +#include "n3pro-bt-input.h"
++#include "statusbar_rf.h"
 +
 +/* str() yields const unsigned char *; keep the string call sites simple. */
 +static char *bt_str(int id)
@@ -8540,6 +8670,9 @@ index 0000000000..5fb6082083
 +static bool bt_peer_linked(const char *mac);
 +static bool bt_watchdog_started = false;
 +static volatile bool bt_watchdog_run = false;
++/* radio powered - tracked at the power transitions so the statusbar
++ * icon (statusbar_rf.h) does not have to poke the stack to know */
++static volatile bool bt_stack_on = false;
 +
 +static void bt_watchdog_start(void);
 +static void bt_watchdog_stop(void);
@@ -9416,7 +9549,10 @@ index 0000000000..5fb6082083
 +        reply[0] = '\0';
 +        if (bt_sys_command("BT:LIST", reply, sizeof(reply)) == 0 &&
 +            bt_sys_reply_ok(reply, "BT:LIST"))
++        {
++            bt_stack_on = true;
 +            return true;
++        }
 +
 +        reply[0] = '\0';
 +        bt_sys_command("BT:ON", reply, sizeof(reply));
@@ -9649,6 +9785,8 @@ index 0000000000..5fb6082083
 +
 +    if (bt_radio_on())
 +        system("/usr/sbin/hciconfig hci0 down >/dev/null 2>&1");
++
++    bt_stack_on = false;
 +}
 +
 +/* Reset the whole bluetooth stack to the boot-time state: stop any
@@ -9680,8 +9818,15 @@ index 0000000000..5fb6082083
 +     * bluetoothd; bt_ensure_sys_server() re-spawns it on demand. */
 +    system("/usr/bin/bt_done >/dev/null 2>&1");
 +    system("killall bt-agent bt-monitor sys_server >/dev/null 2>&1");
++    bt_stack_on = false;
 +    sleep(HZ / 2);
 +    system("/usr/bin/bt_init >/dev/null 2>&1");
++}
++
++/* statusbar glyph query (statusbar_rf.h) */
++bool statusbar_rf_bt_on(void)
++{
++    return bt_stack_on;
 +}
 +
 +static void bt_disconnect(void)
@@ -10212,6 +10357,152 @@ index 0000000000..6eef4e342d
 +int n3pro_bluetooth_menu(void);
 +
 +#endif /* __N3PRO_BLUETOOTH_H__ */
+diff --git a/apps/net_time.c b/apps/net_time.c
+new file mode 100644
+index 0000000000..c2b1536276
+--- /dev/null
++++ b/apps/net_time.c
+@@ -0,0 +1,122 @@
++/***************************************************************************
++ * One-shot NTP time sync: started once the WiFi connection has an IP.
++ * The thread tries an Aliyun NTP server up to three times and exits
++ * in every case - on success after setting the system clock (the
++ * process runs as root), on failure without side effects.  Nothing
++ * stays resident.
++ ****************************************************************************/
++#include "config.h"
++
++#ifdef HAVE_WIFI_MENU
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <errno.h>
++#include <time.h>
++#include <unistd.h>
++#include <pthread.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <netdb.h>
++
++#include "net_time.h"
++
++#define NTP_HOST     "ntp.aliyun.com"
++#define NTP_FALLBACK "203.107.6.88"    /* Aliyun public NTP anycast */
++#define NTP_PORT     123
++#define NTP_TRIES    3
++#define NTP_TIMEOUT  3                 /* seconds per reply */
++
++static volatile bool net_time_running = false;
++
++/* One query attempt: resolve, ask, parse the transmit timestamp and
++ * set the system clock.  Returns true on success. */
++static bool net_time_once(void)
++{
++    struct sockaddr_in addr;
++    memset(&addr, 0, sizeof(addr));
++    addr.sin_family = AF_INET;
++    addr.sin_port = htons(NTP_PORT);
++
++    struct addrinfo hints, *res = NULL;
++    memset(&hints, 0, sizeof(hints));
++    hints.ai_family = AF_INET;
++    hints.ai_socktype = SOCK_DGRAM;
++    if (getaddrinfo(NTP_HOST, NULL, &hints, &res) == 0 && res)
++    {
++        memcpy(&addr, res->ai_addr, sizeof(addr));
++        addr.sin_port = htons(NTP_PORT);
++        freeaddrinfo(res);
++    }
++    else if (inet_aton(NTP_FALLBACK, &addr.sin_addr) == 0)
++        return false;
++
++    int fd = socket(AF_INET, SOCK_DGRAM, 0);
++    if (fd < 0)
++        return false;
++
++    struct timeval tv = { NTP_TIMEOUT, 0 };
++    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
++
++    unsigned char pkt[48] = { 0 };
++    pkt[0] = 0x1B;                    /* LI=0, VN=3, client mode */
++
++    bool ok = false;
++    if (sendto(fd, pkt, sizeof(pkt), 0,
++               (struct sockaddr *)&addr, sizeof(addr)) > 0)
++    {
++        unsigned char rep[48];
++        if (recv(fd, rep, sizeof(rep), 0) == (ssize_t)sizeof(rep))
++        {
++            /* transmit timestamp, 32-bit seconds since 1900 */
++            unsigned long secs = ((unsigned long)rep[40] << 24) |
++                                 ((unsigned long)rep[41] << 16) |
++                                 ((unsigned long)rep[42] << 8) |
++                                 (unsigned long)rep[43];
++            time_t epoch = (time_t)(secs - 2208988800UL);
++            struct tm tm_now;
++            if (epoch > (time_t)1600000000 &&      /* sanity: > 2020 */
++                gmtime_r(&epoch, &tm_now) && tm_now.tm_year + 1900 > 2020)
++            {
++                struct timespec ts = { epoch, 0 };
++                ok = clock_settime(CLOCK_REALTIME, &ts) == 0;
++            }
++        }
++    }
++
++    close(fd);
++    return ok;
++}
++
++static void *net_time_thread(void *arg)
++{
++    (void)arg;
++    for (int i = 0; i < NTP_TRIES; i++)
++    {
++        if (net_time_once())
++            break;                    /* clock set - done */
++        sleep(1);
++    }
++    net_time_running = false;
++    return NULL;
++}
++
++void net_time_sync_start(void)
++{
++    if (net_time_running)
++        return;
++    net_time_running = true;
++
++    pthread_t pt;
++    pthread_attr_t attr;
++    pthread_attr_init(&attr);
++    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
++    pthread_attr_setstacksize(&attr, 32 * 1024);
++    if (pthread_create(&pt, &attr, net_time_thread, NULL) != 0)
++        net_time_running = false;
++    pthread_attr_destroy(&attr);
++}
++
++#endif /* HAVE_WIFI_MENU */
+diff --git a/apps/net_time.h b/apps/net_time.h
+new file mode 100644
+index 0000000000..50c9153b5f
+--- /dev/null
++++ b/apps/net_time.h
+@@ -0,0 +1,12 @@
++/***************************************************************************
++ * One-shot NTP time sync: started once the WiFi connection has an IP.
++ * The thread tries an Aliyun NTP server up to three times and exits
++ * in every case - on success after setting the system clock, on
++ * failure without side effects.  Nothing stays resident.
++ ****************************************************************************/
++#ifndef NET_TIME_H
++#define NET_TIME_H
++
++void net_time_sync_start(void);
++
++#endif
 diff --git a/apps/playback.c b/apps/playback.c
 index 29f06dcb69..141cdea3ef 100644
 --- a/apps/playback.c
@@ -17664,10 +17955,10 @@ index 24edac9bb7..a564f84c5b 100644
                    "eq enabled", eq_enabled_option_callback),
 diff --git a/apps/web_control.c b/apps/web_control.c
 new file mode 100644
-index 0000000000..58ed093e04
+index 0000000000..6f95a07bd6
 --- /dev/null
 +++ b/apps/web_control.c
-@@ -0,0 +1,1999 @@
+@@ -0,0 +1,2006 @@
 +/***************************************************************************
 + * Generic Web remote control framework.
 + *
@@ -17725,22 +18016,6 @@ index 0000000000..58ed093e04
 +
 +#if defined(HAVE_WIFI_MENU)
 +#include "wifi_hal.h"
-+
-+/* TEMP diagnostics -- remove before final sync */
-+#define WEB_LOG_PATH "/tmp/web.log"
-+static void web_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
-+static void web_log(const char *fmt, ...)
-+{
-+    FILE *f = fopen(WEB_LOG_PATH, "a");
-+    if (!f)
-+        return;
-+    va_list ap;
-+    va_start(ap, fmt);
-+    vfprintf(f, fmt, ap);
-+    fputc('\n', f);
-+    va_end(ap);
-+    fclose(f);
-+}
 +#endif
 +
 +#ifdef CAYIN_N3PRO
@@ -17774,6 +18049,7 @@ index 0000000000..58ed093e04
 +    WEB_CMD_JUMP,      /* param = playlist slot (0 = current track) */
 +    WEB_CMD_FILEPLAY,  /* path operand in pend_path */
 +    WEB_CMD_REPEAT,    /* cycle repeat mode Off -> All -> One */
++    WEB_CMD_SHUTDOWN,  /* power the player off */
 +};
 +
 +struct web_state
@@ -18080,7 +18356,6 @@ index 0000000000..58ed093e04
 +
 +static void web_exec_cmd(int cmd, long param)
 +{
-+    web_log("exec %d %ld", cmd, param);
 +    switch (cmd)
 +    {
 +        case WEB_CMD_PLAYPAUSE:
@@ -18186,6 +18461,10 @@ index 0000000000..58ed093e04
 +            settings_save();
 +            break;
 +        }
++        case WEB_CMD_SHUTDOWN:
++            /* same clean power-off as the shutdown menu entry */
++            sys_poweroff();
++            break;
 +    }
 +}
 +
@@ -18231,6 +18510,8 @@ index 0000000000..58ed093e04
 +static volatile bool web_worker_run;
 +static volatile bool web_worker_started;
 +
++static void web_ws_unregister(int fd);
++
 +static void web_ws_broadcast(const char *payload, size_t len)
 +{
 +    uint8_t hdr[10];
@@ -18267,14 +18548,21 @@ index 0000000000..58ed093e04
 +        int fd = fds[i];
 +        if (fd < 0)
 +            continue;
-+        if (send(fd, hdr, hlen, MSG_NOSIGNAL) < 0 ||
-+            send(fd, payload, len, MSG_NOSIGNAL) < 0)
++        /* MSG_DONTWAIT: per-call nonblocking - the worker must never
++         * stall on a slow client (the fd itself stays blocking for
++         * the session drain loop) */
++        if (send(fd, hdr, hlen, MSG_DONTWAIT | MSG_NOSIGNAL) < 0 ||
++            send(fd, payload, len, MSG_DONTWAIT | MSG_NOSIGNAL) < 0)
 +        {
-+            close(fd);
-+            pthread_mutex_lock(&W.mutex);
-+            if (W.ws_fd[i] == fd)
-+                W.ws_fd[i] = -1;
-+            pthread_mutex_unlock(&W.mutex);
++            if (errno == EAGAIN || errno == EWOULDBLOCK)
++                continue;   /* send buffer full - the client is alive,
++                             * just skip this frame */
++            /* Dead client: only drop the registration.  The fd is
++             * owned by the connection thread, which closes it exactly
++             * once when its recv loop sees the error - closing here
++             * could hit a descriptor that was already reused and take
++             * down an unrelated connection or file. */
++            web_ws_unregister(fd);
 +        }
 +    }
 +}
@@ -18297,7 +18585,6 @@ index 0000000000..58ed093e04
 +    char last[1400] = "";
 +    int loops = 0;
 +
-+    web_log("worker up");
 +
 +    while (web_worker_run)
 +    {
@@ -18305,7 +18592,6 @@ index 0000000000..58ed093e04
 +         * may take over while the server runs: stop it then. */
 +        if (!web_local_playback())
 +        {
-+            web_log("worker exit: not local");
 +            web_control_stop();
 +            break;
 +        }
@@ -18325,10 +18611,8 @@ index 0000000000..58ed093e04
 +            web_ws_broadcast(snap, len);
 +        }
 +        if ((++loops & 15) == 0)
-+            web_log("hb loops=%d len=%d", loops, (int)len);
 +        sleep(HZ / 4);
 +    }
-+    web_log("worker end run=%d", web_worker_run);
 +    web_worker_started = false;
 +}
 +
@@ -18339,7 +18623,7 @@ index 0000000000..58ed093e04
 +/* ------------------------------------------------------------------ */
 +
 +static void web_ws_client(int fd, const char *headers);
-+static void web_ws_register(int fd);
++static bool web_ws_register(int fd);
 +static void web_ws_unregister(int fd);
 +
 +static bool web_send_all(int fd, const void *buf, size_t len)
@@ -18597,7 +18881,6 @@ index 0000000000..58ed093e04
 +static void web_serve_playlist(int fd)
 +{
 +    int n = playlist_amount();
-+    web_log("pl amount=%d", n);
 +    if (n < 0)
 +        n = 0;
 +    if (n > WEB_PL_MAX)
@@ -18636,7 +18919,6 @@ index 0000000000..58ed093e04
 +        cur = 0;
 +    if (cur > n - 1)
 +        cur = n - 1;
-+    web_log("pl cur=%d", cur);
 +
 +    size_t cap = 16 * 1024;
 +    char *buf = malloc(cap);
@@ -18900,13 +19182,11 @@ index 0000000000..58ed093e04
 +        snprintf(W.pend_path, sizeof(W.pend_path), "%s", pval);
 +        pthread_mutex_unlock(&W.mutex);
 +        web_push_cmd(WEB_CMD_FILEPLAY, 0);
-+        web_log("fileplay %s", pval);
 +        web_json_reply(fd, 200, "OK", "{\"ok\":true}");
 +    }
 +    else if (strcmp(op, "del") == 0 && hasp && pval[0] == '/')
 +    {
 +        int rc = remove(pval);
-+        web_log("filedel %s rc=%d", pval, rc);
 +        if (rc == 0)
 +            web_json_reply(fd, 200, "OK", "{\"ok\":true}");
 +        else
@@ -18950,7 +19230,6 @@ index 0000000000..58ed093e04
 +    int out = open(full, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 +    if (out < 0)
 +    {
-+        web_log("upload open fail %s", full);
 +        web_json_reply(fd, 500, "Server Error",
 +                       "{\"error\":\"cannot create\"}");
 +        return;
@@ -18983,13 +19262,11 @@ index 0000000000..58ed093e04
 +    if (!ok)
 +    {
 +        remove(full);               /* discard the partial upload */
-+        web_log("upload fail %s (%ld bytes)", full, total);
 +        web_json_reply(fd, 500, "Server Error",
 +                       "{\"error\":\"transfer failed\"}");
 +        return;
 +    }
 +
-+    web_log("upload ok %s (%ld bytes)", full, total);
 +    char msg[64];
 +    snprintf(msg, sizeof(msg), "{\"ok\":true,\"bytes\":%ld}", total);
 +    web_json_reply(fd, 200, "OK", msg);
@@ -19017,7 +19294,6 @@ index 0000000000..58ed093e04
 +            return;
 +        }
 +        char reply[80];
-+        web_log("login ok");
 +        snprintf(reply, sizeof(reply), "{\"token\":\"%s\"}", W.token);
 +        web_http_head(fd, 200, "OK", "application/json", (long)strlen(reply));
 +        web_send_str(fd, reply);
@@ -19092,12 +19368,12 @@ index 0000000000..58ed093e04
 +        }
 +        else if (strstr(body, "cmd=repeat"))
 +            cmd = WEB_CMD_REPEAT;
++        else if (strstr(body, "cmd=shutdown"))
++            cmd = WEB_CMD_SHUTDOWN;
 +
 +        if (cmd != WEB_CMD_NONE)
 +            web_push_cmd(cmd, param);
 +
-+        web_log("cmd req cmd=%d param=%ld body=[%.60s]", cmd, param,
-+                body ? body : "");
 +        const char *msg = "{\"ok\":true}";
 +        web_http_head(fd, 200, "OK", "application/json", (long)strlen(msg));
 +        web_send_str(fd, msg);
@@ -19141,11 +19417,14 @@ index 0000000000..58ed093e04
 +/* websocket client                                                    */
 +/* ------------------------------------------------------------------ */
 +
-+static void web_ws_register(int fd)
++static bool web_ws_register(int fd)
 +{
-+    /* pushes must never block the worker: broadcasts send to these
-+     * sockets outside the mutex, so they have to be non-blocking */
-+    fcntl(fd, F_SETFL, O_NONBLOCK);
++    /* NOTE: the fd must stay BLOCKING for the session drain loop -
++     * its idle reaping counts SO_RCVTIMEO expirations (3s each) and
++     * a non-blocking socket returns EAGAIN instantly, which would
++     * reap every client milliseconds after the handshake.  The
++     * broadcast sends with MSG_DONTWAIT instead, so pushes still
++     * never block the worker. */
 +
 +    pthread_mutex_lock(&W.mutex);
 +    for (int i = 0; i < WEB_WS_MAX; i++)
@@ -19154,10 +19433,11 @@ index 0000000000..58ed093e04
 +        {
 +            W.ws_fd[i] = fd;
 +            pthread_mutex_unlock(&W.mutex);
-+            return;
++            return true;
 +        }
 +    }
 +    pthread_mutex_unlock(&W.mutex);
++    return false;
 +}
 +
 +static void web_ws_unregister(int fd)
@@ -19175,10 +19455,7 @@ index 0000000000..58ed093e04
 +{
 +    const char *key = strcasestr(headers, "Sec-WebSocket-Key:");
 +    if (!key)
-+    {
-+        close(fd);
-+        return;
-+    }
++        return;                     /* the connection thread closes */
 +    key += strlen("Sec-WebSocket-Key:");
 +    while (*key == ' ')
 +        key++;
@@ -19203,16 +19480,25 @@ index 0000000000..58ed093e04
 +             "Connection: Upgrade\r\n"
 +             "Sec-WebSocket-Accept: %s\r\n\r\n", b64);
 +    if (!web_send_str(fd, resp))
++        return;                     /* the connection thread closes */
++
++    if (!web_ws_register(fd))
 +    {
-+        close(fd);
++        /* registry full: refuse right away - the page reconnects by
++         * itself once a slot is freed again */
 +        return;
 +    }
 +
-+    web_ws_register(fd);
-+    web_log("ws client fd=%d", fd);
-+
 +    /* Keep the connection open; ignore client frames, drop on error
-+     * or when the server stops. */
++     * or when the server stops.
++     *
++     * A peer that vanished without FIN/RST (phone locked, network
++     * switched, tab discarded) would sit here forever and, worse,
++     * keep its registry slot: with nothing playing the broadcast
++     * never sends, so the dead socket buffer never fills and never
++     * errors.  Ping idle clients and reap them when no pong (which
++     * every browser answers automatically) arrives. */
++    int idle = 0, pinged = 0;
 +    while (W.running)
 +    {
 +        uint8_t hdr[2];
@@ -19221,12 +19507,26 @@ index 0000000000..58ed093e04
 +            break;                      /* peer closed */
 +        if (n < 0)
 +        {
-+            /* SO_RCVTIMEO fired: idle but healthy client (browsers
-+             * stay silent until they ping or close) - keep waiting */
++            /* SO_RCVTIMEO fired (3s): idle client.  After ~30s send
++             * a ping; if no pong within ~9s after that, it is dead. */
 +            if (errno == EAGAIN || errno == EWOULDBLOCK)
++            {
++                idle++;
++                if (idle >= 10 && !pinged)
++                {
++                    uint8_t ping[2] = { 0x89, 0 };
++                    if (send(fd, ping, 2, MSG_NOSIGNAL) < 0)
++                        break;
++                    pinged = idle;
++                }
++                else if (pinged && idle - pinged >= 3)
++                    break;              /* dead peer: reap */
 +                continue;
++            }
 +            break;                      /* hard error */
 +        }
++        idle = 0;
++        pinged = 0;
 +        if (n == 1)
 +        {
 +            /* partial header: fetch the remaining byte */
@@ -19268,7 +19568,7 @@ index 0000000000..58ed093e04
 +    }
 +
 +    web_ws_unregister(fd);
-+    close(fd);
++    /* the connection thread owns the fd and closes it exactly once */
 +}
 +
 +/* ------------------------------------------------------------------ */
@@ -19364,8 +19664,9 @@ index 0000000000..58ed093e04
 +    web_handle_http(fd, method, path, headers, body);
 +
 +out:
-+    if (W.running && strncmp(path, "/ws", 3) != 0)
-+        close(fd);                       /* ws closed itself */
++    /* single owner: every accepted fd is closed exactly once here,
++     * including websocket ones - their drain loop only unregisters */
++    close(fd);
 +    return NULL;
 +}
 +
@@ -19471,8 +19772,6 @@ index 0000000000..58ed093e04
 +    }
 +    W.listen_fd = fd;
 +
-+    remove(WEB_LOG_PATH);
-+    web_log("start port=%d code=%s", W.port, W.code);
 +
 +    if (pthread_create(&W.accept_pt, NULL, web_accept_thread, NULL) != 0)
 +    {
@@ -19491,7 +19790,6 @@ index 0000000000..58ed093e04
 +    else if (!web_worker_started)
 +        web_worker_run = false;
 +
-+    web_log("worker create=%d", web_worker_started);
 +    W.running = true;
 +    return true;
 +}
@@ -19703,10 +20001,10 @@ index 0000000000..931c362d29
 +#endif /* _WEB_CONTROL_H_ */
 diff --git a/apps/wifi_menu.c b/apps/wifi_menu.c
 new file mode 100644
-index 0000000000..9db7a4543a
+index 0000000000..a1c3f38afc
 --- /dev/null
 +++ b/apps/wifi_menu.c
-@@ -0,0 +1,504 @@
+@@ -0,0 +1,510 @@
 +/***************************************************************************
 + * Generic WiFi menu (framework only).
 + *
@@ -19738,6 +20036,7 @@ index 0000000000..9db7a4543a
 +#include "yesno.h"
 +#include "wifi_hal.h"
 +#include "wifi_menu.h"
++#include "net_time.h"
 +#ifdef HAVE_WEB_CONTROL
 +#include "web_control.h"
 +#endif
@@ -19825,7 +20124,10 @@ index 0000000000..9db7a4543a
 +        splash(0, wifi_str(LANG_WIFI_CONNECTING));
 +        if (wifi_hal_connect(global_settings.wifi_ssid,
 +                             global_settings.wifi_psk))
++        {
 +            splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
++            net_time_sync_start();      /* one-shot NTP, exits by itself */
++        }
 +        else
 +            splash(HZ * 2, wifi_str(LANG_WIFI_NOT_CONNECTED));
 +    }
@@ -19894,6 +20196,7 @@ index 0000000000..9db7a4543a
 +    {
 +        wifi_remember(nets[pick].ssid, psk);
 +        splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
++        net_time_sync_start();          /* one-shot NTP, exits by itself */
 +    }
 +    else
 +        splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
@@ -19943,6 +20246,7 @@ index 0000000000..9db7a4543a
 +        {
 +            wifi_remember(nets[pick].ssid, psk);
 +            splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
++            net_time_sync_start();      /* one-shot NTP, exits by itself */
 +        }
 +        else
 +            splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
@@ -20418,10 +20722,10 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..3756b156f1
+index 0000000000..f3072a9faa
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,110 @@
 +/*
 + * This config file is for the Cayin N3Pro
 + */
@@ -20497,6 +20801,10 @@ index 0000000000..3756b156f1
 + * WebSocket server; pages are shipped under .rockbox/web/control/.
 + */
 +#define HAVE_WEB_CONTROL
++/* Draw bluetooth/wireless glyphs in the classic statusbar while the
++ * radios are powered; the state queries are implemented in the n3pro
++ * target directory (statusbar_rf.h). */
++#define HAVE_STATUSBAR_RF_ICONS
 +
 +/* We don't have hardware controls */
 +#define HAVE_SW_TONE_CONTROLS
@@ -20585,6 +20893,31 @@ index 75a1202d57..aa1d1e3068 100644
  #ifdef AUDIOHW_HAVE_EQ
  /*
   * band = SOUND_EQ_BANDb
+diff --git a/firmware/export/statusbar_rf.h b/firmware/export/statusbar_rf.h
+new file mode 100644
+index 0000000000..477019af95
+--- /dev/null
++++ b/firmware/export/statusbar_rf.h
+@@ -0,0 +1,19 @@
++/***************************************************************************
++ * Optional radio status icons for the classic statusbar.
++ *
++ * Targets that define HAVE_STATUSBAR_RF_ICONS implement these two
++ * queries; the shared statusbar draws a small bluetooth / wireless
++ * glyph whenever the corresponding radio is powered.
++ ****************************************************************************/
++#ifndef STATUSBAR_RF_H
++#define STATUSBAR_RF_H
++
++#include "config.h"
++#include <stdbool.h>
++
++#ifdef HAVE_STATUSBAR_RF_ICONS
++bool statusbar_rf_bt_on(void);
++bool statusbar_rf_wifi_on(void);
++#endif
++
++#endif
 diff --git a/firmware/export/wifi_hal.h b/firmware/export/wifi_hal.h
 new file mode 100644
 index 0000000000..10ff5545b0
@@ -22569,10 +22902,10 @@ index 0000000000..66ea95e0b5
 +#endif /* __N3PRO_BT_PCM_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c b/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c
 new file mode 100644
-index 0000000000..b8d11836b7
+index 0000000000..166579b35c
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c
-@@ -0,0 +1,441 @@
+@@ -0,0 +1,448 @@
 +/***************************************************************************
 + * WiFi HAL implementation for the Cayin N3Pro hosted port.
 + *
@@ -22592,6 +22925,7 @@ index 0000000000..b8d11836b7
 +
 +#include "kernel.h"
 +#include "wifi_hal.h"
++#include "statusbar_rf.h"
 +
 +#define WIFI_WPA_CLI   "/sbin/wpa_cli"
 +#define WIFI_ON_SH     "/sbin/wifi_on.sh"
@@ -22960,6 +23294,12 @@ index 0000000000..b8d11836b7
 +     * left untouched so the next power-on works normally. */
 +    system(WIFI_OFF_SH " >/dev/null 2>&1");
 +    sleep(HZ / 2);
++}
++
++/* statusbar glyph query (statusbar_rf.h) */
++bool statusbar_rf_wifi_on(void)
++{
++    return wifi_radio_on();
 +}
 +
 +bool wifi_hal_get_ip(char *out, size_t outsz)
@@ -25712,10 +26052,10 @@ index 7f3628b540..ff30867d37 100755
    if [ "$tinyalsa" = "yes" ]; then
 diff --git a/web/control/index.html b/web/control/index.html
 new file mode 100644
-index 0000000000..c26d98c09a
+index 0000000000..1ed7a70dc2
 --- /dev/null
 +++ b/web/control/index.html
-@@ -0,0 +1,649 @@
+@@ -0,0 +1,669 @@
 +<!doctype html>
 +<html lang="en">
 +<head>
@@ -25767,9 +26107,10 @@ index 0000000000..c26d98c09a
 +.thm{width:40px;height:37px;padding:0;display:flex;
 +  align-items:center;justify-content:center}
 +.thm svg{width:18px;height:18px}
-+/* battery pill, top left */
-+.batt{position:absolute;top:calc(14px + env(safe-area-inset-top));left:16px;z-index:60;
-+  display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);
++.tl{position:absolute;top:calc(14px + env(safe-area-inset-top));left:16px;
++  z-index:60;display:flex;gap:8px}
++/* battery pill + shutdown button, top left */
++.batt{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);
 +  background:var(--glass2);backdrop-filter:blur(18px);border:1px solid var(--line);
 +  border-radius:999px;padding:9px 13px}
 +.batt svg{width:25px;height:13px;display:block}
@@ -25990,9 +26331,12 @@ index 0000000000..c26d98c09a
 +</div>
 +
 +<div class="card" id="main" hidden>
-+  <div class="batt" id="batt">
-+    <svg viewBox="0 0 28 14"><rect x="1" y="1" width="22" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><rect id="battFill" x="3.5" y="3.5" width="17" height="7" rx="1.5" fill="currentColor"/><rect x="24.5" y="4.5" width="2.5" height="5" rx="1" fill="currentColor"/></svg>
-+    <span id="battPct">-</span>
++  <div class="tl">
++    <div class="batt" id="batt">
++      <svg viewBox="0 0 28 14"><rect x="1" y="1" width="22" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><rect id="battFill" x="3.5" y="3.5" width="17" height="7" rx="1.5" fill="currentColor"/><rect x="24.5" y="4.5" width="2.5" height="5" rx="1" fill="currentColor"/></svg>
++      <span id="battPct">-</span>
++    </div>
++    <button class="lang thm" id="sdBtn" aria-label="shutdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.2 6.2a8 8 0 1 0 11.6 0"/></svg></button>
 +  </div>
 +  <div class="tr">
 +    <button class="lang thm" id="thBtn" aria-label="theme"></button>
@@ -26066,6 +26410,16 @@ index 0000000000..c26d98c09a
 +    </div>
 +  </div>
 +
++  <div id="sdWrap" class="ovl" hidden onclick="this.hidden=true">
++    <div class="fcard" onclick="event.stopPropagation()">
++      <p id="sdText"></p>
++      <div class="row">
++        <button class="dngr" id="sdYes"></button>
++        <button id="sdNo"></button>
++      </div>
++    </div>
++  </div>
++
 +  <div id="upBox"></div>
 +  <div id="toast"></div>
 +  <div id="dropOv" hidden></div>
@@ -26087,12 +26441,14 @@ index 0000000000..c26d98c09a
 +
 +/* embedded defaults; lang.json (same directory) overrides them */
 +const DEF={
-+ en:{hint:'Enter the code shown on the player',btn:'Enter',bad:'Wrong code',stopped:'Not playing',pl:'Playlist',plempty:'Playlist is empty',
-+  tabPlay:'Play',tabFiles:'Files',up:'Upload',play:'Play',del:'Delete',cancel:'Cancel',
-+  delq:'Delete this file?',empty:'Empty',drop:'Drop to upload to the current folder',upfail:'Upload failed',delfail:'Delete failed'},
-+ zh:{hint:'输入播放器屏幕上显示的验证码',btn:'进入',bad:'验证码错误',stopped:'未在播放',pl:'播放列表',plempty:'播放列表为空',
-+  tabPlay:'播放',tabFiles:'文件',up:'上传',play:'播放',del:'删除',cancel:'取消',
-+  delq:'删除这个文件？',empty:'空目录',drop:'松开鼠标上传到当前目录',upfail:'上传失败',delfail:'删除失败'}};
++  en:{hint:'Enter the code shown on the player',btn:'Enter',bad:'Wrong code',stopped:'Not playing',pl:'Playlist',plempty:'Playlist is empty',
++   tabPlay:'Play',tabFiles:'Files',up:'Upload',play:'Play',del:'Delete',cancel:'Cancel',
++   delq:'Delete this file?',empty:'Empty',drop:'Drop to upload to the current folder',upfail:'Upload failed',delfail:'Delete failed',
++   sd:'Shut down',sdq:'Shut down the player?'},
++  zh:{hint:'输入播放器屏幕上显示的验证码',btn:'进入',bad:'验证码错误',stopped:'未在播放',pl:'播放列表',plempty:'播放列表为空',
++   tabPlay:'播放',tabFiles:'文件',up:'上传',play:'播放',del:'删除',cancel:'取消',
++   delq:'删除这个文件？',empty:'空目录',drop:'松开鼠标上传到当前目录',upfail:'上传失败',delfail:'删除失败',
++   sd:'关机',sdq:'确定关机吗？'}};
 +async function loadLang(){
 + try{const j=await (await fetch('/lang.json',{cache:'no-store'})).json();
 +  L={en:Object.assign({},DEF.en,j.en),zh:Object.assign({},DEF.zh,j.zh)}}
@@ -26103,8 +26459,9 @@ index 0000000000..c26d98c09a
 + $('plTitle').textContent=T().pl;
 + $('navPlayLbl').textContent=T().tabPlay;$('navFilesLbl').textContent=T().tabFiles;
 + $('upLbl').textContent=T().up;$('fPlay').textContent=T().play;$('fDel').textContent=T().del;
-+ $('fCancel').textContent=T().cancel;$('cfYes').textContent=T().del;$('cfNo').textContent=T().cancel;
-+ $('dropOv').textContent=T().drop;
++  $('fCancel').textContent=T().cancel;$('cfYes').textContent=T().del;$('cfNo').textContent=T().cancel;
++  $('sdText').textContent=T().sdq;$('sdYes').textContent=T().sd;$('sdNo').textContent=T().cancel;
++  $('dropOv').textContent=T().drop;
 + $('langBtn').textContent=lang==='en'?'中文':'EN';
 + document.documentElement.lang=lang;}
 +function toggleLang(){lang=lang==='en'?'zh':'en';localStorage.setItem('weblang',lang);applyLang();}
@@ -26328,8 +26685,11 @@ index 0000000000..c26d98c09a
 +  $('fPlay').addEventListener('click',playFile);
 +  $('fDel').addEventListener('click',askDelete);
 +  $('fCancel').addEventListener('click',closeFMenu);
-+  $('cfYes').addEventListener('click',doDelete);
-+  $('cfNo').addEventListener('click',()=>$('fConfirm').hidden=true);
++   $('cfYes').addEventListener('click',doDelete);
++   $('cfNo').addEventListener('click',()=>$('fConfirm').hidden=true);
++   $('sdBtn').addEventListener('click',()=>$('sdWrap').hidden=false);
++   $('sdYes').addEventListener('click',()=>{$('sdWrap').hidden=true;post('cmd=shutdown')});
++   $('sdNo').addEventListener('click',()=>$('sdWrap').hidden=true);
 +  $('upBtn').addEventListener('click',async()=>{if(fdir===null)await loadFiles(null);
 +   $('fileInput').click()});
 +  $('fileInput').addEventListener('change',e=>{
@@ -26367,10 +26727,10 @@ index 0000000000..c26d98c09a
 +</html>
 diff --git a/web/control/lang.json b/web/control/lang.json
 new file mode 100644
-index 0000000000..43b9b3521b
+index 0000000000..93571e6276
 --- /dev/null
 +++ b/web/control/lang.json
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,46 @@
 +{
 + "en": {
 +  "hint": "Enter the code shown on the player",
@@ -26389,10 +26749,12 @@ index 0000000000..43b9b3521b
 +  "delq": "Delete this file?",
 +  "empty": "Empty",
 +  "drop": "Drop to upload to the current folder",
-+  "upfail": "Upload failed",
-+  "delfail": "Delete failed"
-+ },
-+ "zh": {
++   "upfail": "Upload failed",
++   "delfail": "Delete failed",
++   "sd": "Shut down",
++   "sdq": "Shut down the player?"
++  },
++  "zh": {
 +  "hint": "输入播放器屏幕上显示的验证码",
 +  "btn": "进入",
 +  "bad": "验证码错误",
@@ -26409,9 +26771,11 @@ index 0000000000..43b9b3521b
 +  "delq": "删除这个文件？",
 +  "empty": "空目录",
 +  "drop": "松开鼠标上传到当前目录",
-+  "upfail": "上传失败",
-+  "delfail": "删除失败"
-+ }
++   "upfail": "上传失败",
++   "delfail": "删除失败",
++   "sd": "关机",
++   "sdq": "确定关机吗？"
++  }
 +}
 diff --git a/wps/WPSLIST b/wps/WPSLIST
 index d9438bb77b..5918aeb85b 100644

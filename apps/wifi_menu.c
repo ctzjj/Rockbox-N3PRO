@@ -29,6 +29,7 @@
 #include "yesno.h"
 #include "wifi_hal.h"
 #include "wifi_menu.h"
+#include "net_time.h"
 #ifdef HAVE_WEB_CONTROL
 #include "web_control.h"
 #endif
@@ -116,7 +117,10 @@ static bool wifi_flow_power_on(void)
         splash(0, wifi_str(LANG_WIFI_CONNECTING));
         if (wifi_hal_connect(global_settings.wifi_ssid,
                              global_settings.wifi_psk))
+        {
             splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
+            net_time_sync_start();      /* one-shot NTP, exits by itself */
+        }
         else
             splash(HZ * 2, wifi_str(LANG_WIFI_NOT_CONNECTED));
     }
@@ -185,6 +189,7 @@ static void wifi_flow_scan(void)
     {
         wifi_remember(nets[pick].ssid, psk);
         splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
+        net_time_sync_start();          /* one-shot NTP, exits by itself */
     }
     else
         splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
@@ -234,6 +239,7 @@ static void wifi_flow_saved(void)
         {
             wifi_remember(nets[pick].ssid, psk);
             splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
+            net_time_sync_start();      /* one-shot NTP, exits by itself */
         }
         else
             splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));

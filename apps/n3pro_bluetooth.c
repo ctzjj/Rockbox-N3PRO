@@ -37,6 +37,7 @@
 #include "pcm-alsa.h"
 #include "n3pro-bt-pcm.h"
 #include "n3pro-bt-input.h"
+#include "statusbar_rf.h"
 
 /* str() yields const unsigned char *; keep the string call sites simple. */
 static char *bt_str(int id)
@@ -80,6 +81,9 @@ static bool bt_busy = false;   /* a menu-driven route is in progress */
 static bool bt_peer_linked(const char *mac);
 static bool bt_watchdog_started = false;
 static volatile bool bt_watchdog_run = false;
+/* radio powered - tracked at the power transitions so the statusbar
+ * icon (statusbar_rf.h) does not have to poke the stack to know */
+static volatile bool bt_stack_on = false;
 
 static void bt_watchdog_start(void);
 static void bt_watchdog_stop(void);
@@ -956,7 +960,10 @@ static bool bt_prepare_stack(void)
         reply[0] = '\0';
         if (bt_sys_command("BT:LIST", reply, sizeof(reply)) == 0 &&
             bt_sys_reply_ok(reply, "BT:LIST"))
+        {
+            bt_stack_on = true;
             return true;
+        }
 
         reply[0] = '\0';
         bt_sys_command("BT:ON", reply, sizeof(reply));
@@ -1189,6 +1196,8 @@ static void bt_power_off(void)
 
     if (bt_radio_on())
         system("/usr/sbin/hciconfig hci0 down >/dev/null 2>&1");
+
+    bt_stack_on = false;
 }
 
 /* Reset the whole bluetooth stack to the boot-time state: stop any
@@ -1220,8 +1229,15 @@ static void bt_reset_stack(void)
      * bluetoothd; bt_ensure_sys_server() re-spawns it on demand. */
     system("/usr/bin/bt_done >/dev/null 2>&1");
     system("killall bt-agent bt-monitor sys_server >/dev/null 2>&1");
+    bt_stack_on = false;
     sleep(HZ / 2);
     system("/usr/bin/bt_init >/dev/null 2>&1");
+}
+
+/* statusbar glyph query (statusbar_rf.h) */
+bool statusbar_rf_bt_on(void)
+{
+    return bt_stack_on;
 }
 
 static void bt_disconnect(void)

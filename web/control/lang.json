@@ -16,10 +16,12 @@
   "delq": "Delete this file?",
   "empty": "Empty",
   "drop": "Drop to upload to the current folder",
-  "upfail": "Upload failed",
-  "delfail": "Delete failed"
- },
- "zh": {
+   "upfail": "Upload failed",
+   "delfail": "Delete failed",
+   "sd": "Shut down",
+   "sdq": "Shut down the player?"
+  },
+  "zh": {
   "hint": "输入播放器屏幕上显示的验证码",
   "btn": "进入",
   "bad": "验证码错误",
@@ -36,7 +38,9 @@
   "delq": "删除这个文件？",
   "empty": "空目录",
   "drop": "松开鼠标上传到当前目录",
-  "upfail": "上传失败",
-  "delfail": "删除失败"
- }
+   "upfail": "上传失败",
+   "delfail": "删除失败",
+   "sd": "关机",
+   "sdq": "确定关机吗？"
+  }
 }

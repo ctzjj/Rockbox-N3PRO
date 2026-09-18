@@ -55,22 +55,6 @@
 
 #if defined(HAVE_WIFI_MENU)
 #include "wifi_hal.h"
-
-/* TEMP diagnostics -- remove before final sync */
-#define WEB_LOG_PATH "/tmp/web.log"
-static void web_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
-static void web_log(const char *fmt, ...)
-{
-    FILE *f = fopen(WEB_LOG_PATH, "a");
-    if (!f)
-        return;
-    va_list ap;
-    va_start(ap, fmt);
-    vfprintf(f, fmt, ap);
-    fputc('\n', f);
-    va_end(ap);
-    fclose(f);
-}
 #endif
 
 #ifdef CAYIN_N3PRO
@@ -104,6 +88,7 @@ enum web_cmd
     WEB_CMD_JUMP,      /* param = playlist slot (0 = current track) */
     WEB_CMD_FILEPLAY,  /* path operand in pend_path */
     WEB_CMD_REPEAT,    /* cycle repeat mode Off -> All -> One */
+    WEB_CMD_SHUTDOWN,  /* power the player off */
 };
 
 struct web_state
@@ -410,7 +395,6 @@ static void web_refresh_snapshot(void)
 
 static void web_exec_cmd(int cmd, long param)
 {
-    web_log("exec %d %ld", cmd, param);
     switch (cmd)
     {
         case WEB_CMD_PLAYPAUSE:
@@ -516,6 +500,10 @@ static void web_exec_cmd(int cmd, long param)
             settings_save();
             break;
         }
+        case WEB_CMD_SHUTDOWN:
+            /* same clean power-off as the shutdown menu entry */
+            sys_poweroff();
+            break;
     }
 }
 
@@ -561,6 +549,8 @@ static void web_drain_cmds(void)
 static volatile bool web_worker_run;
 static volatile bool web_worker_started;
 
+static void web_ws_unregister(int fd);
+
 static void web_ws_broadcast(const char *payload, size_t len)
 {
     uint8_t hdr[10];
@@ -597,14 +587,21 @@ static void web_ws_broadcast(const char *payload, size_t len)
         int fd = fds[i];
         if (fd < 0)
             continue;
-        if (send(fd, hdr, hlen, MSG_NOSIGNAL) < 0 ||
-            send(fd, payload, len, MSG_NOSIGNAL) < 0)
+        /* MSG_DONTWAIT: per-call nonblocking - the worker must never
+         * stall on a slow client (the fd itself stays blocking for
+         * the session drain loop) */
+        if (send(fd, hdr, hlen, MSG_DONTWAIT | MSG_NOSIGNAL) < 0 ||
+            send(fd, payload, len, MSG_DONTWAIT | MSG_NOSIGNAL) < 0)
         {
-            close(fd);
-            pthread_mutex_lock(&W.mutex);
-            if (W.ws_fd[i] == fd)
-                W.ws_fd[i] = -1;
-            pthread_mutex_unlock(&W.mutex);
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;   /* send buffer full - the client is alive,
+                             * just skip this frame */
+            /* Dead client: only drop the registration.  The fd is
+             * owned by the connection thread, which closes it exactly
+             * once when its recv loop sees the error - closing here
+             * could hit a descriptor that was already reused and take
+             * down an unrelated connection or file. */
+            web_ws_unregister(fd);
         }
     }
 }
@@ -627,7 +624,6 @@ static void web_worker_thread(void)
     char last[1400] = "";
     int loops = 0;
 
-    web_log("worker up");
 
     while (web_worker_run)
     {
@@ -635,7 +631,6 @@ static void web_worker_thread(void)
          * may take over while the server runs: stop it then. */
         if (!web_local_playback())
         {
-            web_log("worker exit: not local");
             web_control_stop();
             break;
         }
@@ -655,10 +650,8 @@ static void web_worker_thread(void)
             web_ws_broadcast(snap, len);
         }
         if ((++loops & 15) == 0)
-            web_log("hb loops=%d len=%d", loops, (int)len);
         sleep(HZ / 4);
     }
-    web_log("worker end run=%d", web_worker_run);
     web_worker_started = false;
 }
 
@@ -669,7 +662,7 @@ static long web_worker_stack[(DEFAULT_STACK_SIZE + 0x2000) / sizeof(long)];
 /* ------------------------------------------------------------------ */
 
 static void web_ws_client(int fd, const char *headers);
-static void web_ws_register(int fd);
+static bool web_ws_register(int fd);
 static void web_ws_unregister(int fd);
 
 static bool web_send_all(int fd, const void *buf, size_t len)
@@ -927,7 +920,6 @@ static long web_parse_param(const char *body, const char *key)
 static void web_serve_playlist(int fd)
 {
     int n = playlist_amount();
-    web_log("pl amount=%d", n);
     if (n < 0)
         n = 0;
     if (n > WEB_PL_MAX)
@@ -966,7 +958,6 @@ static void web_serve_playlist(int fd)
         cur = 0;
     if (cur > n - 1)
         cur = n - 1;
-    web_log("pl cur=%d", cur);
 
     size_t cap = 16 * 1024;
     char *buf = malloc(cap);
@@ -1230,13 +1221,11 @@ static void web_serve_fileop(int fd, const char *path)
         snprintf(W.pend_path, sizeof(W.pend_path), "%s", pval);
         pthread_mutex_unlock(&W.mutex);
         web_push_cmd(WEB_CMD_FILEPLAY, 0);
-        web_log("fileplay %s", pval);
         web_json_reply(fd, 200, "OK", "{\"ok\":true}");
     }
     else if (strcmp(op, "del") == 0 && hasp && pval[0] == '/')
     {
         int rc = remove(pval);
-        web_log("filedel %s rc=%d", pval, rc);
         if (rc == 0)
             web_json_reply(fd, 200, "OK", "{\"ok\":true}");
         else
@@ -1280,7 +1269,6 @@ static void web_serve_upload(int fd, const char *headers, const char *path,
     int out = open(full, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (out < 0)
     {
-        web_log("upload open fail %s", full);
         web_json_reply(fd, 500, "Server Error",
                        "{\"error\":\"cannot create\"}");
         return;
@@ -1313,13 +1301,11 @@ static void web_serve_upload(int fd, const char *headers, const char *path,
     if (!ok)
     {
         remove(full);               /* discard the partial upload */
-        web_log("upload fail %s (%ld bytes)", full, total);
         web_json_reply(fd, 500, "Server Error",
                        "{\"error\":\"transfer failed\"}");
         return;
     }
 
-    web_log("upload ok %s (%ld bytes)", full, total);
     char msg[64];
     snprintf(msg, sizeof(msg), "{\"ok\":true,\"bytes\":%ld}", total);
     web_json_reply(fd, 200, "OK", msg);
@@ -1347,7 +1333,6 @@ static void web_handle_http(int fd, char *method, char *path,
             return;
         }
         char reply[80];
-        web_log("login ok");
         snprintf(reply, sizeof(reply), "{\"token\":\"%s\"}", W.token);
         web_http_head(fd, 200, "OK", "application/json", (long)strlen(reply));
         web_send_str(fd, reply);
@@ -1422,12 +1407,12 @@ static void web_handle_http(int fd, char *method, char *path,
         }
         else if (strstr(body, "cmd=repeat"))
             cmd = WEB_CMD_REPEAT;
+        else if (strstr(body, "cmd=shutdown"))
+            cmd = WEB_CMD_SHUTDOWN;
 
         if (cmd != WEB_CMD_NONE)
             web_push_cmd(cmd, param);
 
-        web_log("cmd req cmd=%d param=%ld body=[%.60s]", cmd, param,
-                body ? body : "");
         const char *msg = "{\"ok\":true}";
         web_http_head(fd, 200, "OK", "application/json", (long)strlen(msg));
         web_send_str(fd, msg);
@@ -1471,11 +1456,14 @@ static void web_handle_http(int fd, char *method, char *path,
 /* websocket client                                                    */
 /* ------------------------------------------------------------------ */
 
-static void web_ws_register(int fd)
+static bool web_ws_register(int fd)
 {
-    /* pushes must never block the worker: broadcasts send to these
-     * sockets outside the mutex, so they have to be non-blocking */
-    fcntl(fd, F_SETFL, O_NONBLOCK);
+    /* NOTE: the fd must stay BLOCKING for the session drain loop -
+     * its idle reaping counts SO_RCVTIMEO expirations (3s each) and
+     * a non-blocking socket returns EAGAIN instantly, which would
+     * reap every client milliseconds after the handshake.  The
+     * broadcast sends with MSG_DONTWAIT instead, so pushes still
+     * never block the worker. */
 
     pthread_mutex_lock(&W.mutex);
     for (int i = 0; i < WEB_WS_MAX; i++)
@@ -1484,10 +1472,11 @@ static void web_ws_register(int fd)
         {
             W.ws_fd[i] = fd;
             pthread_mutex_unlock(&W.mutex);
-            return;
+            return true;
         }
     }
     pthread_mutex_unlock(&W.mutex);
+    return false;
 }
 
 static void web_ws_unregister(int fd)
@@ -1505,10 +1494,7 @@ void web_ws_client(int fd, const char *headers)
 {
     const char *key = strcasestr(headers, "Sec-WebSocket-Key:");
     if (!key)
-    {
-        close(fd);
-        return;
-    }
+        return;                     /* the connection thread closes */
     key += strlen("Sec-WebSocket-Key:");
     while (*key == ' ')
         key++;
@@ -1533,16 +1519,25 @@ void web_ws_client(int fd, const char *headers)
              "Connection: Upgrade\r\n"
              "Sec-WebSocket-Accept: %s\r\n\r\n", b64);
     if (!web_send_str(fd, resp))
+        return;                     /* the connection thread closes */
+
+    if (!web_ws_register(fd))
     {
-        close(fd);
+        /* registry full: refuse right away - the page reconnects by
+         * itself once a slot is freed again */
         return;
     }
 
-    web_ws_register(fd);
-    web_log("ws client fd=%d", fd);
-
     /* Keep the connection open; ignore client frames, drop on error
-     * or when the server stops. */
+     * or when the server stops.
+     *
+     * A peer that vanished without FIN/RST (phone locked, network
+     * switched, tab discarded) would sit here forever and, worse,
+     * keep its registry slot: with nothing playing the broadcast
+     * never sends, so the dead socket buffer never fills and never
+     * errors.  Ping idle clients and reap them when no pong (which
+     * every browser answers automatically) arrives. */
+    int idle = 0, pinged = 0;
     while (W.running)
     {
         uint8_t hdr[2];
@@ -1551,12 +1546,26 @@ void web_ws_client(int fd, const char *headers)
             break;                      /* peer closed */
         if (n < 0)
         {
-            /* SO_RCVTIMEO fired: idle but healthy client (browsers
-             * stay silent until they ping or close) - keep waiting */
+            /* SO_RCVTIMEO fired (3s): idle client.  After ~30s send
+             * a ping; if no pong within ~9s after that, it is dead. */
             if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                idle++;
+                if (idle >= 10 && !pinged)
+                {
+                    uint8_t ping[2] = { 0x89, 0 };
+                    if (send(fd, ping, 2, MSG_NOSIGNAL) < 0)
+                        break;
+                    pinged = idle;
+                }
+                else if (pinged && idle - pinged >= 3)
+                    break;              /* dead peer: reap */
                 continue;
+            }
             break;                      /* hard error */
         }
+        idle = 0;
+        pinged = 0;
         if (n == 1)
         {
             /* partial header: fetch the remaining byte */
@@ -1598,7 +1607,7 @@ void web_ws_client(int fd, const char *headers)
     }
 
     web_ws_unregister(fd);
-    close(fd);
+    /* the connection thread owns the fd and closes it exactly once */
 }
 
 /* ------------------------------------------------------------------ */
@@ -1694,8 +1703,9 @@ static void *web_conn_thread(void *arg)
     web_handle_http(fd, method, path, headers, body);
 
 out:
-    if (W.running && strncmp(path, "/ws", 3) != 0)
-        close(fd);                       /* ws closed itself */
+    /* single owner: every accepted fd is closed exactly once here,
+     * including websocket ones - their drain loop only unregisters */
+    close(fd);
     return NULL;
 }
 
@@ -1801,8 +1811,6 @@ static bool web_start(void)
     }
     W.listen_fd = fd;
 
-    remove(WEB_LOG_PATH);
-    web_log("start port=%d code=%s", W.port, W.code);
 
     if (pthread_create(&W.accept_pt, NULL, web_accept_thread, NULL) != 0)
     {
@@ -1821,7 +1829,6 @@ static bool web_start(void)
     else if (!web_worker_started)
         web_worker_run = false;
 
-    web_log("worker create=%d", web_worker_started);
     W.running = true;
     return true;
 }

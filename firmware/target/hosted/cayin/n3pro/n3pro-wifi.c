@@ -17,6 +17,7 @@
 
 #include "kernel.h"
 #include "wifi_hal.h"
+#include "statusbar_rf.h"
 
 #define WIFI_WPA_CLI   "/sbin/wpa_cli"
 #define WIFI_ON_SH     "/sbin/wifi_on.sh"
@@ -385,6 +386,12 @@ void wifi_hal_reset(void)
      * left untouched so the next power-on works normally. */
     system(WIFI_OFF_SH " >/dev/null 2>&1");
     sleep(HZ / 2);
+}
+
+/* statusbar glyph query (statusbar_rf.h) */
+bool statusbar_rf_wifi_on(void)
+{
+    return wifi_radio_on();
 }
 
 bool wifi_hal_get_ip(char *out, size_t outsz)

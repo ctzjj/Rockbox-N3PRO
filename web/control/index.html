@@ -49,9 +49,10 @@ body{background:#fff;color:var(--txt);overflow:hidden;height:100dvh;
 .thm{width:40px;height:37px;padding:0;display:flex;
   align-items:center;justify-content:center}
 .thm svg{width:18px;height:18px}
-/* battery pill, top left */
-.batt{position:absolute;top:calc(14px + env(safe-area-inset-top));left:16px;z-index:60;
-  display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);
+.tl{position:absolute;top:calc(14px + env(safe-area-inset-top));left:16px;
+  z-index:60;display:flex;gap:8px}
+/* battery pill + shutdown button, top left */
+.batt{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);
   background:var(--glass2);backdrop-filter:blur(18px);border:1px solid var(--line);
   border-radius:999px;padding:9px 13px}
 .batt svg{width:25px;height:13px;display:block}
@@ -272,9 +273,12 @@ body.lt #plWrap .sheet{background:rgba(248,249,252,.72)}
 </div>
 
 <div class="card" id="main" hidden>
-  <div class="batt" id="batt">
-    <svg viewBox="0 0 28 14"><rect x="1" y="1" width="22" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><rect id="battFill" x="3.5" y="3.5" width="17" height="7" rx="1.5" fill="currentColor"/><rect x="24.5" y="4.5" width="2.5" height="5" rx="1" fill="currentColor"/></svg>
-    <span id="battPct">-</span>
+  <div class="tl">
+    <div class="batt" id="batt">
+      <svg viewBox="0 0 28 14"><rect x="1" y="1" width="22" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><rect id="battFill" x="3.5" y="3.5" width="17" height="7" rx="1.5" fill="currentColor"/><rect x="24.5" y="4.5" width="2.5" height="5" rx="1" fill="currentColor"/></svg>
+      <span id="battPct">-</span>
+    </div>
+    <button class="lang thm" id="sdBtn" aria-label="shutdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.2 6.2a8 8 0 1 0 11.6 0"/></svg></button>
   </div>
   <div class="tr">
     <button class="lang thm" id="thBtn" aria-label="theme"></button>
@@ -348,6 +352,16 @@ body.lt #plWrap .sheet{background:rgba(248,249,252,.72)}
     </div>
   </div>
 
+  <div id="sdWrap" class="ovl" hidden onclick="this.hidden=true">
+    <div class="fcard" onclick="event.stopPropagation()">
+      <p id="sdText"></p>
+      <div class="row">
+        <button class="dngr" id="sdYes"></button>
+        <button id="sdNo"></button>
+      </div>
+    </div>
+  </div>
+
   <div id="upBox"></div>
   <div id="toast"></div>
   <div id="dropOv" hidden></div>
@@ -369,12 +383,14 @@ const MOON='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0
 
 /* embedded defaults; lang.json (same directory) overrides them */
 const DEF={
- en:{hint:'Enter the code shown on the player',btn:'Enter',bad:'Wrong code',stopped:'Not playing',pl:'Playlist',plempty:'Playlist is empty',
-  tabPlay:'Play',tabFiles:'Files',up:'Upload',play:'Play',del:'Delete',cancel:'Cancel',
-  delq:'Delete this file?',empty:'Empty',drop:'Drop to upload to the current folder',upfail:'Upload failed',delfail:'Delete failed'},
- zh:{hint:'输入播放器屏幕上显示的验证码',btn:'进入',bad:'验证码错误',stopped:'未在播放',pl:'播放列表',plempty:'播放列表为空',
-  tabPlay:'播放',tabFiles:'文件',up:'上传',play:'播放',del:'删除',cancel:'取消',
-  delq:'删除这个文件？',empty:'空目录',drop:'松开鼠标上传到当前目录',upfail:'上传失败',delfail:'删除失败'}};
+  en:{hint:'Enter the code shown on the player',btn:'Enter',bad:'Wrong code',stopped:'Not playing',pl:'Playlist',plempty:'Playlist is empty',
+   tabPlay:'Play',tabFiles:'Files',up:'Upload',play:'Play',del:'Delete',cancel:'Cancel',
+   delq:'Delete this file?',empty:'Empty',drop:'Drop to upload to the current folder',upfail:'Upload failed',delfail:'Delete failed',
+   sd:'Shut down',sdq:'Shut down the player?'},
+  zh:{hint:'输入播放器屏幕上显示的验证码',btn:'进入',bad:'验证码错误',stopped:'未在播放',pl:'播放列表',plempty:'播放列表为空',
+   tabPlay:'播放',tabFiles:'文件',up:'上传',play:'播放',del:'删除',cancel:'取消',
+   delq:'删除这个文件？',empty:'空目录',drop:'松开鼠标上传到当前目录',upfail:'上传失败',delfail:'删除失败',
+   sd:'关机',sdq:'确定关机吗？'}};
 async function loadLang(){
  try{const j=await (await fetch('/lang.json',{cache:'no-store'})).json();
   L={en:Object.assign({},DEF.en,j.en),zh:Object.assign({},DEF.zh,j.zh)}}
@@ -385,8 +401,9 @@ function applyLang(){$('hint').textContent=T().hint;$('loginBtn').textContent=T(
  $('plTitle').textContent=T().pl;
  $('navPlayLbl').textContent=T().tabPlay;$('navFilesLbl').textContent=T().tabFiles;
  $('upLbl').textContent=T().up;$('fPlay').textContent=T().play;$('fDel').textContent=T().del;
- $('fCancel').textContent=T().cancel;$('cfYes').textContent=T().del;$('cfNo').textContent=T().cancel;
- $('dropOv').textContent=T().drop;
+  $('fCancel').textContent=T().cancel;$('cfYes').textContent=T().del;$('cfNo').textContent=T().cancel;
+  $('sdText').textContent=T().sdq;$('sdYes').textContent=T().sd;$('sdNo').textContent=T().cancel;
+  $('dropOv').textContent=T().drop;
  $('langBtn').textContent=lang==='en'?'中文':'EN';
  document.documentElement.lang=lang;}
 function toggleLang(){lang=lang==='en'?'zh':'en';localStorage.setItem('weblang',lang);applyLang();}
@@ -610,8 +627,11 @@ async function onDrop(e){
   $('fPlay').addEventListener('click',playFile);
   $('fDel').addEventListener('click',askDelete);
   $('fCancel').addEventListener('click',closeFMenu);
-  $('cfYes').addEventListener('click',doDelete);
-  $('cfNo').addEventListener('click',()=>$('fConfirm').hidden=true);
+   $('cfYes').addEventListener('click',doDelete);
+   $('cfNo').addEventListener('click',()=>$('fConfirm').hidden=true);
+   $('sdBtn').addEventListener('click',()=>$('sdWrap').hidden=false);
+   $('sdYes').addEventListener('click',()=>{$('sdWrap').hidden=true;post('cmd=shutdown')});
+   $('sdNo').addEventListener('click',()=>$('sdWrap').hidden=true);
   $('upBtn').addEventListener('click',async()=>{if(fdir===null)await loadFiles(null);
    $('fileInput').click()});
   $('fileInput').addEventListener('change',e=>{

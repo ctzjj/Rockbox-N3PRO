@@ -73,6 +73,10 @@
  * WebSocket server; pages are shipped under .rockbox/web/control/.
  */
 #define HAVE_WEB_CONTROL
+/* Draw bluetooth/wireless glyphs in the classic statusbar while the
+ * radios are powered; the state queries are implemented in the n3pro
+ * target directory (statusbar_rf.h). */
+#define HAVE_STATUSBAR_RF_ICONS
 
 /* We don't have hardware controls */
 #define HAVE_SW_TONE_CONTROLS
