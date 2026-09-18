@@ -92,6 +92,14 @@ firmware/target/hosted/cayin/n3pro/                 the N3Pro target driver
     cayin-n3pro.c/.h                                tube / output routing housekeeping
     n3pro_patcher.sh                                unpack + inject + pack a .upt
 apps/keymaps/keymap-n3pro.c                         keymap (scroll wheel + HOME)
+apps/wifi_menu.{c,h}, apps/menus/wifi_menu.c         WiFi menu — generic UI over the
+                                                      `firmware/export/wifi_hal.h` HAL contract
+apps/web_control.{c,h}                              web control server (HTTP + WebSocket,
+                                                      entered from the WiFi menu)
+firmware/target/hosted/cayin/n3pro/n3pro-wifi.c      the n3pro wifi HAL (wpa_cli + vendor scripts)
+web/control/                                        web control frontend; `make zip/fullzip`
+                                                      ships it to `.rockbox/web/control`
+                                                      (n3pro hook in `tools/buildzip.pl`)
 wps/cabbiev2.360x480x16.wps, wps/cabbiev2/*-360x480x16.bmp
 tools/…                                             configure/builds.pm entries (patch only)
 n3pro_port.patch                                    ALL of the port as a unified diff
@@ -179,6 +187,7 @@ mkdir build-n3pro build-n3pro-bl
 
 # SD-card payload (app + fonts + langs + theme)
 ( cd build-n3pro && make fullzip )        # -> rockbox-full.zip
+#                                          (also packs web/control -> .rockbox/web)
 ```
 
 - app output: `rockbox.n3pro`, bootloader output: `bootloader.n3pro`.

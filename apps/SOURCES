@@ -35,6 +35,9 @@ menus/main_menu.c
 #ifdef CAYIN_N3PRO
 menus/n3pro_bluetooth_menu.c
 #endif
+#ifdef HAVE_WIFI_MENU
+menus/wifi_menu.c
+#endif
 menus/playback_menu.c
 menus/playlist_menu.c
 #ifdef HAVE_RECORDING
@@ -59,6 +62,12 @@ settings_list.c
 shortcuts.c
 #ifdef CAYIN_N3PRO
 n3pro_bluetooth.c
+#endif
+#ifdef HAVE_WIFI_MENU
+wifi_menu.c
+#endif
+#ifdef HAVE_WEB_CONTROL
+web_control.c
 #endif
 status.c
 cuesheet.c

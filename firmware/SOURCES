@@ -223,6 +223,9 @@ target/hosted/cayin/n3pro/usb-n3pro.c
 target/hosted/cayin/n3pro/cayin-n3pro.c
 target/hosted/cayin/n3pro/led-n3pro.c
 target/hosted/cayin/n3pro/n3pro-bt-input.c
+#ifdef HAVE_WIFI_MENU
+target/hosted/cayin/n3pro/n3pro-wifi.c
+#endif
 target/hosted/hiby/hibylinux_codec.c
 target/hosted/hiby/usb-dac-hiby.c
 #endif

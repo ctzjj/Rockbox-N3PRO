@@ -925,6 +925,13 @@ struct user_settings
     bool bt_volume_set; /* false until derived from the wired volume */
 #endif
 
+#ifdef HAVE_WIFI_MENU
+    /* Remembered WiFi network (ssid + password); hand-editable in
+     * config.cfg for when the on-device keyboard is inconvenient. */
+    char wifi_ssid[33];
+    char wifi_psk[64];
+#endif
+
 #ifdef HAVE_PERCEPTUAL_VOLUME
     int volume_adjust_mode;
     int volume_adjust_norm_steps;

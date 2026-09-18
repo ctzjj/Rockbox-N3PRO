@@ -1,29 +1,38 @@
 # rockbox-base: 1784c9b8a7f1f2c8c535d8cb9dc965db0fe29e29
 diff --git a/apps/SOURCES b/apps/SOURCES
-index f81261f766..8b47693a4e 100644
+index f81261f766..ff28a9fbbd 100644
 --- a/apps/SOURCES
 +++ b/apps/SOURCES
-@@ -32,6 +32,9 @@ buffering.c
+@@ -32,6 +32,12 @@ buffering.c
  voice_thread.c
  rbcodec_helpers.c
  menus/main_menu.c
 +#ifdef CAYIN_N3PRO
 +menus/n3pro_bluetooth_menu.c
 +#endif
++#ifdef HAVE_WIFI_MENU
++menus/wifi_menu.c
++#endif
  menus/playback_menu.c
  menus/playlist_menu.c
  #ifdef HAVE_RECORDING
-@@ -54,6 +57,9 @@ screens.c
+@@ -54,6 +60,15 @@ screens.c
  settings.c
  settings_list.c
  shortcuts.c
 +#ifdef CAYIN_N3PRO
 +n3pro_bluetooth.c
 +#endif
++#ifdef HAVE_WIFI_MENU
++wifi_menu.c
++#endif
++#ifdef HAVE_WEB_CONTROL
++web_control.c
++#endif
  status.c
  cuesheet.c
  talk.c
-@@ -306,4 +312,6 @@ keymaps/keymap-3ds.c
+@@ -306,4 +321,6 @@ keymaps/keymap-3ds.c
  keymaps/keymap-hibyr3proii.c
  #elif CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD
  keymaps/keymap-hidizsap80max.c
@@ -690,10 +699,10 @@ index 3d046e9351..db2335d937 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..7bc318f5f2 100644
+index 3c8be16c72..61775831d1 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,691 @@
+@@ -17168,3 +17168,1250 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -1385,11 +1394,570 @@ index 3c8be16c72..7bc318f5f2 100644
 +    *: ""
 +  </voice>
 +</phrase>
++
++<phrase>
++  id: LANG_WIFI
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "WiFi"
++  </source>
++  <dest>
++    *: "WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_ON
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Turn WiFi on"
++  </source>
++  <dest>
++    *: "开启 WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_OFF
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Turn WiFi off"
++  </source>
++  <dest>
++    *: "关闭 WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SCAN
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Scan and connect"
++  </source>
++  <dest>
++    *: "扫描热点"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SAVED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Saved networks"
++  </source>
++  <dest>
++    *: "已保存网络"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STATUS
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Status"
++  </source>
++  <dest>
++    *: "状态"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STARTING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Starting WiFi..."
++  </source>
++  <dest>
++    *: "正在开启 WiFi..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STOPPING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Stopping WiFi..."
++  </source>
++  <dest>
++    *: "正在关闭 WiFi..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECTING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connecting..."
++  </source>
++  <dest>
++    *: "连接中..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connected"
++  </source>
++  <dest>
++    *: "已连接"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_FAILED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Operation failed"
++  </source>
++  <dest>
++    *: "操作失败"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_NO_NETS
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "No networks found"
++  </source>
++  <dest>
++    *: "未找到网络"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_PASSWORD
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Enter password"
++  </source>
++  <dest>
++    *: "输入密码"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECT
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connect"
++  </source>
++  <dest>
++    *: "连接"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_FORGET
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Delete"
++  </source>
++  <dest>
++    *: "删除"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SSID
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSID"
++  </source>
++  <dest>
++    *: "SSID"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_IP
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "IP address"
++  </source>
++  <dest>
++    *: "IP 地址"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SIGNAL
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Signal"
++  </source>
++  <dest>
++    *: "信号"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_NOT_CONNECTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Not connected"
++  </source>
++  <dest>
++    *: "未连接"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SCANNING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Scanning..."
++  </source>
++  <dest>
++    *: "扫描中..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO
++  desc: WiFi status screen, radio power state
++  user: core
++  <source>
++    *: "Radio"
++  </source>
++  <dest>
++    *: "无线电"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO_ON
++  desc: WiFi status screen, radio powered on
++  user: core
++  <source>
++    *: "Powered"
++  </source>
++  <dest>
++    *: "开启"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO_OFF
++  desc: WiFi status screen, radio not powered
++  user: core
++  <source>
++    *: "Not powered"
++  </source>
++  <dest>
++    *: "关闭"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESET
++  desc: WiFi menu, reset to power-on state
++  user: core
++  <source>
++    *: "重置 WiFi"
++  </source>
++  <dest>
++    *: "重置 WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESET_CONFIRM
++  desc: WiFi reset confirmation
++  user: core
++  <source>
++    *: "重置 WiFi 到开机初始状态？"
++  </source>
++  <dest>
++    *: "重置 WiFi 到开机初始状态？"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESETTING
++  desc: WiFi reset in progress
++  user: core
++  <source>
++    *: "重置中..."
++  </source>
++  <dest>
++    *: "重置中..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_CONTROL
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Web control"
++  </source>
++  <dest>
++    *: "Web 控制"
++  </dest>
++  <voice>
++    *: "Web 控制"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_SERVICE
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Service"
++  </source>
++  <dest>
++    *: "服务"
++  </dest>
++  <voice>
++    *: "服务"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_RUNNING
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Running"
++  </source>
++  <dest>
++    *: "运行中"
++  </dest>
++  <voice>
++    *: "运行中"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STOPPED
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Stopped"
++  </source>
++  <dest>
++    *: "已停止"
++  </dest>
++  <voice>
++    *: "已停止"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_CODE
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Code"
++  </source>
++  <dest>
++    *: "验证码"
++  </dest>
++  <voice>
++    *: "验证码"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_ADDRESS
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Address"
++  </source>
++  <dest>
++    *: "地址"
++  </dest>
++  <voice>
++    *: "地址"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_START
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Start"
++  </source>
++  <dest>
++    *: "启动"
++  </dest>
++  <voice>
++    *: "启动"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STOP
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Stop"
++  </source>
++  <dest>
++    *: "停止"
++  </dest>
++  <voice>
++    *: "停止"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STARTING
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Starting..."
++  </source>
++  <dest>
++    *: "正在启动..."
++  </dest>
++  <voice>
++    *: "正在启动..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_FAILED
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Start failed"
++  </source>
++  <dest>
++    *: "启动失败"
++  </dest>
++  <voice>
++    *: "启动失败"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_NO_FILES
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Missing web page files"
++  </source>
++  <dest>
++    *: "缺少 Web 页面文件"
++  </dest>
++  <voice>
++    *: "缺少 Web 页面文件"
++  </voice>
++</phrase>
++
++<phrase>
++    id: LANG_WEB_NOT_LOCAL
++    desc: web control only in local playback mode
++    user: core
++    <source>
++        *: "Local file playback only"
++    </source>
++    <dest>
++        *: "仅本地文件播放可用"
++    </dest>
++    <voice>
++        *: "Local file playback only"
++    </voice>
++</phrase>
 diff --git a/apps/lang/chinese-trad.lang b/apps/lang/chinese-trad.lang
-index 2ffee1e338..802bc9d7f8 100644
+index 2ffee1e338..f2b729b7f8 100644
 --- a/apps/lang/chinese-trad.lang
 +++ b/apps/lang/chinese-trad.lang
-@@ -11238,3 +11238,691 @@
+@@ -11238,3 +11238,1250 @@
      ibassodx50,ibassodx90: "CPU頻率管理器"
    </voice>
  </phrase>
@@ -2081,6 +2649,565 @@ index 2ffee1e338..802bc9d7f8 100644
 +    *: ""
 +  </voice>
 +</phrase>
++
++<phrase>
++  id: LANG_WIFI
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "WiFi"
++  </source>
++  <dest>
++    *: "WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_ON
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Turn WiFi on"
++  </source>
++  <dest>
++    *: "開啟 WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_OFF
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Turn WiFi off"
++  </source>
++  <dest>
++    *: "關閉 WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SCAN
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Scan and connect"
++  </source>
++  <dest>
++    *: "掃描熱點"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SAVED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Saved networks"
++  </source>
++  <dest>
++    *: "已保存網路"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STATUS
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Status"
++  </source>
++  <dest>
++    *: "狀態"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STARTING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Starting WiFi..."
++  </source>
++  <dest>
++    *: "正在開啟 WiFi..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STOPPING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Stopping WiFi..."
++  </source>
++  <dest>
++    *: "正在關閉 WiFi..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECTING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connecting..."
++  </source>
++  <dest>
++    *: "連線中..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connected"
++  </source>
++  <dest>
++    *: "已連線"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_FAILED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Operation failed"
++  </source>
++  <dest>
++    *: "操作失敗"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_NO_NETS
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "No networks found"
++  </source>
++  <dest>
++    *: "未找到網路"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_PASSWORD
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Enter password"
++  </source>
++  <dest>
++    *: "輸入密碼"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECT
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connect"
++  </source>
++  <dest>
++    *: "連線"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_FORGET
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Delete"
++  </source>
++  <dest>
++    *: "刪除"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SSID
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSID"
++  </source>
++  <dest>
++    *: "SSID"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_IP
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "IP address"
++  </source>
++  <dest>
++    *: "IP 位址"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SIGNAL
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Signal"
++  </source>
++  <dest>
++    *: "訊號"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_NOT_CONNECTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Not connected"
++  </source>
++  <dest>
++    *: "未連線"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SCANNING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Scanning..."
++  </source>
++  <dest>
++    *: "掃描中..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO
++  desc: WiFi status screen, radio power state
++  user: core
++  <source>
++    *: "Radio"
++  </source>
++  <dest>
++    *: "無線電"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO_ON
++  desc: WiFi status screen, radio powered on
++  user: core
++  <source>
++    *: "Powered"
++  </source>
++  <dest>
++    *: "開啟"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO_OFF
++  desc: WiFi status screen, radio not powered
++  user: core
++  <source>
++    *: "Not powered"
++  </source>
++  <dest>
++    *: "關閉"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESET
++  desc: WiFi menu, reset to power-on state
++  user: core
++  <source>
++    *: "重置 WiFi"
++  </source>
++  <dest>
++    *: "重置 WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESET_CONFIRM
++  desc: WiFi reset confirmation
++  user: core
++  <source>
++    *: "重置 WiFi 到開機初始狀態？"
++  </source>
++  <dest>
++    *: "重置 WiFi 到開機初始狀態？"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESETTING
++  desc: WiFi reset in progress
++  user: core
++  <source>
++    *: "重置中..."
++  </source>
++  <dest>
++    *: "重置中..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_CONTROL
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Web control"
++  </source>
++  <dest>
++    *: "Web 控制"
++  </dest>
++  <voice>
++    *: "Web 控制"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_SERVICE
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Service"
++  </source>
++  <dest>
++    *: "服務"
++  </dest>
++  <voice>
++    *: "服務"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_RUNNING
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Running"
++  </source>
++  <dest>
++    *: "運行中"
++  </dest>
++  <voice>
++    *: "運行中"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STOPPED
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Stopped"
++  </source>
++  <dest>
++    *: "已停止"
++  </dest>
++  <voice>
++    *: "已停止"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_CODE
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Code"
++  </source>
++  <dest>
++    *: "驗證碼"
++  </dest>
++  <voice>
++    *: "驗證碼"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_ADDRESS
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Address"
++  </source>
++  <dest>
++    *: "位址"
++  </dest>
++  <voice>
++    *: "位址"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_START
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Start"
++  </source>
++  <dest>
++    *: "啟動"
++  </dest>
++  <voice>
++    *: "啟動"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STOP
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Stop"
++  </source>
++  <dest>
++    *: "停止"
++  </dest>
++  <voice>
++    *: "停止"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STARTING
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Starting..."
++  </source>
++  <dest>
++    *: "正在啟動..."
++  </dest>
++  <voice>
++    *: "正在啟動..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_FAILED
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Start failed"
++  </source>
++  <dest>
++    *: "啟動失敗"
++  </dest>
++  <voice>
++    *: "啟動失敗"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_NO_FILES
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Missing web page files"
++  </source>
++  <dest>
++    *: "缺少 Web 頁面檔案"
++  </dest>
++  <voice>
++    *: "缺少 Web 頁面檔案"
++  </voice>
++</phrase>
++
++<phrase>
++    id: LANG_WEB_NOT_LOCAL
++    desc: web control only in local playback mode
++    user: core
++    <source>
++        *: "Local file playback only"
++    </source>
++    <dest>
++        *: "僅本地文件播放可用"
++    </dest>
++    <voice>
++        *: "Local file playback only"
++    </voice>
++</phrase>
 diff --git a/apps/lang/czech.lang b/apps/lang/czech.lang
 index 170b57de93..3991c49022 100644
 --- a/apps/lang/czech.lang
@@ -2552,7 +3679,7 @@ index 55028062cd..ae85f0a296 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..4b2e0a3aa9 100644
+index 4c2f0d58b0..6e1b04d1bf 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -2618,7 +3745,7 @@ index 4c2f0d58b0..4b2e0a3aa9 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,635 @@
+@@ -17231,3 +17287,1194 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -3253,6 +4380,565 @@ index 4c2f0d58b0..4b2e0a3aa9 100644
 +  <voice>
 +    *: ""
 +  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "WiFi"
++  </source>
++  <dest>
++    *: "WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_ON
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Turn WiFi on"
++  </source>
++  <dest>
++    *: "Turn WiFi on"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_OFF
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Turn WiFi off"
++  </source>
++  <dest>
++    *: "Turn WiFi off"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SCAN
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Scan networks"
++  </source>
++  <dest>
++    *: "Scan networks"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SAVED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Saved networks"
++  </source>
++  <dest>
++    *: "Saved networks"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STATUS
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Status"
++  </source>
++  <dest>
++    *: "Status"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STARTING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Starting WiFi..."
++  </source>
++  <dest>
++    *: "Starting WiFi..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_STOPPING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Stopping WiFi..."
++  </source>
++  <dest>
++    *: "Stopping WiFi..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECTING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connecting..."
++  </source>
++  <dest>
++    *: "Connecting..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connected"
++  </source>
++  <dest>
++    *: "Connected"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_FAILED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Operation failed"
++  </source>
++  <dest>
++    *: "Operation failed"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_NO_NETS
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "No networks found"
++  </source>
++  <dest>
++    *: "No networks found"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_PASSWORD
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Enter password"
++  </source>
++  <dest>
++    *: "Enter password"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_CONNECT
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Connect"
++  </source>
++  <dest>
++    *: "Connect"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_FORGET
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Delete"
++  </source>
++  <dest>
++    *: "Delete"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SSID
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSID"
++  </source>
++  <dest>
++    *: "SSID"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_IP
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "IP address"
++  </source>
++  <dest>
++    *: "IP address"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SIGNAL
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Signal"
++  </source>
++  <dest>
++    *: "Signal"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_NOT_CONNECTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Not connected"
++  </source>
++  <dest>
++    *: "Not connected"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_SCANNING
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Scanning..."
++  </source>
++  <dest>
++    *: "Scanning..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO
++  desc: WiFi status screen, radio power state
++  user: core
++  <source>
++    *: "Radio"
++  </source>
++  <dest>
++    *: "Radio"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO_ON
++  desc: WiFi status screen, radio powered on
++  user: core
++  <source>
++    *: "Powered"
++  </source>
++  <dest>
++    *: "On"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RADIO_OFF
++  desc: WiFi status screen, radio not powered
++  user: core
++  <source>
++    *: "Not powered"
++  </source>
++  <dest>
++    *: "Off"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESET
++  desc: WiFi menu, reset to power-on state
++  user: core
++  <source>
++    *: "Reset WiFi"
++  </source>
++  <dest>
++    *: "Reset WiFi"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESET_CONFIRM
++  desc: WiFi reset confirmation
++  user: core
++  <source>
++    *: "Reset WiFi to power-on state?"
++  </source>
++  <dest>
++    *: "Reset WiFi to power-on state?"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++
++<phrase>
++  id: LANG_WIFI_RESETTING
++  desc: WiFi reset in progress
++  user: core
++  <source>
++    *: "Resetting..."
++  </source>
++  <dest>
++    *: "Resetting..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_CONTROL
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Web control"
++  </source>
++  <dest>
++    *: "Web control"
++  </dest>
++  <voice>
++    *: "Web control"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_SERVICE
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Service"
++  </source>
++  <dest>
++    *: "Service"
++  </dest>
++  <voice>
++    *: "Service"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_RUNNING
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Running"
++  </source>
++  <dest>
++    *: "Running"
++  </dest>
++  <voice>
++    *: "Running"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STOPPED
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Stopped"
++  </source>
++  <dest>
++    *: "Stopped"
++  </dest>
++  <voice>
++    *: "Stopped"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_CODE
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Code"
++  </source>
++  <dest>
++    *: "Code"
++  </dest>
++  <voice>
++    *: "Code"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_ADDRESS
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Address"
++  </source>
++  <dest>
++    *: "Address"
++  </dest>
++  <voice>
++    *: "Address"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_START
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Start"
++  </source>
++  <dest>
++    *: "Start"
++  </dest>
++  <voice>
++    *: "Start"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STOP
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Stop"
++  </source>
++  <dest>
++    *: "Stop"
++  </dest>
++  <voice>
++    *: "Stop"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_STARTING
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Starting..."
++  </source>
++  <dest>
++    *: "Starting..."
++  </dest>
++  <voice>
++    *: "Starting..."
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_FAILED
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Start failed"
++  </source>
++  <dest>
++    *: "Start failed"
++  </dest>
++  <voice>
++    *: "Start failed"
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_WEB_NO_FILES
++  desc: used by the web control screen
++  user: core
++  <source>
++    *: "Missing web page files"
++  </source>
++  <dest>
++    *: "Missing web page files"
++  </dest>
++  <voice>
++    *: "Missing web page files"
++  </voice>
++</phrase>
++
++<phrase>
++    id: LANG_WEB_NOT_LOCAL
++    desc: web control only in local playback mode
++    user: core
++    <source>
++        *: "Local file playback only"
++    </source>
++    <dest>
++        *: "Local file playback only"
++    </dest>
++    <voice>
++        *: "Local file playback only"
++    </voice>
 +</phrase>
 diff --git a/apps/lang/espanol.lang b/apps/lang/espanol.lang
 index 6dffa08c33..1a4dd58814 100644
@@ -6639,19 +8325,24 @@ index 231f45ad22..7c94c254d8 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/menus/exported_menus.h b/apps/menus/exported_menus.h
-index b7e95298d4..274b67ffd8 100644
+index b7e95298d4..1eef08e881 100644
 --- a/apps/menus/exported_menus.h
 +++ b/apps/menus/exported_menus.h
-@@ -42,6 +42,9 @@ extern const struct menu_item_ex
+@@ -42,7 +42,13 @@ extern const struct menu_item_ex
          audiohw_eq_tone_controls,   /* audiohw_eq_menu.c */
  #endif
          radio_settings_menu,        /* radio_menu.c     */
+-        theme_menu;                 /* theme_menu.c     */
 +#ifdef CAYIN_N3PRO
 +        n3pro_bluetooth_root_item,  /* n3pro_bluetooth_menu.c */
 +#endif
-         theme_menu;                 /* theme_menu.c     */
++#ifdef HAVE_WIFI_MENU
++        wifi_root_item,             /* wifi_menu.c */
++#endif
++        theme_menu;                 /* theme_menu.c   */
  
  struct browse_folder_info {
+     const char* dir;
 diff --git a/apps/menus/n3pro_bluetooth_menu.c b/apps/menus/n3pro_bluetooth_menu.c
 new file mode 100644
 index 0000000000..2376e7d44d
@@ -6739,6 +8430,28 @@ index 61d16f4cb1..66c70ad054 100644
            ,&surround_menu, &pbe_menu, &afr_enabled
  #ifdef HAVE_PITCHCONTROL
            ,&timestretch_enabled
+diff --git a/apps/menus/wifi_menu.c b/apps/menus/wifi_menu.c
+new file mode 100644
+index 0000000000..5a33fc4b2c
+--- /dev/null
++++ b/apps/menus/wifi_menu.c
+@@ -0,0 +1,16 @@
++/***************************************************************************
++ * WiFi menu root item.
++ ****************************************************************************/
++#include "config.h"
++
++#ifdef HAVE_WIFI_MENU
++
++#include "menu.h"
++#include "lang.h"
++#include "settings.h"
++#include "wifi_menu.h"
++
++MENUITEM_FUNCTION(wifi_root_item, 0, ID2P(LANG_WIFI),
++                  wifi_menu, NULL, Icon_Submenu);
++
++#endif /* HAVE_WIFI_MENU */
 diff --git a/apps/n3pro_bluetooth.c b/apps/n3pro_bluetooth.c
 new file mode 100644
 index 0000000000..5fb6082083
@@ -15766,15 +17479,18 @@ index cb00fef74f..22d146962e 100644
               * for cell; page three completes Latin-1 and adds the accented
               * letters common to the other European locales. The space bar
 diff --git a/apps/root_menu.c b/apps/root_menu.c
-index a989475740..1db6bb6899 100644
+index a989475740..ef2969e8ec 100644
 --- a/apps/root_menu.c
 +++ b/apps/root_menu.c
-@@ -556,6 +556,9 @@ static struct menu_table menu_table[] = {
+@@ -556,6 +556,12 @@ static struct menu_table menu_table[] = {
      { "radio", &fm },
  #endif
      { "playlists", &playlists },
 +#ifdef CAYIN_N3PRO
 +    { "bluetooth", &n3pro_bluetooth_root_item },
++#endif
++#ifdef HAVE_WIFI_MENU
++    { "wifi", &wifi_root_item },
 +#endif
      { "plugins", &rocks_browser },
      { "system_menu", &system_menu_ },
@@ -15807,7 +17523,7 @@ index f9b170a52d..2e1e8ec3e5 100644
      dsp_eq_enable(global_settings.eq_enabled);
      dsp_set_eq_precut(global_settings.eq_precut);
 diff --git a/apps/settings.h b/apps/settings.h
-index 5a0f4f83e3..16a335156a 100644
+index 5a0f4f83e3..d640f020f1 100644
 --- a/apps/settings.h
 +++ b/apps/settings.h
 @@ -401,6 +401,13 @@ struct user_settings
@@ -15835,7 +17551,7 @@ index 5a0f4f83e3..16a335156a 100644
  #ifdef AUDIOHW_HAVE_EQ
      /** Hardware EQ tone controls **/
      struct hw_eq_band
-@@ -907,6 +918,12 @@ struct user_settings
+@@ -907,6 +918,19 @@ struct user_settings
      int play_frequency; /* core audio output frequency selection */
  #endif
      int volume_limit; /* maximum volume limit */
@@ -15845,11 +17561,18 @@ index 5a0f4f83e3..16a335156a 100644
 +    int bt_volume;
 +    bool bt_volume_set; /* false until derived from the wired volume */
 +#endif
++
++#ifdef HAVE_WIFI_MENU
++    /* Remembered WiFi network (ssid + password); hand-editable in
++     * config.cfg for when the on-device keyboard is inconvenient. */
++    char wifi_ssid[33];
++    char wifi_psk[64];
++#endif
  
  #ifdef HAVE_PERCEPTUAL_VOLUME
      int volume_adjust_mode;
 diff --git a/apps/settings_list.c b/apps/settings_list.c
-index 24edac9bb7..ad1652c559 100644
+index 24edac9bb7..a564f84c5b 100644
 --- a/apps/settings_list.c
 +++ b/apps/settings_list.c
 @@ -648,6 +648,15 @@ static void crossfeed_cross_set(int val)
@@ -15868,7 +17591,7 @@ index 24edac9bb7..ad1652c559 100644
  static void surround_set_factor(int val)
  {
      (void)val;
-@@ -1072,6 +1081,13 @@ static void hp_lo_select_apply(int arg)
+@@ -1072,6 +1081,18 @@ static void hp_lo_select_apply(int arg)
  const struct settings_list settings[] = {
  /* system_status settings .resume.cfg */
      SYSTEM_STATUS_SOUND(F_NO_WRAP, volume, LANG_VOLUME, "volume", SOUND_VOLUME),
@@ -15879,10 +17602,15 @@ index 24edac9bb7..ad1652c559 100644
 +    OFFON_SETTING(0, bt_volume_set, LANG_BLUETOOTH, false, "bt volume set",
 +                  NULL),
 +#endif
++#ifdef HAVE_WIFI_MENU
++    /* Remembered WiFi network; hand-editable in config.cfg. */
++    TEXT_SETTING(0, wifi_ssid, "wifi ssid", "", NULL, NULL),
++    TEXT_SETTING(0, wifi_psk, "wifi password", "", NULL, NULL),
++#endif
  #ifdef HAVE_PITCHCONTROL
      SYSTEM_STATUS(F_SOUNDSETTING, resume_pitch, PITCH_SPEED_100, "pitch"),
      SYSTEM_STATUS(F_SOUNDSETTING, resume_speed, PITCH_SPEED_100, "speed"),
-@@ -1199,7 +1215,10 @@ const struct settings_list settings[] = {
+@@ -1199,7 +1220,10 @@ const struct settings_list settings[] = {
  
  #ifdef AUDIOHW_HAVE_FILTER_ROLL_OFF
      CHOICE_SETTING(F_SOUNDSETTING, roll_off, LANG_FILTER_ROLL_OFF, 0,
@@ -15894,7 +17622,7 @@ index 24edac9bb7..ad1652c559 100644
                     "roll_off", "linear fast,linear slow,minimum fast,minimum slow,apodizing 1,apodizing 2,hybrid fast,brick wall", sound_set_filter_roll_off,
                     8, ID2P(LANG_FILTER_LINEAR_FAST), ID2P(LANG_FILTER_LINEAR_SLOW), ID2P(LANG_FILTER_MINIMUM_FAST), ID2P(LANG_FILTER_MINIMUM_SLOW),
                     ID2P(LANG_FILTER_APODIZING_1), ID2P(LANG_FILTER_APODIZING_2), ID2P(LANG_FILTER_HYBRID_FAST), ID2P(LANG_FILTER_BRICK_WALL)),
-@@ -1225,6 +1244,12 @@ const struct settings_list settings[] = {
+@@ -1225,6 +1249,12 @@ const struct settings_list settings[] = {
                     2, ID2P(LANG_DAC_POWER_HIGH), ID2P(LANG_DAC_POWER_LOW)),
  #endif
  
@@ -15907,7 +17635,7 @@ index 24edac9bb7..ad1652c559 100644
      /* playback */
      OFFON_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, playlist_shuffle,
                    LANG_SHUFFLE, false, "shuffle", shuffle_playlist_callback),
-@@ -1964,6 +1989,26 @@ const struct settings_list settings[] = {
+@@ -1964,6 +1994,26 @@ const struct settings_list settings[] = {
                         "crossfeed hf cutoff", UNIT_HERTZ, 500, 2000, 100,
                         NULL, NULL, crossfeed_cross_set),
  
@@ -15934,6 +17662,2576 @@ index 24edac9bb7..ad1652c559 100644
      /* equalizer */
      OFFON_SETTING(F_EQSETTING, eq_enabled, LANG_EQUALIZER_ENABLED, false,
                    "eq enabled", eq_enabled_option_callback),
+diff --git a/apps/web_control.c b/apps/web_control.c
+new file mode 100644
+index 0000000000..58ed093e04
+--- /dev/null
++++ b/apps/web_control.c
+@@ -0,0 +1,1999 @@
++/***************************************************************************
++ * Generic Web remote control framework.
++ *
++ * Serves the browser page from .rockbox/web/control/ (no built-in
++ * fallback: the service refuses to start without the files) and
++ * exposes a small JSON API plus a WebSocket for live status.  The
++ * page offers title / cover / progress, prev / next / play-pause,
++ * seek and volume; access is guarded by a short code shown on the
++ * device.
++ *
++ * Core playback APIs are only touched from the cooperative Rockbox
++ * worker thread; the network threads exchange data through a
++ * snapshot and a command queue.
++ ****************************************************************************/
++#include "config.h"
++
++#ifdef HAVE_WEB_CONTROL
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <unistd.h>
++#include <ctype.h>
++#include <time.h>
++#include <errno.h>
++#include <limits.h>
++#include <pthread.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/time.h>
++#include <netinet/in.h>
++#include <fcntl.h>
++
++#include "kernel.h"
++#include "thread.h"
++#include "action.h"
++#include "splash.h"
++#include "lang.h"
++#include "settings.h"
++#include "sound.h"
++#include "audio.h"
++#include "playlist.h"
++#include "gui/list.h"
++#include "albumart.h"
++#include "file.h"
++#include "dir.h"
++#include "dirent.h"
++#include "rbpaths.h"
++#include "strcasestr.h"
++#include "filetypes.h"
++#include "powermgmt.h"
++#include "web_control.h"
++
++#if defined(HAVE_WIFI_MENU)
++#include "wifi_hal.h"
++
++/* TEMP diagnostics -- remove before final sync */
++#define WEB_LOG_PATH "/tmp/web.log"
++static void web_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
++static void web_log(const char *fmt, ...)
++{
++    FILE *f = fopen(WEB_LOG_PATH, "a");
++    if (!f)
++        return;
++    va_list ap;
++    va_start(ap, fmt);
++    vfprintf(f, fmt, ap);
++    fputc('\n', f);
++    va_end(ap);
++    fclose(f);
++}
++#endif
++
++#ifdef CAYIN_N3PRO
++#include "n3pro-bt-pcm.h"
++#endif
++
++#define WEB_PORT_MAIN    80
++#define WEB_PORT_ALT     8080
++#define WEB_CMD_Q        8
++#define WEB_WS_MAX       4
++#define WEB_FILES_MAX    400
++#define WEB_NAME_MAX     120
++/* Rockbox-vfs paths: "/" is the storage root, the page lives in
++ * <storage>/.rockbox/web/control/ (same layout as langs/themes). */
++#define WEB_PAGE_DIR     ROCKBOX_DIR "/web/control"
++#define WEB_PAGE_INDEX   WEB_PAGE_DIR "/index.html"
++
++/* ------------------------------------------------------------------ */
++/* state                                                               */
++/* ------------------------------------------------------------------ */
++
++enum web_cmd
++{
++    WEB_CMD_NONE = 0,
++    WEB_CMD_PLAYPAUSE,
++    WEB_CMD_NEXT,
++    WEB_CMD_PREV,
++    WEB_CMD_STOP,
++    WEB_CMD_SEEK,
++    WEB_CMD_VOL,
++    WEB_CMD_JUMP,      /* param = playlist slot (0 = current track) */
++    WEB_CMD_FILEPLAY,  /* path operand in pend_path */
++    WEB_CMD_REPEAT,    /* cycle repeat mode Off -> All -> One */
++};
++
++struct web_state
++{
++    volatile bool running;
++    int port;
++    char code[7];
++    char token[17];
++
++    pthread_mutex_t mutex;
++    pthread_t accept_pt;
++    int listen_fd;
++
++    /* snapshot, guarded by mutex */
++    struct
++    {
++        int state;                 /* 0 stopped, 1 playing, 2 paused */
++        int vol;                   /* 0..100 */
++        int bat;                   /* battery percent */
++        int rep;                   /* repeat mode (REPEAT_*) */
++        long serial;               /* bumped on track change */
++        bool aa;                   /* cover available */
++        bool aa_embed;
++        char aa_path[260];         /* track path (embed) or art file */
++        long aa_pos, aa_size;
++        char title[130], artist[96], album[96];
++        unsigned long pos, len;    /* ms */
++    } snap;
++    char json[1400];
++
++    /* websocket clients */
++    int ws_fd[WEB_WS_MAX];
++
++    /* command queue */
++    struct { int cmd; long param; } cmds[WEB_CMD_Q];
++    int cmd_rd, cmd_wr;
++    char pend_path[MAX_PATH];        /* WEB_CMD_FILEPLAY operand */
++};
++
++static struct web_state W =
++{
++    .mutex = PTHREAD_MUTEX_INITIALIZER,
++    .listen_fd = -1,
++};
++
++/* One directory entry as the browser sees it (file management). */
++struct web_entry
++{
++    char name[WEB_NAME_MAX];
++    long mtime;
++    int attr;                   /* ATTR_DIRECTORY or filetype bits */
++};
++
++static int web_collect_dir(const char *path, struct web_entry *ents,
++                           int max, bool audio_only);
++static void web_json_reply(int fd, int code, const char *text,
++                           const char *msg);
++
++static char *web_str(int id)
++{
++    return (char *)str(id);
++}
++
++/* ------------------------------------------------------------------ */
++/* sha1 + base64 (for the WebSocket handshake)                         */
++/* ------------------------------------------------------------------ */
++
++static void web_sha1(const uint8_t *data, size_t len, uint8_t out[20])
++{
++    uint32_t h[5] = { 0x67452301, 0xEFCDAB89, 0x98BADCFE,
++                      0x10325476, 0xC3D2E1F0 };
++    uint64_t bits = (uint64_t)len * 8;
++    size_t total = ((len + 9 + 63) / 64) * 64;   /* padded size */
++    uint8_t *buf = malloc(total);
++
++    if (!buf)
++    {
++        memset(out, 0, 20);
++        return;
++    }
++    memcpy(buf, data, len);
++    buf[len] = 0x80;
++    memset(buf + len + 1, 0, total - len - 1);
++    for (int i = 0; i < 8; i++)                  /* big-endian bit count */
++        buf[total - 1 - i] = (uint8_t)(bits >> (8 * i));
++
++    for (size_t off = 0; off < total; off += 64)
++    {
++        uint32_t w[80];
++
++        for (int i = 0; i < 16; i++)             /* big-endian words */
++            w[i] = ((uint32_t)buf[off + i * 4] << 24) |
++                   ((uint32_t)buf[off + i * 4 + 1] << 16) |
++                   ((uint32_t)buf[off + i * 4 + 2] << 8) |
++                   (uint32_t)buf[off + i * 4 + 3];
++        for (int i = 16; i < 80; i++)
++        {
++            uint32_t x = w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16];
++            w[i] = (x << 1) | (x >> 31);
++        }
++
++        uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4];
++        for (int i = 0; i < 80; i++)
++        {
++            uint32_t f, k;
++            if (i < 20)      { f = (b & c) | ((~b) & d);        k = 0x5A827999; }
++            else if (i < 40) { f = b ^ c ^ d;                   k = 0x6ED9EBA1; }
++            else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
++            else             { f = b ^ c ^ d;                   k = 0xCA62C1D6; }
++            uint32_t t = ((a << 5) | (a >> 27)) + f + e + k + w[i];
++            e = d; d = c; c = (b << 30) | (b >> 2); b = a; a = t;
++        }
++        h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e;
++    }
++    free(buf);
++
++    for (int i = 0; i < 5; i++)
++    {
++        out[i * 4 + 0] = h[i] >> 24;
++        out[i * 4 + 1] = h[i] >> 16;
++        out[i * 4 + 2] = h[i] >> 8;
++        out[i * 4 + 3] = h[i];
++    }
++}
++
++static void web_b64(const uint8_t *in, size_t len, char *out)
++{
++    static const char tab[] =
++        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++    size_t i, o = 0;
++
++    for (i = 0; i + 2 < len; i += 3)
++    {
++        uint32_t v = (in[i] << 16) | (in[i + 1] << 8) | in[i + 2];
++        out[o++] = tab[(v >> 18) & 63];
++        out[o++] = tab[(v >> 12) & 63];
++        out[o++] = tab[(v >> 6) & 63];
++        out[o++] = tab[v & 63];
++    }
++    if (len - i == 1)
++    {
++        out[o++] = tab[in[i] >> 2];
++        out[o++] = tab[(in[i] & 3) << 4];
++        out[o++] = '=';
++        out[o++] = '=';
++    }
++    else if (len - i == 2)
++    {
++        out[o++] = tab[in[i] >> 2];
++        out[o++] = tab[((in[i] & 3) << 4) | (in[i + 1] >> 4)];
++        out[o++] = tab[(in[i + 1] & 15) << 2];
++        out[o++] = '=';
++    }
++    out[o] = '\0';
++}
++
++/* ------------------------------------------------------------------ */
++/* snapshot / commands (worker side)                                   */
++/* ------------------------------------------------------------------ */
++
++static void web_json_escape(char *out, size_t outsz, const char *in)
++{
++    size_t o = 0;
++    for (const char *p = in; *p && o + 7 < outsz; p++)
++    {
++        unsigned char ch = (unsigned char)*p;
++        if (ch == '"' || ch == '\\')
++        {
++            out[o++] = '\\';
++            out[o++] = ch;
++        }
++        else if (ch < 0x20)
++        {
++            o += snprintf(out + o, outsz - o, "\\u%04x", ch);
++        }
++        else
++            out[o++] = ch;
++    }
++    out[o] = '\0';
++}
++
++/* Resolve the artwork for the current track into the snapshot:
++ * embedded art first, then a folder image lookup. Called from the
++ * worker thread only. */
++static void web_snap_albumart(struct mp3entry *id3)
++{
++    bool embed = id3->has_embedded_albumart && id3->albumart.size > 0;
++    char art[260];
++    bool found = false;
++    if (!embed)
++    {
++        struct dim dim = { 0, 0 };
++        found = find_albumart(id3, art, sizeof(art), &dim);
++    }
++    if (embed)
++    {
++        W.snap.aa = true;
++        W.snap.aa_embed = true;
++        snprintf(W.snap.aa_path, sizeof(W.snap.aa_path), "%s", id3->path);
++        W.snap.aa_pos = (long)id3->albumart.pos;
++        W.snap.aa_size = id3->albumart.size;
++    }
++    else if (found)
++    {
++        W.snap.aa = true;
++        W.snap.aa_embed = false;
++        snprintf(W.snap.aa_path, sizeof(W.snap.aa_path), "%s", art);
++        W.snap.aa_pos = 0;
++        W.snap.aa_size = 0;
++    }
++    else
++        W.snap.aa = false;
++}
++
++/* Called from the worker thread only: refresh the snapshot and
++ * rebuild the JSON. */
++static void web_refresh_snapshot(void)
++{
++    struct mp3entry *id3 = audio_current_track();
++    int status = audio_status();
++    int vmin = sound_min(SOUND_VOLUME);
++    int vmax = sound_max(SOUND_VOLUME);
++    char t[200], a[130], al[130];
++
++    int state = 0;
++    /* paused playback reports PLAY *and* PAUSE - test PAUSE first so the
++     * state actually reflects it */
++    if (status & AUDIO_STATUS_PAUSE)
++        state = 2;
++    else if (status & AUDIO_STATUS_PLAY)
++        state = 1;
++
++    pthread_mutex_lock(&W.mutex);
++    W.snap.state = state;
++    W.snap.vol = vmax > vmin
++        ? (global_status.volume - vmin) * 100 / (vmax - vmin) : 0;
++    W.snap.bat = battery_level();
++    W.snap.rep = global_settings.repeat_mode;
++
++    if (id3)
++    {
++        const char *title = id3->title;
++        char base[130];
++        if (!title || !title[0])
++        {
++            const char *slash = strrchr(id3->path, '/');
++            snprintf(base, sizeof(base), "%s", slash ? slash + 1 : id3->path);
++            title = base;
++        }
++        snprintf(W.snap.title, sizeof(W.snap.title), "%s", title ? title : "-");
++        snprintf(W.snap.artist, sizeof(W.snap.artist), "%s",
++                 id3->artist ? id3->artist : "");
++        snprintf(W.snap.album, sizeof(W.snap.album), "%s",
++                 id3->album ? id3->album : "");
++        W.snap.pos = id3->elapsed;
++        W.snap.len = id3->length;
++
++        static char last_track[260] = "";
++        static int aa_retries = 0;
++        if (strcmp(last_track, id3->path) != 0)
++        {
++            snprintf(last_track, sizeof(last_track), "%s", id3->path);
++            W.snap.serial++;
++
++            /* the artwork lookup touches the filesystem - run it
++             * only when the track changes, not on every refresh */
++            web_snap_albumart(id3);
++
++            /* right after a skip the metadata may not be parsed yet
++             * (embedded art missing from the half-filled id3); retry
++             * twice so late artwork is still found */
++            aa_retries = W.snap.aa ? 0 : 2;
++        }
++        else if (!W.snap.aa && aa_retries > 0)
++        {
++            aa_retries--;
++            web_snap_albumart(id3);
++            if (W.snap.aa)
++                W.snap.serial++;   /* page must refetch the cover */
++        }
++    }
++    else
++    {
++        W.snap.title[0] = '\0';
++        W.snap.artist[0] = '\0';
++        W.snap.album[0] = '\0';
++        W.snap.pos = 0;
++        W.snap.len = 0;
++        W.snap.aa = false;
++    }
++
++    web_json_escape(t, sizeof(t), W.snap.title);
++    web_json_escape(a, sizeof(a), W.snap.artist);
++    web_json_escape(al, sizeof(al), W.snap.album);
++    snprintf(W.json, sizeof(W.json),
++             "{\"state\":%d,\"title\":\"%s\",\"artist\":\"%s\","
++             "\"album\":\"%s\",\"pos\":%lu,\"len\":%lu,\"vol\":%d,"
++             "\"bat\":%d,\"rep\":%d,\"serial\":%ld,\"aa\":%s}",
++             W.snap.state, t, a, al, W.snap.pos, W.snap.len,
++             W.snap.vol, W.snap.bat, W.snap.rep, W.snap.serial,
++             W.snap.aa ? "true" : "false");
++    pthread_mutex_unlock(&W.mutex);
++}
++
++static void web_exec_cmd(int cmd, long param)
++{
++    web_log("exec %d %ld", cmd, param);
++    switch (cmd)
++    {
++        case WEB_CMD_PLAYPAUSE:
++            /* paused reports PLAY *and* PAUSE - test PAUSE first so the
++             * toggle actually alternates instead of pausing forever */
++            if (audio_status() & AUDIO_STATUS_PAUSE)
++                audio_resume();
++            else if (audio_status() & AUDIO_STATUS_PLAY)
++                audio_pause();
++            break;
++        case WEB_CMD_NEXT:
++            audio_next();
++            break;
++        case WEB_CMD_PREV:
++            audio_prev();
++            break;
++        case WEB_CMD_STOP:
++            audio_stop();
++            break;
++        case WEB_CMD_SEEK:
++            audio_ff_rewind(param);
++            break;
++        case WEB_CMD_VOL:
++        {
++            int vmin = sound_min(SOUND_VOLUME);
++            int vmax = sound_max(SOUND_VOLUME);
++            if (param < 0) param = 0;
++            if (param > 100) param = 100;
++            sound_set_volume(vmin + (int)param * (vmax - vmin) / 100);
++            break;
++        }
++        case WEB_CMD_JUMP:
++            /* param = display slot.  Resolve it to a real index and
++             * start there directly: audio_skip() navigates by repeat
++             * rules, and under Repeat One it refuses to leave the
++             * current track at all. */
++            if (param >= 0)
++            {
++                struct playlist_track_info info;
++                int n = playlist_amount();
++                for (int i = 0; i < n; i++)
++                {
++                    if (playlist_get_track_info(NULL, i, &info) == 0 &&
++                        info.display_index == param + 1)
++                    {
++                        playlist_start(info.index, 0, 0);
++                        break;
++                    }
++                }
++            }
++            break;
++        case WEB_CMD_FILEPLAY:
++        {
++            /* Play the chosen file the way the browser does: the whole
++             * directory becomes the new playlist (sorted with the
++             * browser settings), starting at the selected file. */
++            char local[MAX_PATH];
++            pthread_mutex_lock(&W.mutex);
++            snprintf(local, sizeof(local), "%s", W.pend_path);
++            pthread_mutex_unlock(&W.mutex);
++
++            char *sep = strrchr(local, '/');
++            if (!sep)
++                break;
++            char selname[WEB_NAME_MAX];
++            snprintf(selname, sizeof(selname), "%s", sep + 1);
++            *sep = '\0';
++
++            static struct web_entry ents[WEB_FILES_MAX];
++            int n = web_collect_dir(local, ents, WEB_FILES_MAX, true);
++            if (n <= 0)
++                break;
++
++            audio_stop();
++            if (playlist_create(local, NULL) == -1)
++                break;
++
++            int sel = 0;
++            for (int i = 0; i < n; i++)
++            {
++                char full[MAX_PATH];
++                snprintf(full, sizeof(full), "%s/%s", local, ents[i].name);
++                playlist_insert_track(NULL, full, PLAYLIST_INSERT_LAST,
++                                      false, false);
++                if (strcasecmp(ents[i].name, selname) == 0)
++                    sel = i;
++            }
++            if (global_settings.playlist_shuffle)
++                sel = playlist_shuffle(current_tick, sel);
++            playlist_start(sel, 0, 0);
++            break;
++        }
++        case WEB_CMD_REPEAT:
++        {
++            /* cycle like the playback settings offer: Off -> All -> One;
++             * shuffle/ab states (if ever set elsewhere) fold back to Off */
++            int r = global_settings.repeat_mode;
++            if (r < REPEAT_OFF || r > REPEAT_ONE)
++                r = REPEAT_OFF;
++            else
++                r = (r == REPEAT_ONE) ? REPEAT_OFF : r + 1;
++            global_settings.repeat_mode = r;
++            settings_save();
++            break;
++        }
++    }
++}
++
++static void web_push_cmd(int cmd, long param)
++{
++    pthread_mutex_lock(&W.mutex);
++    int next = (W.cmd_wr + 1) % WEB_CMD_Q;
++    if (next != W.cmd_rd)    /* drop when full */
++    {
++        W.cmds[W.cmd_wr].cmd = cmd;
++        W.cmds[W.cmd_wr].param = param;
++        W.cmd_wr = next;
++    }
++    pthread_mutex_unlock(&W.mutex);
++}
++
++static void web_drain_cmds(void)
++{
++    while (1)
++    {
++        int cmd = WEB_CMD_NONE;
++        long param = 0;
++
++        pthread_mutex_lock(&W.mutex);
++        if (W.cmd_rd != W.cmd_wr)
++        {
++            cmd = W.cmds[W.cmd_rd].cmd;
++            param = W.cmds[W.cmd_rd].param;
++            W.cmd_rd = (W.cmd_rd + 1) % WEB_CMD_Q;
++        }
++        pthread_mutex_unlock(&W.mutex);
++
++        if (cmd == WEB_CMD_NONE)
++            break;
++        web_exec_cmd(cmd, param);
++    }
++}
++
++/* ------------------------------------------------------------------ */
++/* worker thread (cooperative)                                         */
++/* ------------------------------------------------------------------ */
++
++static volatile bool web_worker_run;
++static volatile bool web_worker_started;
++
++static void web_ws_broadcast(const char *payload, size_t len)
++{
++    uint8_t hdr[10];
++    size_t hlen;
++
++    if (len < 126)
++    {
++        hdr[0] = 0x81;
++        hdr[1] = (uint8_t)len;
++        hlen = 2;
++    }
++    else
++    {
++        hdr[0] = 0x81;
++        hdr[1] = 126;
++        hdr[2] = len >> 8;
++        hdr[3] = len & 0xff;
++        hlen = 4;
++    }
++
++    /* Snapshot the clients, then send WITHOUT holding the mutex: a
++     * stalled client (screen off, backgrounded tab) must never block
++     * the worker - commands and status refreshs would queue behind
++     * it.  The sockets are non-blocking; a client that cannot take
++     * the frame is dropped and reconnects by itself. */
++    int fds[WEB_WS_MAX];
++    pthread_mutex_lock(&W.mutex);
++    for (int i = 0; i < WEB_WS_MAX; i++)
++        fds[i] = W.ws_fd[i];
++    pthread_mutex_unlock(&W.mutex);
++
++    for (int i = 0; i < WEB_WS_MAX; i++)
++    {
++        int fd = fds[i];
++        if (fd < 0)
++            continue;
++        if (send(fd, hdr, hlen, MSG_NOSIGNAL) < 0 ||
++            send(fd, payload, len, MSG_NOSIGNAL) < 0)
++        {
++            close(fd);
++            pthread_mutex_lock(&W.mutex);
++            if (W.ws_fd[i] == fd)
++                W.ws_fd[i] = -1;
++            pthread_mutex_unlock(&W.mutex);
++        }
++    }
++}
++
++static bool web_local_playback(void)
++{
++    /* Positive check: the web remote drives the local file player only.
++     * Anything that is not plainly local file playback (USB DAC input,
++     * bluetooth receive, bluetooth output route -- and any future
++     * external mode registered in the target helper) refuses to run. */
++#ifdef CAYIN_N3PRO
++    return n3pro_local_playback();
++#else
++    return true;
++#endif
++}
++
++static void web_worker_thread(void)
++{
++    char last[1400] = "";
++    int loops = 0;
++
++    web_log("worker up");
++
++    while (web_worker_run)
++    {
++        /* An external mode (USB DAC plugged, bluetooth route started)
++         * may take over while the server runs: stop it then. */
++        if (!web_local_playback())
++        {
++            web_log("worker exit: not local");
++            web_control_stop();
++            break;
++        }
++
++        web_drain_cmds();
++        web_refresh_snapshot();
++
++        pthread_mutex_lock(&W.mutex);
++        size_t len = strlen(W.json);
++        char snap[1400];
++        memcpy(snap, W.json, len + 1);
++        pthread_mutex_unlock(&W.mutex);
++
++        if (strcmp(snap, last) != 0)
++        {
++            strcpy(last, snap);
++            web_ws_broadcast(snap, len);
++        }
++        if ((++loops & 15) == 0)
++            web_log("hb loops=%d len=%d", loops, (int)len);
++        sleep(HZ / 4);
++    }
++    web_log("worker end run=%d", web_worker_run);
++    web_worker_started = false;
++}
++
++static long web_worker_stack[(DEFAULT_STACK_SIZE + 0x2000) / sizeof(long)];
++
++/* ------------------------------------------------------------------ */
++/* sockets                                                             */
++/* ------------------------------------------------------------------ */
++
++static void web_ws_client(int fd, const char *headers);
++static void web_ws_register(int fd);
++static void web_ws_unregister(int fd);
++
++static bool web_send_all(int fd, const void *buf, size_t len)
++{
++    const char *p = buf;
++    while (len > 0)
++    {
++        ssize_t n = send(fd, p, len, MSG_NOSIGNAL);
++        if (n <= 0)
++            return false;
++        p += n;
++        len -= n;
++    }
++    return true;
++}
++
++static bool web_send_str(int fd, const char *s)
++{
++    return web_send_all(fd, s, strlen(s));
++}
++
++/* Read one line (incl. CRLF) with a hard cap. */
++static int web_read_line(int fd, char *buf, size_t bufsz)
++{
++    size_t got = 0;
++    while (got + 1 < bufsz)
++    {
++        char c;
++        ssize_t n = recv(fd, &c, 1, 0);
++        if (n <= 0)
++            return -1;
++        if (c == '\n')
++            break;
++        buf[got++] = c;
++    }
++    buf[got] = '\0';
++    if (got && buf[got - 1] == '\r')
++        buf[got - 1] = '\0';
++    return (int)got;
++}
++
++static const char *web_ctype(const char *path)
++{
++    const char *dot = strrchr(path, '.');
++    if (!dot)
++        return "application/octet-stream";
++    if (!strcasecmp(dot, ".html") || !strcasecmp(dot, ".htm"))
++        return "text/html; charset=utf-8";
++    if (!strcasecmp(dot, ".css"))
++        return "text/css; charset=utf-8";
++    if (!strcasecmp(dot, ".js"))
++        return "text/javascript; charset=utf-8";
++    if (!strcasecmp(dot, ".png"))
++        return "image/png";
++    if (!strcasecmp(dot, ".jpg") || !strcasecmp(dot, ".jpeg"))
++        return "image/jpeg";
++    if (!strcasecmp(dot, ".bmp"))
++        return "image/bmp";
++    if (!strcasecmp(dot, ".svg"))
++        return "image/svg+xml";
++    if (!strcasecmp(dot, ".ico"))
++        return "image/x-icon";
++    if (!strcasecmp(dot, ".json"))
++        return "application/json";
++    if (!strcasecmp(dot, ".txt"))
++        return "text/plain; charset=utf-8";
++    return "application/octet-stream";
++}
++
++static bool web_http_head(int fd, int code, const char *status,
++                          const char *ctype, long len)
++{
++    char head[320];
++    snprintf(head, sizeof(head),
++             "HTTP/1.1 %d %s\r\n"
++             "Content-Type: %s\r\n"
++             "Content-Length: %ld\r\n"
++             "Cache-Control: no-store\r\n"
++             "Connection: close\r\n\r\n",
++             code, status, ctype, len);
++    return web_send_str(fd, head);
++}
++
++/* Serve a file with a rockbox-root path (already validated). */
++static void web_serve_file(int fd, const char *rpath)
++{
++    int f = open(rpath, O_RDONLY);
++    if (f < 0)
++    {
++        const char *msg = "not found";
++        web_http_head(fd, 404, "Not Found", "text/plain", (long)strlen(msg));
++        web_send_str(fd, msg);
++        return;
++    }
++
++    long size = lseek(f, 0, SEEK_END);
++    lseek(f, 0, SEEK_SET);
++    if (size < 0 || size > 8 * 1024 * 1024)
++        size = 0;
++
++    if (!web_http_head(fd, 200, "OK", web_ctype(rpath), size))
++    {
++        close(f);
++        return;
++    }
++
++    char buf[16 * 1024];
++    ssize_t n;
++    long left = size;
++    while (left > 0 && (n = read(f, buf, sizeof(buf))) > 0)
++    {
++        if (!web_send_all(fd, buf, n))
++            break;
++        left -= n;
++    }
++    close(f);
++}
++
++static bool web_page_present(void)
++{
++    int f = open(WEB_PAGE_INDEX, O_RDONLY);
++    if (f < 0)
++        return false;
++    close(f);
++    return true;
++}
++
++static void web_serve_cover(int fd)
++{
++    pthread_mutex_lock(&W.mutex);
++    bool aa = W.snap.aa, embed = W.snap.aa_embed;
++    char path[260];
++    long pos = W.snap.aa_pos, size = W.snap.aa_size;
++    snprintf(path, sizeof(path), "%s", W.snap.aa_path);
++    pthread_mutex_unlock(&W.mutex);
++
++    if (!aa)
++        goto missing;
++
++    int f = open(path, O_RDONLY);
++    if (f < 0)
++        goto missing;
++
++    uint8_t magic[4] = { 0 };
++    if (embed)
++    {
++        if (lseek(f, pos, SEEK_SET) < 0)
++        {
++            close(f);
++            goto missing;
++        }
++        if (read(f, magic, 3) != 3)
++        {
++            close(f);
++            goto missing;
++        }
++        lseek(f, pos, SEEK_SET);
++    }
++    else
++    {
++        if (read(f, magic, 3) != 3)
++        {
++            close(f);
++            goto missing;
++        }
++        lseek(f, 0, SEEK_SET);
++        long len = lseek(f, 0, SEEK_END);
++        lseek(f, 0, SEEK_SET);
++        if (len > 0)
++            size = len;
++    }
++
++    if (!embed && size <= 0)
++        size = 8 * 1024 * 1024;
++
++    const char *ct = "image/jpeg";
++    if (magic[0] == 0x89 && magic[1] == 'P')
++        ct = "image/png";
++    else if (magic[0] == 'B' && magic[1] == 'M')
++        ct = "image/bmp";
++
++    if (!web_http_head(fd, 200, "OK", ct, size))
++    {
++        close(f);
++        return;
++    }
++
++    char buf[16 * 1024];
++    ssize_t n;
++    long left = size;
++    while (left > 0 && (n = read(f, buf, sizeof(buf))) > 0)
++    {
++        if (!web_send_all(fd, buf, n))
++            break;
++        left -= n;
++    }
++    close(f);
++    return;
++
++missing:
++{
++    const char *msg = "no art";
++    web_http_head(fd, 404, "Not Found", "text/plain", (long)strlen(msg));
++    web_send_str(fd, msg);
++}
++}
++
++static bool web_authed(const char *headers)
++{
++    char expect[64];
++    snprintf(expect, sizeof(expect), "Bearer %s", W.token);
++
++    const char *h = headers;
++    while (h && *h)
++    {
++        if (strncasecmp(h, "Authorization:", 14) == 0)
++        {
++            const char *v = h + 14;
++            while (*v == ' ')
++                v++;
++            return strncmp(v, expect, strlen(expect)) == 0;
++        }
++        h = strchr(h, '\n');
++        if (h)
++            h++;
++    }
++    return false;
++}
++
++static bool web_query_token(const char *path)
++{
++    char match[64];
++    snprintf(match, sizeof(match), "token=%s", W.token);
++    return strstr(path, match) != NULL;
++}
++
++static long web_parse_param(const char *body, const char *key)
++{
++    char match[24];
++    snprintf(match, sizeof(match), "%s=", key);
++    const char *v = strstr(body, match);
++    if (!v)
++        return -1;
++    v += strlen(match);
++    return atol(v);
++}
++
++/* Current playlist, enumerated in playback order from the first
++ * position -- a stable list that does not rotate with the playing
++ * track; "cur" marks the playing track's slot and the web page
++ * jumps by converting the slot to an offset (audio_skip).  Runs on
++ * the connection thread. */
++#define WEB_PL_MAX 500
++
++static void web_serve_playlist(int fd)
++{
++    int n = playlist_amount();
++    web_log("pl amount=%d", n);
++    if (n < 0)
++        n = 0;
++    if (n > WEB_PL_MAX)
++        n = WEB_PL_MAX;
++
++    /* Enumerate the playlist CONTENT the way the on-device playlist
++     * viewer does: by index, ordered by display position.  playlist_
++     * peek() cannot be used for listing - it follows repeat-mode
++     * navigation, and under Repeat One every step resolves to the
++     * current track, so the whole list would show the same song. */
++    char *names = NULL;
++    if (n > 0)
++    {
++        names = calloc((size_t)n, 128);
++        if (!names)
++        {
++            web_json_reply(fd, 500, "Server Error", "{\"error\":\"oom\"}");
++            return;
++        }
++        for (int i = 0; i < n; i++)
++        {
++            struct playlist_track_info info;
++            if (playlist_get_track_info(NULL, i, &info) < 0)
++                continue;
++            int slot = info.display_index - 1;
++            if (slot < 0 || slot >= n)
++                continue;
++            const char *base = strrchr(info.filename, '/');
++            base = base ? base + 1 : info.filename;
++            snprintf(names + (size_t)slot * 128, 128, "%s", base);
++        }
++    }
++
++    int cur = playlist_get_display_index() - 1;
++    if (cur < 0)
++        cur = 0;
++    if (cur > n - 1)
++        cur = n - 1;
++    web_log("pl cur=%d", cur);
++
++    size_t cap = 16 * 1024;
++    char *buf = malloc(cap);
++    if (!buf)
++    {
++        free(names);
++        web_json_reply(fd, 500, "Server Error", "{\"error\":\"oom\"}");
++        return;
++    }
++
++    size_t o = (size_t)snprintf(buf, cap, "{\"cur\":%d,\"tracks\":[", cur);
++
++    for (int k = 0; k < n; k++)
++    {
++        char disp[128];
++        char esc[192];
++        snprintf(disp, sizeof(disp), "%s", names + (size_t)k * 128);
++        char *dot = strrchr(disp, '.');
++        if (dot && dot != disp)
++            *dot = '\0';
++        web_json_escape(esc, sizeof(esc), disp);
++
++        size_t need = strlen(esc) + 8;
++        if (o + need + 4 > cap)
++        {
++            cap *= 2;
++            char *nb = realloc(buf, cap);
++            if (!nb)
++                break;
++            buf = nb;
++        }
++        o += (size_t)snprintf(buf + o, cap - o, "%s\"%s\"",
++                              k ? "," : "", esc);
++    }
++
++    o += (size_t)snprintf(buf + o, cap - o, "]}");
++    web_http_head(fd, 200, "OK", "application/json", (long)o);
++    web_send_all(fd, buf, o);
++    free(buf);
++    free(names);
++}
++
++/* ------------------------------------------------------------------ */
++/* file management                                                     */
++/* ------------------------------------------------------------------ */
++
++static bool web_query_value(const char *path, const char *key,
++                            char *out, size_t outsz)
++{
++    const char *v = strstr(path, key);
++    if (!v)
++        return false;
++    v += strlen(key);
++    size_t n = 0;
++    while (v[n] && v[n] != '&' && n + 1 < outsz)
++    {
++        out[n] = v[n];
++        n++;
++    }
++    out[n] = '\0';
++    return n > 0;
++}
++
++/* One directory entry as the browser sees it -- declared at the top
++ * of the file; comparators and the collector follow. */
++static int web_cmp_criteria(const struct web_entry *e1,
++                            const struct web_entry *e2, int criteria)
++{
++    switch (criteria)
++    {
++        case SORT_TYPE:
++        case SORT_TYPE_REVERSED:
++        {
++            int t1 = e1->attr & FILE_ATTR_MASK;
++            int t2 = e2->attr & FILE_ATTR_MASK;
++            if (!t1)
++                t1 = INT_MAX;   /* unknown type sorts last */
++            if (!t2)
++                t2 = INT_MAX;
++            if (t1 != t2)
++                return (t1 - t2) * (criteria == SORT_TYPE_REVERSED ? -1 : 1);
++            return strcasecmp(e1->name, e2->name);
++        }
++        case SORT_DATE:
++        case SORT_DATE_REVERSED:
++            if (e1->mtime != e2->mtime)
++                return (int)((e1->mtime - e2->mtime) *
++                             (criteria == SORT_DATE_REVERSED ? -1 : 1));
++            /* else fall through to alphabetical */
++        case SORT_ALPHA:
++        case SORT_ALPHA_REVERSED:
++        default:
++        {
++            int r = strcasecmp(e1->name, e2->name);
++            return r * (criteria == SORT_ALPHA_REVERSED ? -1 : 1);
++        }
++    }
++}
++
++/* qsort comparator: directories first, each group with its own
++ * setting from global_settings (read live -- it is what the browser
++ * itself consults). */
++static int web_cmp_entry(const void *a, const void *b)
++{
++    const struct web_entry *e1 = a;
++    const struct web_entry *e2 = b;
++    bool d1 = e1->attr & ATTR_DIRECTORY;
++    bool d2 = e2->attr & ATTR_DIRECTORY;
++
++    if (d1 && d2)
++        return web_cmp_criteria(e1, e2, global_settings.sort_dir);
++    if (!d1 && !d2)
++        return web_cmp_criteria(e1, e2, global_settings.sort_file);
++    return (int)d2 - (int)d1;   /* directory goes first */
++}
++
++/* Collect one directory's entries, sorted the way the Rockbox file
++ * browser sorts them.  audio_only keeps just audio files (used to
++ * build directory playlists).  Returns count, or -1 when the
++ * directory cannot be opened. */
++static int web_collect_dir(const char *path, struct web_entry *ents,
++                           int max, bool audio_only)
++{
++    DIR *dp = opendir(path);
++    if (!dp)
++        return -1;
++
++    int n = 0;
++    struct DIRENT *ent;
++    while ((ent = readdir(dp)) != NULL)
++    {
++        const char *nm = ent->d_name;
++        if (!strcmp(nm, ".") || !strcmp(nm, ".."))
++            continue;
++        if (n >= max)
++            break;
++
++        struct dirinfo di = dir_get_info(dp, ent);
++        bool isdir = di.attribute & ATTR_DIRECTORY;
++        int attr = isdir ? ATTR_DIRECTORY : filetype_get_attr(nm);
++        /* audio-only listings must contain neither directories nor
++         * non-audio files (the on-device browser plays directories'
++         * audio files only) */
++        if (audio_only &&
++            (isdir || (attr & FILE_ATTR_MASK) != FILE_ATTR_AUDIO))
++            continue;
++
++        snprintf(ents[n].name, WEB_NAME_MAX, "%s", nm);
++        ents[n].mtime = (long)di.mtime;
++        ents[n].attr = attr;
++        n++;
++    }
++    closedir(dp);
++
++    qsort(ents, (size_t)n, sizeof(struct web_entry), web_cmp_entry);
++    return n;
++}
++
++static void web_json_reply(int fd, int code, const char *text,
++                           const char *msg)
++{
++    web_http_head(fd, code, text, "application/json", (long)strlen(msg));
++    web_send_str(fd, msg);
++}
++
++/* Directory listing in Rockbox VFS terms -- the same opendir /
++ * readdir / dir_get_info layer the on-device file browser uses.
++ * Without a path= query the browser default
++ * (global_settings.start_directory) is listed.  Connection thread. */
++static void web_serve_files(int fd, const char *qpath)
++{
++    char dir[MAX_PATH];
++    char fixed[MAX_PATH];
++    if (!web_query_value(qpath, "path=", dir, sizeof(dir)) || !dir[0])
++        snprintf(dir, sizeof(dir), "%s", global_settings.start_directory);
++    if (dir[0] == '/')
++        snprintf(fixed, sizeof(fixed), "%s", dir);
++    else
++        snprintf(fixed, sizeof(fixed), "/%s", dir);
++
++    struct web_entry *ents = malloc((size_t)WEB_FILES_MAX * sizeof(*ents));
++    if (!ents)
++    {
++        web_json_reply(fd, 500, "Server Error", "{\"error\":\"oom\"}");
++        return;
++    }
++    int n = web_collect_dir(fixed, ents, WEB_FILES_MAX, false);
++    if (n < 0)
++    {
++        free(ents);
++        web_json_reply(fd, 404, "Not Found", "{\"error\":\"nodir\"}");
++        return;
++    }
++
++    size_t cap = 16 * 1024;
++    char *buf = malloc(cap);
++    if (!buf)
++    {
++        free(ents);
++        web_json_reply(fd, 500, "Server Error", "{\"error\":\"oom\"}");
++        return;
++    }
++
++    char esc[192];
++    web_json_escape(esc, sizeof(esc), fixed);
++    size_t o = (size_t)snprintf(buf, cap, "{\"path\":\"%s\",\"dirs\":[",
++                                esc);
++
++    for (int pass = 0; pass < 2; pass++)
++    {
++        bool want_dir = pass == 0;
++        bool first = true;
++        for (int i = 0; i < n; i++)
++        {
++            if (((ents[i].attr & ATTR_DIRECTORY) != 0) != want_dir)
++                continue;
++            web_json_escape(esc, sizeof(esc), ents[i].name);
++            size_t need = strlen(esc) + 8;
++            if (o + need + 4 > cap)
++            {
++                cap *= 2;
++                char *nb = realloc(buf, cap);
++                if (!nb)
++                {
++                    free(buf);
++                    free(ents);
++                    web_json_reply(fd, 500, "Server Error",
++                                   "{\"error\":\"oom\"}");
++                    return;
++                }
++                buf = nb;
++            }
++            o += (size_t)snprintf(buf + o, cap - o, "%s\"%s\"",
++                                  first ? "" : ",", esc);
++            first = false;
++        }
++        if (pass == 0)
++            o += (size_t)snprintf(buf + o, cap - o, "],\"files\":[");
++    }
++    o += (size_t)snprintf(buf + o, cap - o, "]}");
++
++    web_http_head(fd, 200, "OK", "application/json", (long)o);
++    web_send_all(fd, buf, o);
++    free(buf);
++    free(ents);
++}
++
++/* POST /api/fileop?op=play|del&path=...  Play goes through the command
++ * queue (audio APIs need rockbox thread context); delete is a plain
++ * syscall and runs inline. */
++static void web_serve_fileop(int fd, const char *path)
++{
++    char op[8] = "";
++    char pval[MAX_PATH];
++    bool hasp = web_query_value(path, "path=", pval, sizeof(pval));
++    web_query_value(path, "op=", op, sizeof(op));
++
++    if (strcmp(op, "play") == 0 && hasp && pval[0] == '/')
++    {
++        pthread_mutex_lock(&W.mutex);
++        snprintf(W.pend_path, sizeof(W.pend_path), "%s", pval);
++        pthread_mutex_unlock(&W.mutex);
++        web_push_cmd(WEB_CMD_FILEPLAY, 0);
++        web_log("fileplay %s", pval);
++        web_json_reply(fd, 200, "OK", "{\"ok\":true}");
++    }
++    else if (strcmp(op, "del") == 0 && hasp && pval[0] == '/')
++    {
++        int rc = remove(pval);
++        web_log("filedel %s rc=%d", pval, rc);
++        if (rc == 0)
++            web_json_reply(fd, 200, "OK", "{\"ok\":true}");
++        else
++            web_json_reply(fd, 500, "Server Error",
++                           "{\"error\":\"delete failed\"}");
++    }
++    else
++        web_json_reply(fd, 400, "Bad Request", "{\"error\":\"bad op\"}");
++}
++
++/* POST /api/upload?path=<dir>&name=<file> with a raw body -- streams
++ * straight from the socket because bodies can be huge.  Connection
++ * thread. */
++static void web_serve_upload(int fd, const char *headers, const char *path,
++                             long content_len)
++{
++    if (!web_authed(headers) && !web_query_token(path))
++    {
++        web_json_reply(fd, 401, "Unauthorized",
++                       "{\"error\":\"unauthorized\"}");
++        return;
++    }
++
++    char dir[MAX_PATH], name[256], full[MAX_PATH + 300];
++    if (!web_query_value(path, "path=", dir, sizeof(dir)) ||
++        !web_query_value(path, "name=", name, sizeof(name)) ||
++        name[0] == '\0' || strchr(name, '/') || strstr(name, ".."))
++    {
++        web_json_reply(fd, 400, "Bad Request", "{\"error\":\"bad path\"}");
++        return;
++    }
++
++    if (dir[0] && dir[strlen(dir) - 1] == '/')
++        snprintf(full, sizeof(full), "%s%s", dir, name);
++    else
++        snprintf(full, sizeof(full), "%s/%s", dir, name);
++
++    if (content_len < 0)
++        content_len = 0;
++
++    int out = open(full, O_WRONLY | O_CREAT | O_TRUNC, 0666);
++    if (out < 0)
++    {
++        web_log("upload open fail %s", full);
++        web_json_reply(fd, 500, "Server Error",
++                       "{\"error\":\"cannot create\"}");
++        return;
++    }
++
++    long total = 0;
++    char buf[16384];
++    bool ok = true;
++    while (total < content_len)
++    {
++        size_t want = content_len - total > (long)sizeof(buf)
++                          ? sizeof(buf)
++                          : (size_t)(content_len - total);
++        ssize_t r = recv(fd, buf, want, 0);
++        if (r <= 0)
++        {
++            ok = false;
++            break;
++        }
++        ssize_t w = write(out, buf, r);
++        if (w != r)
++        {
++            ok = false;
++            break;
++        }
++        total += r;
++    }
++    close(out);
++
++    if (!ok)
++    {
++        remove(full);               /* discard the partial upload */
++        web_log("upload fail %s (%ld bytes)", full, total);
++        web_json_reply(fd, 500, "Server Error",
++                       "{\"error\":\"transfer failed\"}");
++        return;
++    }
++
++    web_log("upload ok %s (%ld bytes)", full, total);
++    char msg[64];
++    snprintf(msg, sizeof(msg), "{\"ok\":true,\"bytes\":%ld}", total);
++    web_json_reply(fd, 200, "OK", msg);
++}
++
++static void web_handle_http(int fd, char *method, char *path,
++                            char *headers, char *body)
++{
++    if (strcmp(method, "GET") == 0 && strcmp(path, "/") == 0)
++    {
++        web_serve_file(fd, WEB_PAGE_INDEX);
++        return;
++    }
++
++    if (strcmp(method, "POST") == 0 && strcmp(path, "/api/login") == 0)
++    {
++        char needle[16];
++        snprintf(needle, sizeof(needle), "code=%s", W.code);
++        if (strstr(body, needle) == NULL)
++        {
++            const char *msg = "{\"error\":\"bad code\"}";
++            web_http_head(fd, 401, "Unauthorized", "application/json",
++                          (long)strlen(msg));
++            web_send_str(fd, msg);
++            return;
++        }
++        char reply[80];
++        web_log("login ok");
++        snprintf(reply, sizeof(reply), "{\"token\":\"%s\"}", W.token);
++        web_http_head(fd, 200, "OK", "application/json", (long)strlen(reply));
++        web_send_str(fd, reply);
++        return;
++    }
++
++    if (!web_authed(headers) && !web_query_token(path))
++    {
++        const char *msg = "{\"error\":\"unauthorized\"}";
++        web_http_head(fd, 401, "Unauthorized", "application/json",
++                      (long)strlen(msg));
++        web_send_str(fd, msg);
++        return;
++    }
++
++    if (strcmp(method, "GET") == 0 && strncmp(path, "/api/status", 11) == 0)
++    {
++        pthread_mutex_lock(&W.mutex);
++        char json[1400];
++        strcpy(json, W.json);
++        pthread_mutex_unlock(&W.mutex);
++        web_http_head(fd, 200, "OK", "application/json", (long)strlen(json));
++        web_send_str(fd, json);
++        return;
++    }
++
++    if (strcmp(method, "GET") == 0 && strncmp(path, "/api/playlist", 13) == 0)
++    {
++        web_serve_playlist(fd);
++        return;
++    }
++
++    if (strcmp(method, "GET") == 0 && strncmp(path, "/api/files", 10) == 0)
++    {
++        web_serve_files(fd, path);
++        return;
++    }
++
++    if (strcmp(method, "POST") == 0 && strncmp(path, "/api/fileop", 11) == 0)
++    {
++        web_serve_fileop(fd, path);
++        return;
++    }
++
++    if (strcmp(method, "POST") == 0 && strcmp(path, "/api/cmd") == 0)
++    {
++        int cmd = WEB_CMD_NONE;
++        long param = 0;
++
++        if (strstr(body, "cmd=playpause"))
++            cmd = WEB_CMD_PLAYPAUSE;
++        else if (strstr(body, "cmd=next"))
++            cmd = WEB_CMD_NEXT;
++        else if (strstr(body, "cmd=prev"))
++            cmd = WEB_CMD_PREV;
++        else if (strstr(body, "cmd=stop"))
++            cmd = WEB_CMD_STOP;
++        else if (strstr(body, "cmd=seek"))
++        {
++            cmd = WEB_CMD_SEEK;
++            param = web_parse_param(body, "param");
++        }
++        else if (strstr(body, "cmd=volume"))
++        {
++            cmd = WEB_CMD_VOL;
++            param = web_parse_param(body, "param");
++        }
++        else if (strstr(body, "cmd=jump"))
++        {
++            cmd = WEB_CMD_JUMP;
++            param = web_parse_param(body, "param");
++        }
++        else if (strstr(body, "cmd=repeat"))
++            cmd = WEB_CMD_REPEAT;
++
++        if (cmd != WEB_CMD_NONE)
++            web_push_cmd(cmd, param);
++
++        web_log("cmd req cmd=%d param=%ld body=[%.60s]", cmd, param,
++                body ? body : "");
++        const char *msg = "{\"ok\":true}";
++        web_http_head(fd, 200, "OK", "application/json", (long)strlen(msg));
++        web_send_str(fd, msg);
++        return;
++    }
++
++    if (strcmp(method, "GET") == 0 && strncmp(path, "/api/cover", 10) == 0)
++    {
++        web_serve_cover(fd);
++        return;
++    }
++
++    /* WebSocket upgrade */
++    if (strcmp(method, "GET") == 0 && strncmp(path, "/ws", 3) == 0 &&
++        strcasestr(headers, "Upgrade: websocket"))
++    {
++        web_ws_client(fd, headers);
++        return;
++    }
++
++    /* any other GET: static file below WEB_PAGE_DIR (no "..") */
++    if (strcmp(method, "GET") == 0 && path[0] == '/' &&
++        strncmp(path, WEB_PAGE_DIR "/", sizeof(WEB_PAGE_DIR)) == 0 &&
++        !strstr(path, ".."))
++    {
++        char file[256];
++        snprintf(file, sizeof(file), "%s", path);
++        char *q = strchr(file, '?');
++        if (q)
++            *q = '\0';
++        web_serve_file(fd, file);
++        return;
++    }
++
++    const char *msg = "not found";
++    web_http_head(fd, 404, "Not Found", "text/plain", (long)strlen(msg));
++    web_send_str(fd, msg);
++}
++
++/* ------------------------------------------------------------------ */
++/* websocket client                                                    */
++/* ------------------------------------------------------------------ */
++
++static void web_ws_register(int fd)
++{
++    /* pushes must never block the worker: broadcasts send to these
++     * sockets outside the mutex, so they have to be non-blocking */
++    fcntl(fd, F_SETFL, O_NONBLOCK);
++
++    pthread_mutex_lock(&W.mutex);
++    for (int i = 0; i < WEB_WS_MAX; i++)
++    {
++        if (W.ws_fd[i] < 0)
++        {
++            W.ws_fd[i] = fd;
++            pthread_mutex_unlock(&W.mutex);
++            return;
++        }
++    }
++    pthread_mutex_unlock(&W.mutex);
++}
++
++static void web_ws_unregister(int fd)
++{
++    pthread_mutex_lock(&W.mutex);
++    for (int i = 0; i < WEB_WS_MAX; i++)
++    {
++        if (W.ws_fd[i] == fd)
++            W.ws_fd[i] = -1;
++    }
++    pthread_mutex_unlock(&W.mutex);
++}
++
++void web_ws_client(int fd, const char *headers)
++{
++    const char *key = strcasestr(headers, "Sec-WebSocket-Key:");
++    if (!key)
++    {
++        close(fd);
++        return;
++    }
++    key += strlen("Sec-WebSocket-Key:");
++    while (*key == ' ')
++        key++;
++    char k[64] = "";
++    snprintf(k, sizeof(k), "%s", key);
++    char *eol = strchr(k, '\r');
++    if (eol) *eol = '\0';
++    eol = strchr(k, '\n');
++    if (eol) *eol = '\0';
++
++    char cat[128];
++    snprintf(cat, sizeof(cat), "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", k);
++    uint8_t hash[20];
++    char b64[32];
++    web_sha1((const uint8_t *)cat, strlen(cat), hash);
++    web_b64(hash, 20, b64);
++
++    char resp[256];
++    snprintf(resp, sizeof(resp),
++             "HTTP/1.1 101 Switching Protocols\r\n"
++             "Upgrade: websocket\r\n"
++             "Connection: Upgrade\r\n"
++             "Sec-WebSocket-Accept: %s\r\n\r\n", b64);
++    if (!web_send_str(fd, resp))
++    {
++        close(fd);
++        return;
++    }
++
++    web_ws_register(fd);
++    web_log("ws client fd=%d", fd);
++
++    /* Keep the connection open; ignore client frames, drop on error
++     * or when the server stops. */
++    while (W.running)
++    {
++        uint8_t hdr[2];
++        ssize_t n = recv(fd, hdr, 2, 0);
++        if (n == 0)
++            break;                      /* peer closed */
++        if (n < 0)
++        {
++            /* SO_RCVTIMEO fired: idle but healthy client (browsers
++             * stay silent until they ping or close) - keep waiting */
++            if (errno == EAGAIN || errno == EWOULDBLOCK)
++                continue;
++            break;                      /* hard error */
++        }
++        if (n == 1)
++        {
++            /* partial header: fetch the remaining byte */
++            if (recv(fd, hdr + 1, 1, 0) <= 0)
++                break;
++        }
++        uint64_t len = hdr[1] & 0x7f;
++        bool masked = (hdr[1] & 0x80) != 0;
++        if (len == 126)
++        {
++            uint8_t ext[2];
++            if (recv(fd, ext, 2, 0) != 2)
++                break;
++            len = (ext[0] << 8) | ext[1];
++        }
++        else if (len == 127)
++            break;                       /* oversize, ignore */
++        uint8_t mask[4] = { 0 };
++        if (masked && recv(fd, mask, 4, 0) != 4)
++            break;
++        while (len > 0)
++        {
++            uint8_t sink[64];
++            size_t chunk = len > sizeof(sink) ? sizeof(sink) : len;
++            if (recv(fd, sink, chunk, 0) <= 0)
++            {
++                len = 0;
++                break;
++            }
++            len -= chunk;
++        }
++        if (hdr[0] == 0x88)              /* close */
++            break;
++        if (hdr[0] == 0x89)              /* ping -> pong */
++        {
++            uint8_t pong[2] = { 0x8A, 0 };
++            send(fd, pong, 2, MSG_NOSIGNAL);
++        }
++    }
++
++    web_ws_unregister(fd);
++    close(fd);
++}
++
++/* ------------------------------------------------------------------ */
++/* connection threads                                                  */
++/* ------------------------------------------------------------------ */
++
++static void *web_conn_thread(void *arg)
++{
++    int fd = (int)(intptr_t)arg;
++    struct timeval tv = { 3, 0 };
++    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
++    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
++
++    char method[8] = "", path[256] = "", headers[2048];
++    char body[512] = "";
++
++    if (web_read_line(fd, path, sizeof(path)) < 0)
++        goto out;
++    {
++        char *sp = strchr(path, ' ');
++        if (!sp)
++            goto out;
++        *sp = '\0';
++        snprintf(method, sizeof(method), "%s", path);
++        char *p2 = sp + 1;
++        char *sp2 = strchr(p2, ' ');
++        if (sp2)
++            *sp2 = '\0';
++        char full[256];
++        snprintf(full, sizeof(full), "%s", p2);
++        /* url-decode path; the query string is KEPT because the
++         * token auth (?token=) reads it (WS and cover requests
++         * cannot send an Authorization header) */
++        size_t o = 0;
++        for (size_t i = 0; full[i] && o + 1 < sizeof(path); i++)
++        {
++            if (full[i] == '%' && isxdigit((unsigned char)full[i + 1]) &&
++                isxdigit((unsigned char)full[i + 2]))
++            {
++                char hex[3] = { full[i + 1], full[i + 2], 0 };
++                path[o++] = (char)strtol(hex, NULL, 16);
++                i += 2;
++            }
++            else
++                path[o++] = full[i];
++        }
++        path[o] = '\0';
++    }
++
++    /* headers */
++    size_t hlen = 0;
++    headers[0] = '\0';
++    while (hlen + 2 < sizeof(headers))
++    {
++        char line[512];
++        if (web_read_line(fd, line, sizeof(line)) < 0)
++            goto out;
++        if (line[0] == '\0')
++            break;
++        int l = snprintf(headers + hlen, sizeof(headers) - hlen,
++                         "%s\n", line);
++        if (l > 0)
++            hlen += l;
++    }
++
++    /* uploads stream straight from the socket (bodies may be huge) */
++    if (strncmp(path, "/api/upload", 11) == 0)
++    {
++        char *ucl = strcasestr(headers, "Content-Length:");
++        web_serve_upload(fd, headers, path, ucl ? atol(ucl + 15) : 0);
++        goto out;
++    }
++
++    /* body (POST) */
++    char *cl = strcasestr(headers, "Content-Length:");
++    if (cl)
++    {
++        long n = atol(cl + 15);
++        if (n > 0 && n < (long)sizeof(body))
++        {
++            size_t got = 0;
++            while (got < (size_t)n)
++            {
++                ssize_t r = recv(fd, body + got, n - got, 0);
++                if (r <= 0)
++                    goto out;
++                got += r;
++            }
++            body[n] = '\0';
++        }
++    }
++
++    web_handle_http(fd, method, path, headers, body);
++
++out:
++    if (W.running && strncmp(path, "/ws", 3) != 0)
++        close(fd);                       /* ws closed itself */
++    return NULL;
++}
++
++static void *web_accept_thread(void *arg)
++{
++    (void)arg;
++
++    while (W.running)
++    {
++        int fd = accept(W.listen_fd, NULL, NULL);
++        if (fd < 0)
++        {
++            if (!W.running)
++                break;
++            sleep(HZ / 10);
++            continue;
++        }
++
++        pthread_t pt;
++        pthread_attr_t attr;
++        pthread_attr_init(&attr);
++        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
++        pthread_attr_setstacksize(&attr, 48 * 1024);
++        if (pthread_create(&pt, &attr, web_conn_thread,
++                           (void *)(intptr_t)fd) != 0)
++            close(fd);
++        pthread_attr_destroy(&attr);
++    }
++    return NULL;
++}
++
++/* ------------------------------------------------------------------ */
++/* start / stop                                                        */
++/* ------------------------------------------------------------------ */
++
++static void web_gen_code(char *buf, size_t len)
++{
++    static const char set[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
++    for (size_t i = 0; i + 1 < len; i++)
++        buf[i] = set[rand() % (sizeof(set) - 1)];
++    buf[len - 1] = '\0';
++}
++
++bool web_control_running(void)
++{
++    return W.running;
++}
++
++static bool web_start(void)
++{
++    if (W.running)
++        return true;
++
++    /* Local file playback only (see web_local_playback). */
++    if (!web_local_playback())
++        return false;
++
++    /* Refuse to run without the page files (shipped under
++     * .rockbox/web/control/); there is deliberately no built-in
++     * fallback page. */
++    if (!web_page_present())
++        return false;
++
++    srand((unsigned)(current_tick & 0x7fffffff) ^ (unsigned)time(NULL));
++    web_gen_code(W.code, sizeof(W.code));
++    for (int i = 0; i < 8; i++)
++        snprintf(W.token + i * 2, 3, "%02X", rand() & 0xff);
++    W.token[16] = '\0';
++
++    for (int i = 0; i < WEB_WS_MAX; i++)
++        W.ws_fd[i] = -1;
++    W.cmd_rd = W.cmd_wr = 0;
++
++    int fd = socket(AF_INET, SOCK_STREAM, 0);
++    if (fd < 0)
++        return false;
++
++    int on = 1;
++    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
++
++    struct sockaddr_in addr;
++    memset(&addr, 0, sizeof(addr));
++    addr.sin_family = AF_INET;
++    addr.sin_addr.s_addr = htonl(INADDR_ANY);
++
++    W.port = WEB_PORT_MAIN;
++    addr.sin_port = htons(W.port);
++    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
++    {
++        W.port = WEB_PORT_ALT;
++        addr.sin_port = htons(W.port);
++        if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
++        {
++            close(fd);
++            return false;
++        }
++    }
++
++    if (listen(fd, 16) < 0)
++    {
++        close(fd);
++        return false;
++    }
++    W.listen_fd = fd;
++
++    remove(WEB_LOG_PATH);
++    web_log("start port=%d code=%s", W.port, W.code);
++
++    if (pthread_create(&W.accept_pt, NULL, web_accept_thread, NULL) != 0)
++    {
++        close(fd);
++        W.listen_fd = -1;
++        return false;
++    }
++
++    web_worker_run = true;
++    if (!web_worker_started &&
++        create_thread(web_worker_thread, web_worker_stack,
++                      sizeof(web_worker_stack), 0, "web worker"
++                      IF_PRIO(, PRIORITY_USER_INTERFACE)
++                      IF_COP(, CPU)) > 0)
++        web_worker_started = true;
++    else if (!web_worker_started)
++        web_worker_run = false;
++
++    web_log("worker create=%d", web_worker_started);
++    W.running = true;
++    return true;
++}
++
++void web_control_stop(void)
++{
++    if (!W.running)
++        return;
++
++    W.running = false;
++    shutdown(W.listen_fd, SHUT_RDWR);
++    close(W.listen_fd);
++    W.listen_fd = -1;
++    pthread_join(W.accept_pt, NULL);
++
++    pthread_mutex_lock(&W.mutex);
++    for (int i = 0; i < WEB_WS_MAX; i++)
++    {
++        if (W.ws_fd[i] >= 0)
++        {
++            shutdown(W.ws_fd[i], SHUT_RDWR);
++            W.ws_fd[i] = -1;
++        }
++    }
++    pthread_mutex_unlock(&W.mutex);
++
++    web_worker_run = false;
++}
++
++/* ------------------------------------------------------------------ */
++/* device screen                                                       */
++/* ------------------------------------------------------------------ */
++
++#define WEB_ROWS 4
++
++static char web_ip[48];
++
++static void web_row(int row, char *buffer, size_t buffer_len)
++{
++    const char *str;
++
++    if (row < 0 || row >= WEB_ROWS)
++    {
++        buffer[0] = '\0';
++        return;
++    }
++
++    switch (row)
++    {
++        case 0:
++            str = W.running ? web_str(LANG_WEB_RUNNING)
++                            : web_str(LANG_WEB_STOPPED);
++            snprintf(buffer, buffer_len, "%s: %s",
++                     web_str(LANG_WEB_SERVICE), str);
++            break;
++        case 1:
++            snprintf(buffer, buffer_len, "%s: %s",
++                     web_str(LANG_WEB_CODE), W.code);
++            break;
++        case 2:
++            snprintf(buffer, buffer_len, "%s: http://%s:%d/",
++                     web_str(LANG_WEB_ADDRESS), web_ip[0] ? web_ip : "-",
++                     W.port);
++            break;
++        default:
++            str = W.running ? web_str(LANG_WEB_STOP)
++                            : web_str(LANG_WEB_START);
++            snprintf(buffer, buffer_len, "%s", str);
++            break;
++    }
++}
++
++static const char *web_name_cb(int selected, void *data,
++                               char *buffer, size_t buffer_len)
++{
++    (void)data;
++    web_row(selected, buffer, buffer_len);
++    return buffer;
++}
++
++static int web_action_cb(int action, struct gui_synclist *lists)
++{
++    static int last_running = -1;
++
++    (void)lists;
++
++    if (action == ACTION_STD_OK)
++    {
++        int sel = gui_synclist_get_sel_pos(lists);
++        if (sel == WEB_ROWS - 1)
++        {
++            if (W.running)
++                web_control_stop();
++            else
++            {
++#if defined(HAVE_WIFI_MENU)
++                char ip[48];
++                if (wifi_hal_get_ip(ip, sizeof(ip)))
++                    snprintf(web_ip, sizeof(web_ip), "%s", ip);
++#endif
++                splash(0, web_str(LANG_WEB_STARTING));
++                if (!web_start())
++                    splash(HZ * 2, web_str(LANG_WEB_FAILED));
++            }
++            return ACTION_REDRAW;
++        }
++        return ACTION_NONE;
++    }
++
++    if (action == ACTION_NONE)
++    {
++        if (last_running != (W.running ? 1 : 0))
++        {
++            last_running = W.running ? 1 : 0;
++            return ACTION_REDRAW;
++        }
++    }
++    return action;
++}
++
++void web_control_screen(void)
++{
++    web_ip[0] = '\0';
++
++    /* The web remote drives the local file player only: refuse in any
++     * external mode (USB DAC, bluetooth in/out, future modes). */
++    if (!web_local_playback())
++    {
++        splash(HZ * 2, web_str(LANG_WEB_NOT_LOCAL));
++        return;
++    }
++
++    /* No built-in fallback page: refuse to start without the files. */
++    if (!web_page_present())
++    {
++        splash(HZ * 2, web_str(LANG_WEB_NO_FILES));
++        return;
++    }
++
++#if defined(HAVE_WIFI_MENU)
++    if (!wifi_hal_is_up())
++    {
++        splash(HZ * 2, web_str(LANG_WIFI_OFF));
++        return;
++    }
++    {
++        char ip[48];
++        if (wifi_hal_get_ip(ip, sizeof(ip)))
++            snprintf(web_ip, sizeof(web_ip), "%s", ip);
++    }
++#endif
++
++    if (!W.running)
++    {
++        splash(0, web_str(LANG_WEB_STARTING));
++        if (!web_start())
++        {
++            splash(HZ * 2, web_str(LANG_WEB_FAILED));
++            return;
++        }
++    }
++
++    struct simplelist_info info;
++    simplelist_info_init(&info, web_str(LANG_WEB_CONTROL), WEB_ROWS, NULL);
++    info.get_name = web_name_cb;
++    info.action_callback = web_action_cb;
++    info.timeout = HZ * 2;
++    info.selection = WEB_ROWS - 1;
++    info.title_icon = Icon_Submenu;
++
++    simplelist_show_list(&info);
++    /* Back: server keeps running in the background */
++}
++
++#endif /* HAVE_WEB_CONTROL */
+diff --git a/apps/web_control.h b/apps/web_control.h
+new file mode 100644
+index 0000000000..931c362d29
+--- /dev/null
++++ b/apps/web_control.h
+@@ -0,0 +1,28 @@
++/***************************************************************************
++ * Generic Web remote control framework.
++ *
++ * Runs a small HTTP + WebSocket server while active; the browser page
++ * (served from RAM) shows title / cover / progress and offers play,
++ * pause, prev, next, seek and volume.  Access is guarded by a short
++ * numeric code shown on the device screen.
++ *
++ * Core playback APIs are only touched from the cooperative Rockbox
++ * worker thread; network threads exchange data through a snapshot
++ * and a command queue.
++ ****************************************************************************/
++#ifndef _WEB_CONTROL_H_
++#define _WEB_CONTROL_H_
++
++#ifdef HAVE_WEB_CONTROL
++
++/* Modal-ish screen: starts the server (if not running), shows the
++ * access code and address; Back leaves the server running. */
++void web_control_screen(void);
++
++/* Stop the server and the worker (safe to call when not running). */
++void web_control_stop(void);
++
++bool web_control_running(void);
++
++#endif /* HAVE_WEB_CONTROL */
++#endif /* _WEB_CONTROL_H_ */
+diff --git a/apps/wifi_menu.c b/apps/wifi_menu.c
+new file mode 100644
+index 0000000000..9db7a4543a
+--- /dev/null
++++ b/apps/wifi_menu.c
+@@ -0,0 +1,504 @@
++/***************************************************************************
++ * Generic WiFi menu (framework only).
++ *
++ * All device interaction goes through the wifi_hal interface; ports
++ * provide the implementation in their target directory.  The
++ * remembered network (ssid + password) is kept in the Rockbox
++ * settings, so it survives reboots and can be edited by hand in
++ * .rockbox/config.cfg when the on-device keyboard is inconvenient.
++ ****************************************************************************/
++#include "config.h"
++
++#ifdef HAVE_WIFI_MENU
++
++#include <stdio.h>
++#include <string.h>
++#include <stdbool.h>
++#include <stdint.h>
++
++#include "kernel.h"
++#include "thread.h"
++#include "action.h"
++#include "splash.h"
++#include "lang.h"
++#include "settings.h"
++#include "screen_access.h"
++#include "viewport.h"
++#include "gui/list.h"
++#include "keyboard.h"
++#include "yesno.h"
++#include "wifi_hal.h"
++#include "wifi_menu.h"
++#ifdef HAVE_WEB_CONTROL
++#include "web_control.h"
++#endif
++
++#define WIFI_MAX_NETS  32
++#define WIFI_PICK_CANCEL (-1)
++
++static char *wifi_str(int id)
++{
++    return (char *)str(id);
++}
++
++/* ------------------------------------------------------------------ */
++/* shared list plumbing                                                */
++/* ------------------------------------------------------------------ */
++
++struct wifi_id_list
++{
++    const int *ids;
++    int count;
++};
++
++static const char *wifi_id_name_cb(int selected, void *data,
++                             char *buffer, size_t buffer_len)
++{
++    struct wifi_id_list *list = data;
++    if (!list || selected < 0 || selected >= list->count)
++        return (char *)"";
++    snprintf(buffer, buffer_len, "%s", wifi_str(list->ids[selected]));
++    return buffer;
++}
++
++/* ------------------------------------------------------------------ */
++/* remembered-network bookkeeping (generic settings)                   */
++/* ------------------------------------------------------------------ */
++
++static void wifi_remember(const char *ssid, const char *psk)
++{
++    snprintf(global_settings.wifi_ssid, sizeof(global_settings.wifi_ssid),
++             "%s", ssid);
++    snprintf(global_settings.wifi_psk, sizeof(global_settings.wifi_psk),
++             "%s", psk ? psk : "");
++    settings_save();
++}
++
++static void wifi_forget_remembered(const char *ssid)
++{
++    if (strcmp(ssid, global_settings.wifi_ssid) == 0)
++    {
++        global_settings.wifi_ssid[0] = '\0';
++        global_settings.wifi_psk[0] = '\0';
++        settings_save();
++    }
++}
++
++/* ------------------------------------------------------------------ */
++/* flows                                                               */
++/* ------------------------------------------------------------------ */
++
++static bool wifi_ensure_up(void)
++{
++    if (wifi_hal_is_up())
++        return true;
++    splash(0, wifi_str(LANG_WIFI_STARTING));
++    if (!wifi_hal_power_on())
++    {
++        splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
++        return false;
++    }
++    return true;
++}
++
++/* Power on and attach the remembered network, if any. */
++static bool wifi_flow_power_on(void)
++{
++    splash(0, wifi_str(LANG_WIFI_STARTING));
++    if (!wifi_hal_power_on())
++    {
++        splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
++        return false;
++    }
++
++    if (global_settings.wifi_ssid[0])
++    {
++        splash(0, wifi_str(LANG_WIFI_CONNECTING));
++        if (wifi_hal_connect(global_settings.wifi_ssid,
++                             global_settings.wifi_psk))
++            splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
++        else
++            splash(HZ * 2, wifi_str(LANG_WIFI_NOT_CONNECTED));
++    }
++    else
++        splash(HZ * 2, wifi_str(LANG_WIFI_ON));
++    return true;
++}
++
++static const char *wifi_scan_name_cb(int selected, void *data,
++                               char *buffer, size_t buffer_len)
++{
++    struct wifi_hal_net *nets = data;
++    if (!nets || selected < 0)
++        return (char *)"";
++    snprintf(buffer, buffer_len, "%s", nets[selected].ssid);
++    return buffer;
++}
++
++static const char *wifi_saved_name_cb(int selected, void *data,
++                                char *buffer, size_t buffer_len)
++{
++    struct wifi_hal_saved *nets = data;
++    if (!nets || selected < 0)
++        return (char *)"";
++    snprintf(buffer, buffer_len, "%s%s", nets[selected].ssid,
++             nets[selected].current ? " *" : "");
++    return buffer;
++}
++
++/* Scan, pick a network, ask for a password and connect. */
++static void wifi_flow_scan(void)
++{
++    static struct wifi_hal_net nets[WIFI_MAX_NETS];
++    int count;
++
++    if (!wifi_ensure_up())
++        return;
++
++    splash(0, wifi_str(LANG_WIFI_SCANNING));
++    count = wifi_hal_scan(nets, WIFI_MAX_NETS);
++    if (count <= 0)
++    {
++        splash(HZ * 2, wifi_str(LANG_WIFI_NO_NETS));
++        return;
++    }
++
++    struct simplelist_info info;
++    simplelist_info_init(&info, wifi_str(LANG_WIFI_SCAN), count, nets);
++    info.get_name = wifi_scan_name_cb;
++    simplelist_show_list(&info);
++    int pick = info.selection;
++    if (pick < 0 || pick >= count)
++        return;
++
++    char psk[WIFI_HAL_PSK_LEN];
++    psk[0] = '\0';
++    if (nets[pick].secure)
++    {
++        splash(HZ, wifi_str(LANG_WIFI_PASSWORD));
++        if (kbd_input(psk, sizeof(psk), NULL) < 0)
++            return;
++    }
++
++    splash(0, wifi_str(LANG_WIFI_CONNECTING));
++    if (wifi_hal_connect(nets[pick].ssid, psk))
++    {
++        wifi_remember(nets[pick].ssid, psk);
++        splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
++    }
++    else
++        splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
++}
++
++/* Pick a saved network, then connect to it or delete it. */
++static void wifi_flow_saved(void)
++{
++    static struct wifi_hal_saved nets[WIFI_MAX_NETS];
++    int count;
++
++    if (!wifi_ensure_up())
++        return;
++
++    count = wifi_hal_saved(nets, WIFI_MAX_NETS);
++    if (count <= 0)
++    {
++        splash(HZ * 2, wifi_str(LANG_WIFI_NO_NETS));
++        return;
++    }
++
++    struct simplelist_info info;
++    simplelist_info_init(&info, wifi_str(LANG_WIFI_SAVED), count, nets);
++    info.get_name = wifi_saved_name_cb;
++    simplelist_show_list(&info);
++    int pick = info.selection;
++    if (pick < 0 || pick >= count)
++        return;
++
++    static const int act_ids[3] = { LANG_WIFI_CONNECT, LANG_WIFI_FORGET,
++                                    LANG_CANCEL };
++    struct wifi_id_list act = { act_ids, 3 };
++    struct simplelist_info act_info;
++    simplelist_info_init(&act_info, nets[pick].ssid, 3, &act);
++    act_info.get_name = wifi_id_name_cb;
++    simplelist_show_list(&act_info);
++    if (act_info.selection < 0)
++        return;
++
++    if (act_info.selection == 0)
++    {
++        /* keep the remembered password when it belongs to this ssid */
++        const char *psk = strcmp(nets[pick].ssid, global_settings.wifi_ssid) == 0
++                              ? global_settings.wifi_psk : "";
++        splash(0, wifi_str(LANG_WIFI_CONNECTING));
++        if (wifi_hal_connect(nets[pick].ssid, psk))
++        {
++            wifi_remember(nets[pick].ssid, psk);
++            splash(HZ * 2, wifi_str(LANG_WIFI_CONNECTED));
++        }
++        else
++            splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
++    }
++    else if (act_info.selection == 1)
++    {
++        if (wifi_hal_forget(nets[pick].ssid))
++            wifi_forget_remembered(nets[pick].ssid);
++    }
++}
++
++/* ------------------------------------------------------------------ */
++/* status screen                                                       */
++/* ------------------------------------------------------------------ */
++
++#define WIFI_STATUS_ROWS 5
++
++static struct wifi_hal_status wifi_status_snap;
++static volatile int  wifi_status_seq;
++static volatile bool wifi_status_run;
++static volatile bool wifi_status_started;
++
++/* Cooperative monitor thread: polls the status into a snapshot so the
++ * UI loop never blocks on the HAL. Started on entering the status
++ * screen, stops itself when the screen is left. */
++static void wifi_status_thread(void)
++{
++    while (wifi_status_run)
++    {
++        struct wifi_hal_status st;
++        if (!wifi_hal_get_status(&st))
++            memset(&st, 0, sizeof(st));
++        wifi_status_snap = st;
++        wifi_status_seq++;
++        sleep(HZ * 2);
++    }
++    wifi_status_started = false;
++}
++
++static long wifi_status_stack[(DEFAULT_STACK_SIZE + 0x1000) / sizeof(long)];
++
++/* Format one status row from the current snapshot. */
++static void wifi_status_row(int row, char *buffer, size_t buffer_len)
++{
++    struct wifi_hal_status st = wifi_status_snap;
++
++    if (row < 0 || row >= WIFI_STATUS_ROWS)
++    {
++        buffer[0] = '\0';
++        return;
++    }
++
++    switch (row)
++    {
++        case 0:
++            snprintf(buffer, buffer_len, "%s: %s", wifi_str(LANG_WIFI_RADIO),
++                     st.radio ? wifi_str(LANG_WIFI_RADIO_ON)
++                              : wifi_str(LANG_WIFI_RADIO_OFF));
++            break;
++        case 1:
++        {
++            int state_txt;
++            switch (st.state)
++            {
++                case WIFI_HAL_CONNECTED:
++                    state_txt = LANG_WIFI_CONNECTED; break;
++                case WIFI_HAL_CONNECTING:
++                    state_txt = LANG_WIFI_SCANNING; break;
++                case WIFI_HAL_IDLE:
++                    state_txt = LANG_WIFI_NOT_CONNECTED; break;
++                default:
++                    state_txt = LANG_WIFI_OFF; break;
++            }
++            snprintf(buffer, buffer_len, "%s: %s", wifi_str(LANG_WIFI_STATUS),
++                     wifi_str(state_txt));
++            break;
++        }
++        case 2:
++            snprintf(buffer, buffer_len, "%s: %s", wifi_str(LANG_WIFI_SSID),
++                     st.ssid[0] ? st.ssid : "-");
++            break;
++        case 3:
++            snprintf(buffer, buffer_len, "%s: %s", wifi_str(LANG_WIFI_IP),
++                     st.ip[0] ? st.ip : "-");
++            break;
++        default:
++            /* quantised to 5 dBm steps so normal jitter does not
++             * trigger a redraw on every poll */
++            if (st.rssi)
++                snprintf(buffer, buffer_len, "%s: %d dBm",
++                         wifi_str(LANG_WIFI_SIGNAL), (st.rssi / 5) * 5);
++            else
++                snprintf(buffer, buffer_len, "%s: -",
++                         wifi_str(LANG_WIFI_SIGNAL));
++            break;
++    }
++}
++
++static const char *wifi_status_name_cb(int selected, void *data,
++                                       char *buffer, size_t buffer_len)
++{
++    (void)data;
++    wifi_status_row(selected, buffer, buffer_len);
++    return buffer;
++}
++
++static int wifi_status_action_cb(int action, struct gui_synclist *lists)
++{
++    static char last[WIFI_STATUS_ROWS][64];
++
++    (void)lists;
++
++    if (action == ACTION_STD_OK)
++        return ACTION_NONE;           /* status rows do nothing */
++
++    if (action == ACTION_NONE)
++    {
++        /* Input timeout: redraw only when something changed. */
++        char row[64];
++        bool changed = false;
++
++        for (int i = 0; i < WIFI_STATUS_ROWS; i++)
++        {
++            wifi_status_row(i, row, sizeof(row));
++            if (strcmp(row, last[i]) != 0)
++                changed = true;
++        }
++        if (changed)
++        {
++            for (int i = 0; i < WIFI_STATUS_ROWS; i++)
++                wifi_status_row(i, last[i], sizeof(last[i]));
++            return ACTION_REDRAW;
++        }
++    }
++    return action;
++}
++
++static void wifi_status_screen(void)
++{
++    wifi_status_run = true;
++    if (!wifi_status_started &&
++        create_thread(wifi_status_thread, wifi_status_stack,
++                      sizeof(wifi_status_stack), 0, "wifi status"
++                      IF_PRIO(, PRIORITY_USER_INTERFACE)
++                      IF_COP(, CPU)) > 0)
++        wifi_status_started = true;
++    else if (!wifi_status_started)
++        wifi_status_run = false;
++
++    struct simplelist_info info;
++    simplelist_info_init(&info, wifi_str(LANG_WIFI_STATUS), WIFI_STATUS_ROWS,
++                         NULL);
++    info.get_name = wifi_status_name_cb;
++    info.action_callback = wifi_status_action_cb;
++    info.timeout = HZ * 2;
++    info.selection = 0;
++    info.title_icon = Icon_Submenu;
++
++    simplelist_show_list(&info);
++
++    wifi_status_run = false;
++}
++
++/* ------------------------------------------------------------------ */
++/* reset                                                               */
++/* ------------------------------------------------------------------ */
++
++static void wifi_flow_reset(void)
++{
++    if (!yesno_pop(wifi_str(LANG_WIFI_RESET_CONFIRM)))
++        return;
++
++    struct viewport vp;
++    struct screen *sc = &screens[SCREEN_MAIN];
++
++    viewport_set_defaults(&vp, SCREEN_MAIN);
++    sc->set_viewport(&vp);
++    sc->clear_display();
++    sc->puts(0, 0, wifi_str(LANG_WIFI_RESETTING));
++    sc->update_viewport();
++    sc->set_viewport(NULL);
++
++    wifi_hal_reset();
++}
++
++/* ------------------------------------------------------------------ */
++/* entry point                                                         */
++/* ------------------------------------------------------------------ */
++
++static const char *wifi_menu_name_cb(int selected, void *data,
++                               char *buffer, size_t buffer_len)
++{
++    bool on = (bool)(intptr_t)data;
++    int ids[6] = { on ? LANG_WIFI_OFF : LANG_WIFI_ON,
++                   LANG_WIFI_SCAN, LANG_WIFI_SAVED, LANG_WIFI_STATUS,
++                   LANG_WIFI_RESET };
++    int count = 5;
++#ifdef HAVE_WEB_CONTROL
++    ids[5] = LANG_WEB_CONTROL;
++    count = 6;
++#endif
++    if (selected < 0 || selected >= count)
++        return (char *)"";
++    snprintf(buffer, buffer_len, "%s", wifi_str(ids[selected]));
++    return buffer;
++}
++
++int wifi_menu(void)
++{
++    while (true)
++    {
++        bool on = wifi_hal_is_up();
++        int count = 5;
++#ifdef HAVE_WEB_CONTROL
++        count = 6;
++#endif
++
++        struct simplelist_info info;
++        simplelist_info_init(&info, wifi_str(LANG_WIFI), count,
++                             (void *)(intptr_t)on);
++        info.get_name = wifi_menu_name_cb;
++        info.selection = -1;
++        info.title_icon = Icon_Submenu;
++
++        simplelist_show_list(&info);
++        if (info.selection < 0)
++            break;
++
++        switch (info.selection)
++        {
++            case 0:
++                if (on)
++                {
++                    splash(0, wifi_str(LANG_WIFI_STOPPING));
++#ifdef HAVE_WEB_CONTROL
++                    web_control_stop();
++#endif
++                    wifi_hal_power_off();
++                }
++                else
++                    wifi_flow_power_on();
++                break;
++            case 1:
++                wifi_flow_scan();
++                break;
++            case 2:
++                wifi_flow_saved();
++                break;
++            case 3:
++                wifi_status_screen();
++                break;
++            case 4:
++#ifdef HAVE_WEB_CONTROL
++                web_control_stop();
++#endif
++                wifi_flow_reset();
++                break;
++#ifdef HAVE_WEB_CONTROL
++            case 5:
++                web_control_screen();
++                break;
++#endif
++        }
++    }
++    return 0;
++}
++
++#endif /* HAVE_WIFI_MENU */
+diff --git a/apps/wifi_menu.h b/apps/wifi_menu.h
+new file mode 100644
+index 0000000000..349df8f327
+--- /dev/null
++++ b/apps/wifi_menu.h
+@@ -0,0 +1,15 @@
++/***************************************************************************
++ * Generic WiFi menu (framework only).
++ *
++ * All device interaction goes through the wifi_hal interface; ports
++ * provide the implementation in their target directory.  The
++ * remembered network (ssid + password) is kept in the Rockbox
++ * settings, so it survives reboots and can be edited by hand in
++ * .rockbox/config.cfg when the on-device keyboard is inconvenient.
++ ****************************************************************************/
++#ifndef WIFI_MENU_H
++#define WIFI_MENU_H
++
++int wifi_menu(void);
++
++#endif /* WIFI_MENU_H */
 diff --git a/bootloader/hibyos_linux.c b/bootloader/hibyos_linux.c
 index 449ff6bd76..0f369b3dd2 100644
 --- a/bootloader/hibyos_linux.c
@@ -15983,7 +20281,7 @@ index afe701efe2..eea5791f32 100644
      \group sound
      \conditions (defined(HAVE_PITCHCONTROL))
 diff --git a/firmware/SOURCES b/firmware/SOURCES
-index 02a9d7cd83..8104db6aba 100644
+index 02a9d7cd83..560310d926 100644
 --- a/firmware/SOURCES
 +++ b/firmware/SOURCES
 @@ -161,7 +161,9 @@ target/hosted/lc-unix.c
@@ -15996,7 +20294,7 @@ index 02a9d7cd83..8104db6aba 100644
  target/hosted/power-linux.c
  #endif
  
-@@ -211,6 +213,21 @@ target/hosted/agptek/rocker_codec.c
+@@ -211,6 +213,24 @@ target/hosted/agptek/rocker_codec.c
  #endif
  #endif
  
@@ -16010,6 +20308,9 @@ index 02a9d7cd83..8104db6aba 100644
 +target/hosted/cayin/n3pro/cayin-n3pro.c
 +target/hosted/cayin/n3pro/led-n3pro.c
 +target/hosted/cayin/n3pro/n3pro-bt-input.c
++#ifdef HAVE_WIFI_MENU
++target/hosted/cayin/n3pro/n3pro-wifi.c
++#endif
 +target/hosted/hiby/hibylinux_codec.c
 +target/hosted/hiby/usb-dac-hiby.c
 +#endif
@@ -16018,7 +20319,7 @@ index 02a9d7cd83..8104db6aba 100644
  #if defined(SURFANS_F28) && !defined(SIMULATOR)
  target/hosted/surfans/button-f28.c
  target/hosted/surfans/debug-f28.c
-@@ -233,7 +250,7 @@ target/hosted/xduoo/xduoolinux_codec.c
+@@ -233,7 +253,7 @@ target/hosted/xduoo/xduoolinux_codec.c
  target/hosted/button-devinput.c
  #endif
  
@@ -16027,6 +20328,19 @@ index 02a9d7cd83..8104db6aba 100644
  target/hosted/usb-hiby.c
  #endif
  
+diff --git a/firmware/export/audio.h b/firmware/export/audio.h
+index 87771dfbdd..f86efe3727 100644
+--- a/firmware/export/audio.h
++++ b/firmware/export/audio.h
+@@ -54,6 +54,8 @@ void audio_pause(void);
+ void audio_resume(void);
+ void audio_next(void);
+ void audio_prev(void);
++/* Skip the specified number of tracks forward or backward */
++void audio_skip(int offset);
+ int audio_status(void);
+ /* size of the audio buffer */
+ size_t audio_buffer_size(void);
 diff --git a/firmware/export/audiohw.h b/firmware/export/audiohw.h
 index 6525cc0452..f0a4061d52 100644
 --- a/firmware/export/audiohw.h
@@ -16104,10 +20418,10 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..b17be72c79
+index 0000000000..3756b156f1
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,106 @@
 +/*
 + * This config file is for the Cayin N3Pro
 + */
@@ -16175,6 +20489,14 @@ index 0000000000..b17be72c79
 + * other hosted linux targets with software volume (FiiO M3K Linux,
 + * Aigo Eros Q, Sony NWZ). */
 +#define HAVE_ALSA_32BIT
++/* The generic WiFi menu (apps/wifi_menu.c) is driven through the
++ * wifi_hal interface; the implementation lives in the n3pro target
++ * directory (n3pro-wifi.c, wpa_supplicant via wpa_cli). */
++#define HAVE_WIFI_MENU
++/* The generic web remote control (apps/web_control.c): HTTP +
++ * WebSocket server; pages are shipped under .rockbox/web/control/.
++ */
++#define HAVE_WEB_CONTROL
 +
 +/* We don't have hardware controls */
 +#define HAVE_SW_TONE_CONTROLS
@@ -16263,6 +20585,92 @@ index 75a1202d57..aa1d1e3068 100644
  #ifdef AUDIOHW_HAVE_EQ
  /*
   * band = SOUND_EQ_BANDb
+diff --git a/firmware/export/wifi_hal.h b/firmware/export/wifi_hal.h
+new file mode 100644
+index 0000000000..10ff5545b0
+--- /dev/null
++++ b/firmware/export/wifi_hal.h
+@@ -0,0 +1,80 @@
++/***************************************************************************
++ * Generic WiFi HAL contract for hosted ports.
++ *
++ * The generic WiFi menu (apps/wifi_menu.c) talks only to this
++ * interface; the port provides the implementation next to its other
++ * target drivers.
++ ****************************************************************************/
++#ifndef WIFI_HAL_H
++#define WIFI_HAL_H
++
++#include <stdbool.h>
++
++#define WIFI_HAL_SSID_LEN 33
++#define WIFI_HAL_PSK_LEN  64
++#define WIFI_HAL_IP_LEN   48
++
++struct wifi_hal_net
++{
++    char ssid[WIFI_HAL_SSID_LEN];
++    int  rssi;   /* dBm; higher = stronger */
++    bool secure; /* WPA/RSN advertised */
++};
++
++struct wifi_hal_saved
++{
++    char ssid[WIFI_HAL_SSID_LEN];
++    bool current; /* currently associated */
++};
++
++enum wifi_hal_state
++{
++    WIFI_HAL_DOWN = 0,    /* interface/supplicant not running */
++    WIFI_HAL_CONNECTED,
++    WIFI_HAL_CONNECTING,  /* associating or scanning */
++    WIFI_HAL_IDLE,        /* up but not associated */
++};
++
++struct wifi_hal_status
++{
++    enum wifi_hal_state state;
++    char ssid[WIFI_HAL_SSID_LEN];
++    char ip[WIFI_HAL_IP_LEN];
++    int  rssi; /* dBm, 0 = unknown */
++    bool radio; /* radio hardware powered */
++};
++
++/* Bring the interface and supplicant up / down. */
++bool wifi_hal_power_on(void);
++void wifi_hal_power_off(void);
++
++/* Reset to the power-on state: interface down, no supplicant, no
++ * dhcp client; saved networks are kept. */
++void wifi_hal_reset(void);
++
++/* Current IPv4 address of the station interface, dotted quad.
++ * Returns false when not connected. */
++bool wifi_hal_get_ip(char *out, size_t outsz);
++
++/* Cheap check: supplicant control interface reachable. */
++bool wifi_hal_is_up(void);
++
++/* Trigger a scan and return a deduplicated, strongest-first list.
++ * Returns the entry count (0 = none or not up). */
++int wifi_hal_scan(struct wifi_hal_net *nets, int max);
++
++/* Saved-network table; returns the entry count. */
++int wifi_hal_saved(struct wifi_hal_saved *nets, int max);
++
++/* Associate with an ssid.  Reuses a saved entry when present, else
++ * adds one (open network when psk is empty).  Blocks until the link
++ * settles or times out. */
++bool wifi_hal_connect(const char *ssid, const char *psk);
++
++/* Remove a saved network. */
++bool wifi_hal_forget(const char *ssid);
++
++/* Snapshot of the current link state. */
++bool wifi_hal_get_status(struct wifi_hal_status *st);
++
++#endif /* WIFI_HAL_H */
 diff --git a/firmware/sound.c b/firmware/sound.c
 index c7d510dc2f..48f071a7dd 100644
 --- a/firmware/sound.c
@@ -17831,10 +22239,10 @@ index 0000000000..ba866e0610
 +#endif /* __N3PRO_BT_INPUT_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 new file mode 100644
-index 0000000000..c280c4e0c6
+index 0000000000..b7c92f3c47
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
-@@ -0,0 +1,248 @@
+@@ -0,0 +1,269 @@
 +/***************************************************************************
 + * N3Pro dynamic PCM routing hooks for the shared hosted ALSA backend.
 + *
@@ -18082,13 +22490,34 @@ index 0000000000..c280c4e0c6
 +    return ok ? 0 : -1;
 +}
 +
++/* Positive "plain local file playback" check (see n3pro-bt-pcm.h):
++ * false whenever any external mode owns the audio path.  New external
++ * modes MUST be wired in here. */
++bool n3pro_local_playback(void)
++{
++    extern bool n3pro_bt_rx_get_active(void);
++
++    if (pcm_alsa_is_bluetooth_active())
++        return false;
++    if (n3pro_bt_rx_get_active())
++        return false;
++#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
++    {
++        extern bool usb_audio_get_active(void);
++        if (usb_audio_get_active())
++            return false;
++    }
++#endif
++    return true;
++}
++
 +#endif /* __N3PRO_BT_PCM_HOOKS_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm.h
 new file mode 100644
-index 0000000000..a47184354c
+index 0000000000..66ea95e0b5
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm.h
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,49 @@
 +/***************************************************************************
 + * N3Pro dynamic PCM output routing (hosted ALSA backend)
 + *
@@ -18128,7 +22557,463 @@ index 0000000000..a47184354c
 +bool pcm_alsa_bt_link_lost(void);
 +void pcm_alsa_bt_link_lost_clear(void);
 +
++/* Positive "plain local file playback" check.  True ONLY when the normal
++ * file player owns the whole audio path; false whenever any external mode
++ * is active (bluetooth receive, bluetooth output route, USB DAC input).
++ * This is the single choke point for such queries: when a new external
++ * playback mode is added to the port, it MUST be wired in here so that
++ * dependants (e.g. the web remote, which drives the file player only)
++ * refuse to run. */
++bool n3pro_local_playback(void);
++
 +#endif /* __N3PRO_BT_PCM_H__ */
+diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c b/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c
+new file mode 100644
+index 0000000000..b8d11836b7
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c
+@@ -0,0 +1,441 @@
++/***************************************************************************
++ * WiFi HAL implementation for the Cayin N3Pro hosted port.
++ *
++ * The vendor scripts bring the interface up and down (/sbin/wifi_on.sh
++ * and /sbin/wifi_off.sh start wpa_supplicant and udhcpc); networks are
++ * then managed through /sbin/wpa_cli, which talks to the supplicant's
++ * control socket.
++ ****************************************************************************/
++#include "config.h"
++
++#ifdef CAYIN_N3PRO
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <unistd.h>
++
++#include "kernel.h"
++#include "wifi_hal.h"
++
++#define WIFI_WPA_CLI   "/sbin/wpa_cli"
++#define WIFI_ON_SH     "/sbin/wifi_on.sh"
++#define WIFI_OFF_SH    "/sbin/wifi_off.sh"
++#define WIFI_CMD_MAX   300
++#define WIFI_BUF_MAX   4096
++#define WIFI_ID_NONE   (-1)
++#define WIFI_CONNECT_TIMEOUT_S 15
++
++/* ------------------------------------------------------------------ */
++/* wpa_cli plumbing                                                    */
++/* ------------------------------------------------------------------ */
++
++/* Run wpa_cli and capture the raw (possibly multi-line) reply.
++ * Returns false when the control socket is unreachable. */
++static bool wifi_wpa(const char *args, char *out, size_t outsz)
++{
++    char cmd[WIFI_CMD_MAX];
++    snprintf(cmd, sizeof(cmd), "%s %s 2>/dev/null", WIFI_WPA_CLI, args);
++
++    FILE *f = popen(cmd, "r");
++    if (!f)
++        return false;
++
++    size_t got = 0;
++    if (out && outsz > 1)
++    {
++        out[0] = '\0';
++        while (got + 1 < outsz && fgets(out + got, outsz - got, f))
++            got += strlen(out + got);
++    }
++    pclose(f);
++
++    return got != 0;
++}
++
++/* First reply line, skipping the interface banner, trimmed. */
++static bool wifi_wpa_line(const char *args, char *out, size_t outsz)
++{
++    char buf[256];
++    if (!wifi_wpa(args, buf, sizeof(buf)))
++        return false;
++
++    char *line = buf;
++    if (strncmp(line, "Selected interface", 18) == 0)
++    {
++        line = strchr(line, '\n');
++        if (!line)
++            return false;
++        line++;
++    }
++    snprintf(out, outsz, "%s", line);
++    size_t len = strlen(out);
++    while (len > 0 && (out[len - 1] == '\n' || out[len - 1] == '\r'))
++        out[--len] = '\0';
++    return out[0] != '\0';
++}
++
++static bool wifi_wpa_ok(const char *args)
++{
++    char reply[64];
++    return wifi_wpa_line(args, reply, sizeof(reply)) &&
++           strncmp(reply, "OK", 2) == 0;
++}
++
++/* Extract "key=value" from a multi-line reply. */
++static bool wifi_get_field(const char *reply, const char *key,
++                           char *out, size_t outsz)
++{
++    char match[32];
++    snprintf(match, sizeof(match), "%s=", key);
++
++    const char *line = reply;
++    while (line && *line)
++    {
++        if (strncmp(line, match, strlen(match)) == 0)
++        {
++            const char *val = line + strlen(match);
++            size_t n = 0;
++            while (val[n] && val[n] != '\n' && n + 1 < outsz)
++            {
++                out[n] = val[n];
++                n++;
++            }
++            out[n] = '\0';
++            return true;
++        }
++        line = strchr(line, '\n');
++        if (line)
++            line++;
++    }
++    return false;
++}
++
++static bool wifi_status_reply(char *buf, size_t bufsz)
++{
++    return wifi_wpa("status", buf, bufsz) &&
++           strstr(buf, "wpa_state=") != NULL;
++}
++
++/* ------------------------------------------------------------------ */
++/* saved-network table                                                 */
++/* ------------------------------------------------------------------ */
++
++static int wifi_find_network(const char *ssid)
++{
++    static char buf[WIFI_BUF_MAX];
++    if (!wifi_wpa("list_networks", buf, sizeof(buf)))
++        return WIFI_ID_NONE;
++
++    int id = WIFI_ID_NONE;
++    char *line = strtok(buf, "\n");
++    while (line)
++    {
++        if (strncmp(line, "network id", 10) != 0 &&
++            strncmp(line, "Selected interface", 18) != 0)
++        {
++            char *tab = strchr(line, '\t');
++            if (tab)
++            {
++                /* ssid field only: cut at the bssid column */
++                char *end = strchr(tab + 1, '\t');
++                if (end)
++                    *end = '\0';
++                *tab = '\0';
++                if (strcmp(tab + 1, ssid) == 0)
++                {
++                    id = atoi(line);
++                    break;
++                }
++            }
++        }
++        line = strtok(NULL, "\n");
++    }
++    return id;
++}
++
++/* ------------------------------------------------------------------ */
++/* HAL                                                                 */
++/* ------------------------------------------------------------------ */
++
++bool wifi_hal_is_up(void)
++{
++    static char buf[WIFI_BUF_MAX];
++    return wifi_status_reply(buf, sizeof(buf));
++}
++
++bool wifi_hal_power_on(void)
++{
++    if (system(WIFI_ON_SH " >/dev/null 2>&1") != 0)
++        return false;
++    sleep(HZ / 2);
++    return wifi_hal_is_up();
++}
++
++void wifi_hal_power_off(void)
++{
++    system(WIFI_OFF_SH " >/dev/null 2>&1");
++    sleep(HZ / 2);
++}
++
++int wifi_hal_scan(struct wifi_hal_net *nets, int max)
++{
++    static char buf[WIFI_BUF_MAX];
++    if (!nets || max <= 0)
++        return 0;
++
++    wifi_wpa_ok("scan");
++    sleep(HZ * 2);
++
++    if (!wifi_wpa("scan_results", buf, sizeof(buf)))
++        return 0;
++
++    /* bssid \t freq \t signal \t flags \t ssid */
++    int count = 0;
++    char *line = strtok(buf, "\n");
++    while (line && count < max)
++    {
++        if (strncmp(line, "bssid", 5) != 0 &&
++            strncmp(line, "Selected interface", 18) != 0)
++        {
++            char *f1 = strchr(line, '\t');
++            char *f2 = f1 ? strchr(f1 + 1, '\t') : NULL;
++            char *f3 = f2 ? strchr(f2 + 1, '\t') : NULL;
++            char *f4 = f3 ? strchr(f3 + 1, '\t') : NULL;
++            if (f4)
++            {
++                char ssid[WIFI_HAL_SSID_LEN];
++                snprintf(ssid, sizeof(ssid), "%s", f4 + 1);
++                size_t len = strlen(ssid);
++                while (len > 0 && (ssid[len - 1] == '\r' ||
++                                   ssid[len - 1] == ' '))
++                    ssid[--len] = '\0';
++
++                if (ssid[0] == '\0')
++                {
++                    line = strtok(NULL, "\n");
++                    continue;
++                }
++
++                int sig = atoi(f2 + 1);
++                bool secure = strstr(f3 + 1, "WPA") != NULL ||
++                              strstr(f3 + 1, "RSN") != NULL;
++
++                /* dedup: keep the strongest entry per ssid */
++                int i;
++                for (i = 0; i < count; i++)
++                    if (strcmp(nets[i].ssid, ssid) == 0)
++                        break;
++                if (i < count)
++                {
++                    if (sig > nets[i].rssi)
++                        nets[i].rssi = sig;
++                    line = strtok(NULL, "\n");
++                    continue;
++                }
++
++                snprintf(nets[count].ssid, WIFI_HAL_SSID_LEN, "%s", ssid);
++                nets[count].rssi = sig;
++                nets[count].secure = secure;
++                count++;
++            }
++        }
++        line = strtok(NULL, "\n");
++    }
++
++    /* strongest first */
++    for (int i = 0; i < count - 1; i++)
++        for (int j = i + 1; j < count; j++)
++            if (nets[j].rssi > nets[i].rssi)
++            {
++                struct wifi_hal_net tmp = nets[i];
++                nets[i] = nets[j];
++                nets[j] = tmp;
++            }
++    return count;
++}
++
++int wifi_hal_saved(struct wifi_hal_saved *nets, int max)
++{
++    static char buf[WIFI_BUF_MAX];
++    if (!nets || max <= 0)
++        return 0;
++
++    if (!wifi_wpa("list_networks", buf, sizeof(buf)))
++        return 0;
++
++    int count = 0;
++    char *line = strtok(buf, "\n");
++    while (line && count < max)
++    {
++        if (strncmp(line, "network id", 10) != 0 &&
++            strncmp(line, "Selected interface", 18) != 0)
++        {
++            /* id \t ssid \t bssid \t flags */
++            char *tab = strchr(line, '\t');
++            char *bssid = tab ? strchr(tab + 1, '\t') : NULL;
++            char *flags = bssid ? strchr(bssid + 1, '\t') : NULL;
++            if (tab && flags)
++            {
++                *tab = '\0';
++                *flags = '\0';
++                nets[count].current = strstr(flags + 1, "CURRENT") != NULL;
++                snprintf(nets[count].ssid, WIFI_HAL_SSID_LEN, "%s", tab + 1);
++                count++;
++            }
++        }
++        line = strtok(NULL, "\n");
++    }
++    return count;
++}
++
++bool wifi_hal_connect(const char *ssid, const char *psk)
++{
++    char args[WIFI_CMD_MAX];
++
++    int id = wifi_find_network(ssid);
++    if (id != WIFI_ID_NONE)
++    {
++        snprintf(args, sizeof(args), "select_network %d", id);
++        if (!wifi_wpa_ok(args))
++            return false;
++    }
++    else
++    {
++        char reply[64];
++        if (!wifi_wpa_line("add_network", reply, sizeof(reply)))
++            return false;
++        id = atoi(reply);
++        if (id < 0)
++            return false;
++
++        snprintf(args, sizeof(args), "set_network %d ssid '\"%s\"'", id,
++                 ssid);
++        if (!wifi_wpa_ok(args))
++            return false;
++
++        if (psk && psk[0])
++        {
++            snprintf(args, sizeof(args), "set_network %d psk '\"%s\"'", id,
++                     psk);
++            if (!wifi_wpa_ok(args))
++                return false;
++        }
++        else
++        {
++            snprintf(args, sizeof(args), "set_network %d key_mgmt NONE", id);
++            wifi_wpa_ok(args);
++        }
++
++        snprintf(args, sizeof(args), "enable_network %d", id);
++        wifi_wpa_ok(args);
++    }
++    wifi_wpa_ok("save_config");
++
++    static char buf[WIFI_BUF_MAX];
++    for (int i = 0; i < WIFI_CONNECT_TIMEOUT_S * 2; i++)
++    {
++        sleep(HZ / 2);
++        if (wifi_status_reply(buf, sizeof(buf)) &&
++            strstr(buf, "wpa_state=COMPLETED"))
++        {
++            /* the udhcpc from wifi_on.sh exits after its first lease;
++             * renew one for the newly associated network */
++            system("/sbin/udhcpc -i wlan0 -q -n -t 4 -T 2 >/dev/null 2>&1");
++            return true;
++        }
++    }
++    return false;
++}
++
++bool wifi_hal_forget(const char *ssid)
++{
++    char args[WIFI_CMD_MAX];
++
++    int id = wifi_find_network(ssid);
++    if (id == WIFI_ID_NONE)
++        return false;
++
++    snprintf(args, sizeof(args), "remove_network %d", id);
++    if (!wifi_wpa_ok(args))
++        return false;
++    return wifi_wpa_ok("save_config");
++}
++
++/* Radio power: the interface operstate reflects what the vendor power
++ * scripts do (rfkill stays unblocked on this hardware, so it is not
++ * a usable signal here). */
++static bool wifi_radio_on(void)
++{
++    char val[32];
++    FILE *f = fopen("/sys/class/net/wlan0/operstate", "r");
++    if (!f)
++        return false;
++    val[0] = '\0';
++    if (!fgets(val, sizeof(val), f))
++        val[0] = 'd';
++    fclose(f);
++    return strncmp(val, "down", 4) != 0;
++}
++
++void wifi_hal_reset(void)
++{
++    /* The boot state is: interface down, no supplicant, no dhcp --
++     * exactly what the vendor power-off script produces.  rfkill is
++     * left untouched so the next power-on works normally. */
++    system(WIFI_OFF_SH " >/dev/null 2>&1");
++    sleep(HZ / 2);
++}
++
++bool wifi_hal_get_ip(char *out, size_t outsz)
++{
++    static char buf[WIFI_BUF_MAX];
++    if (!out || outsz == 0)
++        return false;
++    out[0] = '\0';
++    if (!wifi_status_reply(buf, sizeof(buf)))
++        return false;
++    return wifi_get_field(buf, "ip_address", out, outsz);
++}
++
++bool wifi_hal_get_status(struct wifi_hal_status *st)
++{
++    static char buf[WIFI_BUF_MAX];
++    if (!st)
++        return false;
++
++    memset(st, 0, sizeof(*st));
++    st->radio = wifi_radio_on();
++    if (!wifi_status_reply(buf, sizeof(buf)))
++    {
++        st->state = WIFI_HAL_DOWN;
++        return true;
++    }
++
++    char state[32] = "";
++    wifi_get_field(buf, "wpa_state", state, sizeof(state));
++    wifi_get_field(buf, "ssid", st->ssid, sizeof(st->ssid));
++    wifi_get_field(buf, "ip_address", st->ip, sizeof(st->ip));
++
++    st->state = WIFI_HAL_IDLE;
++    if (strcmp(state, "COMPLETED") == 0)
++        st->state = WIFI_HAL_CONNECTED;
++    else if (strcmp(state, "SCANNING") == 0 ||
++             strcmp(state, "ASSOCIATING") == 0 ||
++             strcmp(state, "ASSOCIATED") == 0 ||
++             strcmp(state, "4WAY_HANDSHAKE") == 0 ||
++             strcmp(state, "GROUP_HANDSHAKE") == 0)
++        st->state = WIFI_HAL_CONNECTING;
++
++    if (st->state == WIFI_HAL_CONNECTED)
++    {
++        static char poll[256];
++        char rssi[16];
++        if (wifi_wpa("signal_poll", poll, sizeof(poll)) &&
++            wifi_get_field(poll, "RSSI", rssi, sizeof(rssi)))
++            st->rssi = atoi(rssi);
++    }
++    return true;
++}
++
++#endif /* CAYIN_N3PRO */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh b/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh
 new file mode 100755
 index 0000000000..e5e57baab8
@@ -20759,6 +25644,27 @@ index 3adf0f2e38..0fbddea8b0 100644
  );
  
  sub manualname {
+diff --git a/tools/buildzip.pl b/tools/buildzip.pl
+index b8f9c12530..d0b0c14021 100755
+--- a/tools/buildzip.pl
++++ b/tools/buildzip.pl
+@@ -693,6 +693,16 @@ sub buildzip {
+     glob_mkdir("$temp_dir/rocks/viewers/lua/");
+     glob_copy('apps/plugins/lua/*.lua', "$temp_dir/rocks/viewers/lua/");
+ 
++    # n3pro: ship the web control frontend (served from .rockbox/web).
++    # NB: $modelname arrives wrapped in literal quotes for the zip
++    # targets ("-m \"$(MODELNAME)\"" in root.make), so match a substring.
++    if ($modelname =~ /n3pro/) {
++        if (-d "$ROOT/web/control") {
++            glob_mkdir("$temp_dir/web/control");
++            glob_copy("$ROOT/web/control/*", "$temp_dir/web/control");
++        }
++    }
++
+     # finally, bundle map files for debug
+     glob_mkdir("$temp_dir/debug");
+     glob_copy("*.map", "$temp_dir/debug");
 diff --git a/tools/configure b/tools/configure
 index 7f3628b540..ff30867d37 100755
 --- a/tools/configure
@@ -20804,6 +25710,709 @@ index 7f3628b540..ff30867d37 100755
    fi
  
    if [ "$tinyalsa" = "yes" ]; then
+diff --git a/web/control/index.html b/web/control/index.html
+new file mode 100644
+index 0000000000..c26d98c09a
+--- /dev/null
++++ b/web/control/index.html
+@@ -0,0 +1,649 @@
++<!doctype html>
++<html lang="en">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
++<meta name="theme-color" content="#0b0e17">
++<link rel="icon" href="data:,">
++<title>Rockbox</title>
++<style>
++:root{--red:#ec4141;--txt:#f2f3f7;--mut:#9aa0b4;
++  --glass:rgba(255,255,255,.06);--glass2:rgba(255,255,255,.09);
++  --line:rgba(255,255,255,.10)}
++*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
++input,textarea{user-select:text;-webkit-user-select:text}
++html,body{height:100%}
++/* outside the 720p column: plain white surround, nothing else */
++body{background:#fff;color:var(--txt);overflow:hidden;height:100dvh;
++  display:flex;align-items:stretch;justify-content:center;
++  font-family:-apple-system,"Segoe UI Variable","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
++/* the app page: 720p wide, full height, gradient blocks INSIDE */
++.card{position:relative;isolation:isolate;overflow:hidden;width:min(720px,100vw);height:100dvh;
++  display:flex;flex-direction:column;align-items:center;color:var(--txt);
++  padding:calc(14px + env(safe-area-inset-top)) 34px calc(96px + env(safe-area-inset-bottom));
++  background:#0b0e17}
++.card::before{content:"";position:absolute;left:-12%;right:-12%;top:-18%;bottom:-18%;
++  z-index:-1;filter:blur(52px);background:
++  radial-gradient(42% 36% at 16% 20%,rgba(236,65,65,.34) 0%,transparent 68%),
++  radial-gradient(46% 40% at 84% 16%,rgba(122,88,255,.32) 0%,transparent 70%),
++  radial-gradient(48% 44% at 72% 84%,rgba(38,132,255,.26) 0%,transparent 70%),
++  radial-gradient(40% 36% at 22% 86%,rgba(20,190,150,.16) 0%,transparent 70%)}
++.card::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
++  background:linear-gradient(180deg,rgba(11,14,23,.25),rgba(11,14,23,.65))}
++@media(min-width:760px){.card{box-shadow:0 0 60px rgba(0,0,0,.18)}}
++/* light theme */
++.card.lt{background:#edf0f6;--txt:#1d2230;--mut:#5c6578;
++  --line:rgba(20,30,60,.12);--glass2:rgba(255,255,255,.5)}
++.card.lt::before{background:
++  radial-gradient(42% 36% at 16% 20%,rgba(236,65,65,.22) 0%,transparent 68%),
++  radial-gradient(46% 40% at 84% 16%,rgba(122,88,255,.20) 0%,transparent 70%),
++  radial-gradient(48% 44% at 72% 84%,rgba(38,132,255,.18) 0%,transparent 70%),
++  radial-gradient(40% 36% at 22% 86%,rgba(20,190,150,.12) 0%,transparent 70%)}
++.card.lt::after{background:linear-gradient(180deg,rgba(237,240,246,.35),rgba(237,240,246,.78))}
++/* corner pills */
++.tr{position:absolute;top:calc(14px + env(safe-area-inset-top));right:16px;
++  z-index:60;display:flex;gap:8px}
++.lang{background:var(--glass2);backdrop-filter:blur(18px);border:1px solid var(--line);
++  color:var(--txt);border-radius:999px;padding:8px 16px;font-size:13px;cursor:pointer}
++.lang:active{transform:scale(.93)}
++.thm{width:40px;height:37px;padding:0;display:flex;
++  align-items:center;justify-content:center}
++.thm svg{width:18px;height:18px}
++/* battery pill, top left */
++.batt{position:absolute;top:calc(14px + env(safe-area-inset-top));left:16px;z-index:60;
++  display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);
++  background:var(--glass2);backdrop-filter:blur(18px);border:1px solid var(--line);
++  border-radius:999px;padding:9px 13px}
++.batt svg{width:25px;height:13px;display:block}
++.batt.low{color:#ff5f56}
++/* vinyl -- black record material in BOTH themes */
++.discwrap{position:relative;width:min(360px,60vw);margin:auto 0 26px}
++.disc{width:100%;aspect-ratio:1;border-radius:50%;overflow:hidden;
++  background:conic-gradient(from 0deg,#0a0b10,#14161f,#0a0b10,#1a1d29,#0a0b10);
++  box-shadow:0 24px 60px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.07);
++  animation:spin 24s linear infinite}
++.card.lt .disc{box-shadow:0 24px 60px rgba(40,50,90,.3),inset 0 0 0 1px rgba(255,255,255,.25)}
++.disc.paused{animation-play-state:paused}
++.disc img{width:78%;height:78%;object-fit:cover;border-radius:50%;margin:11%;
++  box-shadow:0 0 0 1px rgba(255,255,255,.09)}
++/* brass spindle: the turntable centre the record spins on */
++.hole{position:absolute;top:50%;left:50%;width:9%;aspect-ratio:1;border-radius:50%;
++  transform:translate(-50%,-50%);z-index:3;
++  background:radial-gradient(circle at 38% 34%,#f6dda1 0%,#d9ae5c 42%,#a97c2c 78%,#7a5817 100%);
++  box-shadow:0 0 0 3px rgba(0,0,0,.55),0 0 0 5px rgba(226,186,110,.30),
++   inset 0 1px 2px rgba(255,255,255,.55),0 2px 8px rgba(0,0,0,.6)}
++/* tonearm: swings onto the record while playing, off it when paused */
++.arm{position:absolute;top:-4%;right:-3%;width:72%;aspect-ratio:1;z-index:5;
++  pointer-events:none;transform-origin:83% 15%;transform:rotate(-36deg);
++  transition:transform .7s cubic-bezier(.3,.85,.3,1)}
++.arm.off{transform:rotate(-58deg)}
++.arm svg{width:100%;height:100%;display:block;filter:drop-shadow(2px 3px 5px rgba(0,0,0,.45))}
++/* no cover: red vinyl label instead of the album image */
++.disc.noaa img{display:none}
++.disc.noaa::after{content:"";position:absolute;top:11%;left:11%;width:78%;height:78%;
++  border-radius:50%;
++  background:radial-gradient(circle at 50% 42%,#f05050 0%,#e14343 46%,#c93a3a 62%,#a83232 100%);
++  box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),inset 0 0 22px rgba(0,0,0,.35)}
++@keyframes spin{to{transform:rotate(360deg)}}
++/* play view */
++#playView{width:100%;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center}
++.trow{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
++  width:100%;margin-top:4px}
++.tcol{min-width:0;flex:1}
++h1{font-size:24px;font-weight:700;letter-spacing:.3px;text-align:left;
++  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
++.sub{color:var(--mut);font-size:15px;text-align:left;margin-top:6px;
++  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
++.ico{display:flex;gap:10px;flex:none}
++.ico button{width:46px;height:46px;border-radius:16px;border:1px solid var(--line);
++  background:var(--glass2);backdrop-filter:blur(14px);color:var(--txt);cursor:pointer;
++  display:flex;align-items:center;justify-content:center;transition:transform .12s}
++.ico button:active{transform:scale(.88)}
++.ico svg{width:21px;height:21px}
++.ico button.dim{color:var(--mut)}
++.bar{position:relative;height:30px;display:flex;align-items:center;cursor:pointer;
++  margin-top:16px;width:100%;touch-action:none}
++.track{position:relative;width:100%;height:5px;border-radius:3px;
++  background:rgba(255,255,255,.13)}
++.card.lt .track{background:rgba(20,30,60,.14)}
++.fill{position:absolute;height:100%;border-radius:3px;background:var(--red);width:0}
++.dot{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;
++  box-shadow:0 1px 6px rgba(0,0,0,.5);transform:translate(-50%,-50%);left:0}
++.times{display:flex;justify-content:space-between;color:var(--mut);font-size:13px;
++  margin-top:3px;width:100%}
++.ctr{display:flex;align-items:center;justify-content:center;gap:52px;margin-top:28px}
++.ctr button{background:none;border:0;color:var(--txt);cursor:pointer;padding:10px;
++  filter:drop-shadow(0 2px 8px rgba(0,0,0,.45))}
++.ctr button:active{transform:scale(.88)}
++.ctr svg{width:42px;height:42px;display:block}
++.big{width:92px;height:92px;border-radius:50%;background:var(--red)!important;
++  box-shadow:0 14px 36px rgba(236,65,65,.45),inset 0 1px 0 rgba(255,255,255,.25)}
++.big svg{width:42px;height:42px;margin:0 auto}
++/* floating vertical volume panel */
++#volWrap{position:absolute;top:50%;right:18px;
++  transform:translate(calc(100% + 60px),-50%);
++  transition:transform .28s cubic-bezier(.2,.9,.25,1);z-index:55;width:66px;height:min(320px,46dvh);
++  background:rgba(18,21,33,.55);backdrop-filter:blur(30px) saturate(160%);
++  -webkit-backdrop-filter:blur(30px) saturate(160%);
++  border:1px solid var(--line);border-radius:22px;
++  box-shadow:0 24px 60px rgba(0,0,0,.45);
++  display:flex;flex-direction:column;align-items:center;padding:18px 0 12px}
++.card.lt #volWrap{background:rgba(255,255,255,.5)}
++#volWrap.open{transform:translate(0,-50%)}
++.vslider{flex:1;width:100%;position:relative;touch-action:none;cursor:pointer}
++.vtrack{position:absolute;left:50%;top:6px;bottom:6px;width:6px;transform:translateX(-50%);
++  border-radius:3px;background:rgba(255,255,255,.14)}
++.card.lt .vtrack{background:rgba(20,30,60,.12)}
++.vfill{position:absolute;bottom:0;left:0;width:100%;border-radius:3px;background:var(--red);height:0}
++.vdot{position:absolute;left:50%;width:18px;height:18px;border-radius:50%;background:#fff;
++  box-shadow:0 1px 6px rgba(0,0,0,.5);transform:translate(-50%,50%);bottom:0}
++.vnum{color:var(--txt);font-size:15px;padding-top:12px;flex:none}
++/* files view */
++#filesView{width:100%;flex:1;min-height:0;display:flex;flex-direction:column;margin-top:42px}
++.fhead{display:flex;align-items:center;gap:10px;min-height:37px}
++.crumb{flex:1;display:flex;align-items:center;overflow-x:auto;white-space:nowrap;
++  font-size:13px;color:var(--mut);gap:4px;scrollbar-width:none}
++.crumb::-webkit-scrollbar{display:none}
++.crumb b{color:var(--txt);cursor:pointer;font-weight:600;flex:none}
++.crumb b:hover{color:var(--red)}
++.crumb span{opacity:.5;flex:none}
++.fup{flex:none;display:flex;align-items:center;gap:7px;padding:9px 17px;
++  border-radius:999px;border:1px solid var(--line);background:var(--glass2);
++  color:var(--txt);font-size:13px;cursor:pointer}
++.fup:active{transform:scale(.94)}
++.fup svg{width:15px;height:15px}
++.flist{flex:1;overflow-y:auto;margin-top:12px;-webkit-overflow-scrolling:touch}
++.frow{display:flex;align-items:center;gap:11px;padding:12px 10px;font-size:15px;
++  border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;border-radius:10px}
++.card.lt .frow{border-bottom-color:rgba(20,30,60,.07)}
++.frow:active{background:rgba(255,255,255,.08)}
++.card.lt .frow:active{background:rgba(20,30,60,.06)}
++.frow svg{width:19px;height:19px;flex:none;color:var(--mut)}
++.frow.isdir svg{color:#f0b64a}
++.fname{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
++/* bottom navigation -- spans the full column width */
++.nav{position:absolute;left:0;right:0;bottom:0;z-index:58;
++  display:flex;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
++  background:var(--glass2);backdrop-filter:blur(24px) saturate(160%);
++  -webkit-backdrop-filter:blur(24px) saturate(160%);
++  border-top:1px solid var(--line)}
++.nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
++  padding:9px 30px;border-radius:16px;border:0;background:none;color:var(--mut);
++  font-size:11px;cursor:pointer}
++.nav button svg{width:22px;height:22px}
++.nav button.on{background:rgba(236,65,65,.16);color:var(--red)}
++/* file action popup + confirm */
++.ovl{position:absolute;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;
++  background:rgba(6,8,14,.4)}
++.card.lt .ovl{background:rgba(120,130,160,.25)}
++.fcard{width:min(320px,84%);background:rgba(24,27,40,.88);backdrop-filter:blur(30px);
++  border:1px solid var(--line);border-radius:22px;padding:20px;
++  display:flex;flex-direction:column;gap:10px;box-shadow:0 30px 70px rgba(0,0,0,.5)}
++.card.lt .fcard{background:rgba(250,250,253,.92)}
++.fcard .fname{font-size:15px;word-break:break-all;margin-bottom:4px;color:var(--txt)}
++.fcard p{font-size:14px;color:var(--mut);text-align:center;word-break:break-all}
++.fcard button{padding:13px;border-radius:14px;border:1px solid var(--line);
++  background:var(--glass2);color:var(--txt);font-size:14px;cursor:pointer}
++.fcard button:active{transform:scale(.97)}
++.fcard button.go{background:var(--red);border-color:transparent;color:#fff;font-weight:600}
++.fcard button.dngr{color:#ff6b6b}
++.fcard .row{display:flex;gap:10px}
++.fcard .row button{flex:1}
++/* playlist sheet */
++#plWrap{position:fixed;inset:0;background:rgba(6,8,14,.45);backdrop-filter:blur(10px);
++  z-index:70;display:flex;align-items:flex-end;justify-content:center;color:#f2f3f7}
++body.lt #plWrap{color:#1d2230}
++.sheet{width:min(720px,100vw);height:70vh;background:rgba(20,23,35,.6);
++  backdrop-filter:blur(34px) saturate(160%);-webkit-backdrop-filter:blur(34px) saturate(160%);
++  border:1px solid var(--line);border-bottom:0;border-radius:26px 26px 0 0;
++  padding:16px 20px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;
++  box-shadow:0 -20px 60px rgba(0,0,0,.5)}
++body.lt #plWrap .sheet{background:rgba(248,249,252,.72)}
++.sheet header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
++.sheet h2{font-size:17px}
++.sheet header button{background:var(--glass2);border:1px solid var(--line);color:var(--txt);
++  border-radius:999px;padding:7px 18px;font-size:13px;cursor:pointer}
++#plList{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
++#plList div{padding:13px 8px;font-size:15px;border-bottom:1px solid rgba(255,255,255,.06);
++  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border-radius:10px}
++#plList div:active{background:rgba(255,255,255,.08)}
++#plList div.cur{color:var(--red)}
++#plList div.cur::before{content:"▶";font-size:11px;margin-right:8px}
++/* upload progress + toast + drop hint */
++#upBox{position:absolute;left:14px;right:14px;
++  bottom:calc(96px + env(safe-area-inset-bottom));z-index:62;
++  display:flex;flex-direction:column;gap:8px;pointer-events:none}
++.uprow{background:rgba(20,23,35,.78);backdrop-filter:blur(24px);border:1px solid var(--line);
++  border-radius:16px;padding:10px 14px;display:flex;flex-direction:column;gap:7px}
++.card.lt .uprow{background:rgba(250,250,253,.88)}
++.uprow .l1{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);gap:12px}
++.uprow .l1 .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
++.uprow .l1 .p{color:var(--txt);flex:none}
++.uprow .pb{height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
++.card.lt .uprow .pb{background:rgba(20,30,60,.1)}
++.uprow .pb i{display:block;height:100%;background:var(--red);width:0;transition:width .15s;border-radius:3px}
++#toast{position:absolute;left:50%;transform:translateX(-50%);
++  bottom:calc(96px + env(safe-area-inset-bottom));z-index:63;
++  background:rgba(20,23,35,.85);backdrop-filter:blur(20px);border:1px solid var(--line);
++  color:var(--txt);padding:10px 22px;border-radius:999px;font-size:13px;opacity:0;
++  transition:opacity .25s;pointer-events:none;white-space:nowrap}
++.card.lt #toast{background:rgba(250,250,253,.92)}
++#toast.show{opacity:1}
++#dropOv{position:absolute;inset:10px;z-index:64;border:2px dashed rgba(255,255,255,.35);
++  border-radius:24px;background:rgba(10,12,20,.55);backdrop-filter:blur(6px);
++  display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--txt);
++  text-align:center;padding:20px}
++.card.lt #dropOv{border-color:rgba(20,30,60,.3);background:rgba(237,240,246,.55)}
++/* login */
++#login{position:fixed;inset:0;background:rgba(8,10,17,.55);backdrop-filter:blur(26px);
++  -webkit-backdrop-filter:blur(26px);display:flex;flex-direction:column;align-items:center;
++  justify-content:center;gap:18px;z-index:80}
++#login .logo{width:74px;height:74px;border-radius:50%;background:var(--red);
++  display:flex;align-items:center;justify-content:center;
++  box-shadow:0 14px 36px rgba(236,65,65,.45)}
++#login .logo svg{width:34px;height:34px}
++#login p{color:var(--mut);font-size:15px}
++#code{width:224px;padding:14px 0;font-size:28px;letter-spacing:14px;text-indent:14px;
++  text-align:center;text-transform:uppercase;background:var(--glass2);
++  border:1px solid var(--line);border-radius:16px;color:var(--txt);outline:none}
++#code:focus{border-color:var(--red)}
++#login button.go{padding:14px 54px;border:0;border-radius:999px;background:var(--red);
++  color:#fff;font-size:16px;font-weight:600;cursor:pointer}
++.shake{animation:shake .3s}
++@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
++#err{color:var(--red);font-size:13px;min-height:16px}
++[hidden]{display:none!important}
++</style>
++</head>
++<body>
++<div id="plWrap" hidden onclick="togglePl(false)">
++  <div class="sheet" onclick="event.stopPropagation()">
++    <header><h2 id="plTitle">Playlist</h2><button onclick="togglePl(false)">✕</button></header>
++    <div id="plList"></div>
++  </div>
++</div>
++
++<div id="login">
++  <div class="logo"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></div>
++  <p id="hint">Enter the code shown on the player</p>
++  <input id="code" maxlength="6" autocapitalize="characters" autocomplete="off">
++  <div id="err"></div>
++  <button class="go" id="loginBtn" onclick="login()">Enter</button>
++</div>
++
++<div class="card" id="main" hidden>
++  <div class="batt" id="batt">
++    <svg viewBox="0 0 28 14"><rect x="1" y="1" width="22" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><rect id="battFill" x="3.5" y="3.5" width="17" height="7" rx="1.5" fill="currentColor"/><rect x="24.5" y="4.5" width="2.5" height="5" rx="1" fill="currentColor"/></svg>
++    <span id="battPct">-</span>
++  </div>
++  <div class="tr">
++    <button class="lang thm" id="thBtn" aria-label="theme"></button>
++    <button class="lang" id="langBtn">EN</button>
++  </div>
++
++  <div id="playView">
++    <div class="discwrap">
++      <div class="disc paused" id="disc"><img id="cover" alt=""></div>
++      <div class="hole"></div>
++      <div class="arm off" id="arm"><svg viewBox="0 0 100 100">
++        <line x1="84" y1="17" x2="36" y2="70" stroke="#b7bfd2" stroke-width="4.6" stroke-linecap="round"/>
++        <line x1="84" y1="17" x2="36" y2="70" stroke="rgba(255,255,255,.35)" stroke-width="1.4" stroke-linecap="round"/>
++        <g transform="rotate(38 36 72)"><rect x="28" y="66" width="16" height="12" rx="3" fill="#252a38" stroke="#3a4154" stroke-width="1"/></g>
++        <line x1="35" y1="78" x2="31.5" y2="86" stroke="#e3e8f2" stroke-width="1.8" stroke-linecap="round"/>
++        <circle cx="84" cy="17" r="7.5" fill="#ccd2e0"/>
++        <circle cx="84" cy="17" r="3.2" fill="#7c8499"/>
++      </svg></div>
++    </div>
++    <div class="trow">
++      <div class="tcol">
++        <h1 id="title">-</h1>
++        <div class="sub" id="artist">-</div>
++      </div>
++      <div class="ico">
++        <button id="repBtn" class="dim" aria-label="repeat"><svg id="repIco" viewBox="0 0 24 24" fill="currentColor"></svg></button>
++        <button id="plBtn" aria-label="playlist"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h13v2H3zm0 5h13v2H3zm0 5h9v2H3zm15-9 5 4-5 4z"/></svg></button>
++        <button id="volBtn" aria-label="volume"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg></button>
++      </div>
++    </div>
++    <div class="bar" id="bar"><div class="track"><div class="fill" id="fill"></div><div class="dot" id="dot"></div></div></div>
++    <div class="times"><span id="pos">0:00</span><span id="len">0:00</span></div>
++    <div class="ctr">
++      <button onclick="cmd('prev')" aria-label="prev"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
++      <button class="big" id="pp" onclick="cmd('playpause')" aria-label="play"><svg id="ppIcon" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></button>
++      <button onclick="cmd('next')" aria-label="next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
++    </div>
++  </div>
++
++  <div id="filesView" hidden>
++    <div class="fhead">
++      <div class="crumb" id="crumb"></div>
++      <button class="fup" id="upBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 5 10h4v8h6v-8h4l-7-7zM5 19h14v2H5z"/></svg><span id="upLbl">Upload</span></button>
++    </div>
++    <div class="flist" id="fList"></div>
++  </div>
++
++  <div id="volWrap">
++    <div class="vslider" id="vslider">
++      <div class="vtrack"><div class="vfill" id="vfill"></div><div class="vdot" id="vdot"></div></div>
++    </div>
++    <div class="vnum" id="vnum">50</div>
++  </div>
++
++  <div id="fMenu" class="ovl" hidden onclick="closeFMenu()">
++    <div class="fcard" onclick="event.stopPropagation()">
++      <div class="fname" id="fMenuName"></div>
++      <button class="go" id="fPlay"></button>
++      <button class="dngr" id="fDel"></button>
++      <button id="fCancel"></button>
++    </div>
++  </div>
++
++  <div id="fConfirm" class="ovl" hidden onclick="this.hidden=true">
++    <div class="fcard" onclick="event.stopPropagation()">
++      <p id="cfName"></p>
++      <div class="row">
++        <button class="go" id="cfYes"></button>
++        <button id="cfNo"></button>
++      </div>
++    </div>
++  </div>
++
++  <div id="upBox"></div>
++  <div id="toast"></div>
++  <div id="dropOv" hidden></div>
++
++  <div class="nav">
++    <button id="navPlay" class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg><span id="navPlayLbl">Play</span></button>
++    <button id="navFiles"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg><span id="navFilesLbl">Files</span></button>
++  </div>
++</div>
++
++<input type="file" id="fileInput" multiple hidden>
++
++<script>
++let tok='', lang=localStorage.getItem('weblang')||'en', th=localStorage.getItem('webtheme')||'dk', L={}, st={};
++const $=i=>document.getElementById(i);
++const enc=encodeURIComponent;
++const SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
++const MOON='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
++
++/* embedded defaults; lang.json (same directory) overrides them */
++const DEF={
++ en:{hint:'Enter the code shown on the player',btn:'Enter',bad:'Wrong code',stopped:'Not playing',pl:'Playlist',plempty:'Playlist is empty',
++  tabPlay:'Play',tabFiles:'Files',up:'Upload',play:'Play',del:'Delete',cancel:'Cancel',
++  delq:'Delete this file?',empty:'Empty',drop:'Drop to upload to the current folder',upfail:'Upload failed',delfail:'Delete failed'},
++ zh:{hint:'输入播放器屏幕上显示的验证码',btn:'进入',bad:'验证码错误',stopped:'未在播放',pl:'播放列表',plempty:'播放列表为空',
++  tabPlay:'播放',tabFiles:'文件',up:'上传',play:'播放',del:'删除',cancel:'取消',
++  delq:'删除这个文件？',empty:'空目录',drop:'松开鼠标上传到当前目录',upfail:'上传失败',delfail:'删除失败'}};
++async function loadLang(){
++ try{const j=await (await fetch('/lang.json',{cache:'no-store'})).json();
++  L={en:Object.assign({},DEF.en,j.en),zh:Object.assign({},DEF.zh,j.zh)}}
++ catch(_){L=DEF}}
++const T=()=>L[lang]||DEF.en;
++
++function applyLang(){$('hint').textContent=T().hint;$('loginBtn').textContent=T().btn;
++ $('plTitle').textContent=T().pl;
++ $('navPlayLbl').textContent=T().tabPlay;$('navFilesLbl').textContent=T().tabFiles;
++ $('upLbl').textContent=T().up;$('fPlay').textContent=T().play;$('fDel').textContent=T().del;
++ $('fCancel').textContent=T().cancel;$('cfYes').textContent=T().del;$('cfNo').textContent=T().cancel;
++ $('dropOv').textContent=T().drop;
++ $('langBtn').textContent=lang==='en'?'中文':'EN';
++ document.documentElement.lang=lang;}
++function toggleLang(){lang=lang==='en'?'zh':'en';localStorage.setItem('weblang',lang);applyLang();}
++function applyTheme(){document.body.classList.toggle('lt',th==='lt');
++  $('main').classList.toggle('lt',th==='lt');
++  $('thBtn').innerHTML=th==='dk'?SUN:MOON;}
++function toggleTheme(){th=th==='dk'?'lt':'dk';localStorage.setItem('webtheme',th);applyTheme();}
++
++/* login */
++async function login(){
++  const r=await fetch('/api/login',{method:'POST',body:'code='+$('code').value.trim().toUpperCase()});
++  if(!r.ok){$('err').textContent=T().bad;$('code').classList.remove('shake');
++   void $('code').offsetWidth;$('code').classList.add('shake');return}
++  tok=(await r.json()).token;sessionStorage.setItem('tok',tok);
++  $('login').hidden=true;$('main').hidden=false;ws();
++  /* first paint before the websocket connects (battery/title/etc.) */
++  fetch('/api/status',{headers:{Authorization:'Bearer '+tok}})
++   .then(r=>r.ok?r.json():null).then(s=>{if(s)upd(s)}).catch(()=>{});
++}
++
++/* playlist: stable playback order, cur marks the playing track */
++let pl=[],plCur=0;
++async function loadPl(){
++  const box=$('plList');
++  if(!box)return;
++  try{
++   const r=await fetch('/api/playlist',{headers:{Authorization:'Bearer '+tok}});
++   if(!r.ok){box.innerHTML='<div style="color:#ec4141">'+(r.status===401?T().bad:'E'+r.status)+'</div>';return}
++   const j=await r.json();pl=j.tracks||[];plCur=j.cur||0;
++   box.innerHTML='';
++   if(!pl.length){box.innerHTML='<div style="color:var(--mut)">'+T().plempty+'</div>';return}
++   pl.forEach((t,i)=>{const d=document.createElement('div');
++    d.textContent=(i+1)+'. '+(t||'-');if(i===plCur)d.className='cur';
++    d.onclick=()=>{post('cmd=jump&param='+i);togglePl(false);setTimeout(loadPl,900)};
++    box.appendChild(d)});
++   const c=box.children[plCur];if(c)try{c.scrollIntoView({block:'center'})}catch(_){}
++  }catch(e){box.innerHTML='<div style="color:#ec4141">✗ '+e.message+'</div>'}}
++function togglePl(open){
++  const vis=!$('plWrap').hidden;
++  const o=(open===undefined)?!vis:open;
++  if(o)loadPl();
++  $('plWrap').hidden=!o;
++}
++
++/* helpers */
++const fmt=ms=>{ms=Math.max(0,ms)/1000;const m=Math.floor(ms/60),s=Math.floor(ms%60);return m+':'+(s<10?'0':'')+s};
++      const REP_BASE='<path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>';
++      const REP_ALL=REP_BASE+'<text x="12" y="16" font-size="9" font-weight="700" text-anchor="middle" fill="currentColor">A</text>';
++      const REP_OFF='<path d="M6 7h12M6 12h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 17h9m0 0l-3-3m3 3l-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
++const REP_ONE=REP_BASE+'<text x="12" y="16.5" font-size="10" font-weight="700" text-anchor="middle" fill="currentColor">1</text>';
++const REP_SHUFFLE='<path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>';
++const REP_AB=REP_BASE+'<text x="12" y="16" font-size="7.5" font-weight="700" text-anchor="middle" fill="currentColor">A·B</text>';
++function post(body){fetch('/api/cmd',{method:'POST',headers:{Authorization:'Bearer '+tok},body})
++ .then(r=>{if(r.status===401){tok='';sessionStorage.removeItem('tok');location.reload()}})
++ .catch(()=>{})}
++function cmd(c){post('cmd='+c)}
++let vt,vAt=0;
++function vsend(v){vAt=Date.now();clearTimeout(vt);vt=setTimeout(()=>post('cmd=volume&param='+v),200)}
++function seek(e){const r=$('bar').getBoundingClientRect();
++  const p=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
++  if(st.len)post('cmd=seek&param='+Math.round(p*st.len))}
++
++/* floating vertical volume */
++let vd=false;
++function setVolUI(v){v=Math.max(0,Math.min(100,v));
++  $('vfill').style.height=v+'%';$('vdot').style.bottom=v+'%';$('vnum').textContent=Math.round(v)}
++function volFromEvent(e){const r=$('vslider').getBoundingClientRect();
++  const v=(1-(e.clientY-r.top)/r.height)*100;setVolUI(v);vsend(Math.round(v))}
++function toggleVol(open){
++  const el=$('volWrap');
++  const o=(open===undefined)?!el.classList.contains('open'):open;
++  if(o)setVolUI(st.vol!==undefined?st.vol:50);
++  el.classList.toggle('open',o)}
++
++/* render */
++function upd(s){
++  st=s;
++  $('title').textContent=s.title||'-';
++  $('artist').textContent=s.artist?s.artist+(s.album?' · '+s.album:''):(s.album||'');
++  $('pos').textContent=fmt(s.pos);$('len').textContent=fmt(s.len);
++  const p=s.len?Math.min(100,s.pos*100/s.len):0;
++  $('fill').style.width=p+'%';$('dot').style.left=p+'%';
++  $('ppIcon').innerHTML=s.state===1?'<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>';
++  $('disc').classList.toggle('paused',s.state!==1);
++  $('disc').classList.toggle('noaa',!s.aa);
++  $('arm').classList.toggle('off',s.state!==1);
++  const rp=s.rep===undefined?0:s.rep;
++   $('repIco').innerHTML=rp===2?REP_ONE:rp===3?REP_SHUFFLE:rp===4?REP_AB:rp===0?REP_OFF:REP_ALL;
++  $('repBtn').classList.toggle('dim',rp===0);
++  if(s.bat!==undefined){$('battPct').textContent=s.bat+'%';
++   $('battFill').setAttribute('width',(17*Math.max(0,Math.min(100,s.bat))/100).toFixed(1));
++   $('batt').classList.toggle('low',s.bat<=15)}
++  if(s.state===0&&!s.title){$('title').textContent='-';$('artist').textContent=T().stopped}
++  if(!vd&&Date.now()-vAt>800)setVolUI(s.vol);
++  if(s.aa){const u='/api/cover?token='+tok+'&v='+s.serial;
++   if(!$('cover').src.endsWith(u))$('cover').src=u}
++  else $('cover').removeAttribute('src');
++}
++
++/* websocket */
++let wt;
++function ws(){
++  let w=new WebSocket('ws'+location.origin.slice(4)+'/ws?token='+tok);
++  w.onmessage=e=>{try{upd(JSON.parse(e.data))}catch(_){}};
++  w.onclose=()=>{clearTimeout(wt);wt=setTimeout(ws,1200)};
++  w.onerror=()=>w.close();
++}
++
++/* views */
++function switchView(v){
++  $('playView').hidden=v!=='play';
++  $('filesView').hidden=v!=='files';
++  $('navPlay').classList.toggle('on',v==='play');
++  $('navFiles').classList.toggle('on',v==='files');
++  toggleVol(false);
++  if(v==='files'&&fdir===null)loadFiles(null);
++}
++
++/* file management */
++let fdir=null;
++const ICON_DIR='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
++const ICON_FILE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2.5L18.5 9H14V4.5z"/></svg>';
++async function loadFiles(p){
++  const box=$('fList');
++  try{
++   const r=await fetch('/api/files'+(p?('?path='+enc(p)):''),{headers:{Authorization:'Bearer '+tok}});
++   if(!r.ok){box.innerHTML='<div style="color:#ec4141;padding:12px">'+(r.status===401?T().bad:'E'+r.status)+'</div>';return}
++   const j=await r.json();fdir=j.path||'/';
++   const cb=$('crumb');cb.innerHTML='';
++   const segs=fdir.split('/').filter(s=>s);
++   const mk=(label,path)=>{const b=document.createElement('b');b.textContent=label;
++    b.onclick=()=>loadFiles(path);cb.appendChild(b)};
++   mk('SD','/');
++   let acc='';
++   segs.forEach(s=>{acc+='/'+s;
++    const sp=document.createElement('span');sp.textContent='/';cb.appendChild(sp);
++    mk(s,acc)});
++   box.innerHTML='';
++   if(!j.dirs.length&&!j.files.length)
++    box.innerHTML='<div style="color:var(--mut);padding:14px">'+T().empty+'</div>';
++   const mkRow=(n,isdir)=>{const r=document.createElement('div');
++    r.className='frow'+(isdir?' isdir':'');
++    r.innerHTML=(isdir?ICON_DIR:ICON_FILE)+'<div class="fname"></div>';
++    r.querySelector('.fname').textContent=n;
++    r.onclick=()=>{if(isdir)loadFiles(fdir==='/'?('/'+n):(fdir+'/'+n));else openFMenu(n)};
++    return r};
++   j.dirs.forEach(d=>box.appendChild(mkRow(d,true)));
++   j.files.forEach(f=>box.appendChild(mkRow(f,false)));
++  }catch(e){box.innerHTML='<div style="color:#ec4141;padding:12px">✗ '+e.message+'</div>'}}
++
++let fSel=null;
++function openFMenu(name){fSel=name;$('fMenuName').textContent=name;$('fMenu').hidden=false}
++function closeFMenu(){$('fMenu').hidden=true}
++async function playFile(){
++  const r=await fetch('/api/fileop?op=play&path='+enc(fdir+'/'+fSel),
++    {method:'POST',headers:{Authorization:'Bearer '+tok}});
++  closeFMenu();
++  if(r.ok)switchView('play');else toast(T().delfail)}
++function askDelete(){
++  closeFMenu();
++  $('cfName').textContent=T().delq+'\n'+fSel;
++  $('fConfirm').hidden=false}
++async function doDelete(){
++  $('fConfirm').hidden=true;
++  const r=await fetch('/api/fileop?op=del&path='+enc(fdir+'/'+fSel),
++    {method:'POST',headers:{Authorization:'Bearer '+tok}});
++  if(r.ok)loadFiles(fdir);else toast(T().delfail)}
++
++/* uploads with progress */
++let upQ=[],upBusy=false;
++function queueUpload(files){for(const f of files)upQ.push(f);pumpUpload()}
++function pumpUpload(){
++  if(upBusy||!upQ.length)return;upBusy=true;
++  const f=upQ.shift();
++  const row=document.createElement('div');row.className='uprow';
++  row.innerHTML='<div class="l1"><span class="n"></span><span class="p"></span></div><div class="pb"><i></i></div>';
++  row.querySelector('.n').textContent=f.name;
++  const pct=row.querySelector('.p'),bar=row.querySelector('.pb i');
++  $('upBox').appendChild(row);
++  const xhr=new XMLHttpRequest();
++  xhr.open('POST','/api/upload?path='+enc(fdir||'/')+'&name='+enc(f.name));
++  xhr.setRequestHeader('Authorization','Bearer '+tok);
++  xhr.upload.onprogress=e=>{if(e.lengthComputable){
++    const p=Math.round(e.loaded*100/e.total);
++    pct.textContent=p+'%';bar.style.width=p+'%'}};
++  const done=ok=>{row.remove();upBusy=false;
++   if(!ok)toast(T().upfail);
++   if(ok&&fdir!==null)loadFiles(fdir);
++   pumpUpload()};
++  xhr.onload=()=>done(xhr.status===200);
++  xhr.onerror=()=>done(false);
++  xhr.send(f);
++}
++let tt;
++function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');
++ clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200)}
++
++/* drag & drop */
++let dragN=0;
++async function onDrop(e){
++  e.preventDefault();dragN=0;$('dropOv').hidden=true;
++  if(fdir===null)await loadFiles(null);
++  if(!fdir)fdir='/';
++  queueUpload(e.dataTransfer.files)}
++
++/* boot */
++(async()=>{
++  await loadLang();
++  applyLang();
++  applyTheme();
++  document.addEventListener('dragstart',e=>e.preventDefault());
++  $('langBtn').addEventListener('click',toggleLang);
++  $('thBtn').addEventListener('click',toggleTheme);
++  $('code').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
++  $('plBtn').addEventListener('click',e=>{e.stopPropagation();togglePl()});
++  $('repBtn').addEventListener('click',e=>{e.stopPropagation();cmd('repeat')});
++  $('volBtn').addEventListener('click',e=>{e.stopPropagation();toggleVol()});
++  $('bar').addEventListener('click',e=>seek(e));
++  $('navPlay').addEventListener('click',()=>switchView('play'));
++  $('navFiles').addEventListener('click',()=>switchView('files'));
++  $('fPlay').addEventListener('click',playFile);
++  $('fDel').addEventListener('click',askDelete);
++  $('fCancel').addEventListener('click',closeFMenu);
++  $('cfYes').addEventListener('click',doDelete);
++  $('cfNo').addEventListener('click',()=>$('fConfirm').hidden=true);
++  $('upBtn').addEventListener('click',async()=>{if(fdir===null)await loadFiles(null);
++   $('fileInput').click()});
++  $('fileInput').addEventListener('change',e=>{
++   if(e.target.files.length){queueUpload(e.target.files)}
++   e.target.value=''});
++  const vs=$('vslider');
++  vs.addEventListener('pointerdown',e=>{vd=true;
++   if(vs.setPointerCapture)try{vs.setPointerCapture(e.pointerId)}catch(_){}
++   volFromEvent(e)});
++  vs.addEventListener('pointermove',e=>{if(vd)volFromEvent(e)});
++  const vEnd=()=>{vd=false};
++  vs.addEventListener('pointerup',vEnd);vs.addEventListener('pointercancel',vEnd);
++  document.addEventListener('pointerdown',e=>{
++   if($('volWrap').classList.contains('open')
++    &&!$('volWrap').contains(e.target)&&!$('volBtn').contains(e.target))
++    toggleVol(false)});
++  const card=$('main');
++  card.addEventListener('dragenter',e=>{e.preventDefault();
++   const t=e.dataTransfer&&e.dataTransfer.types?Array.from(e.dataTransfer.types):[];
++   if(t.indexOf('Files')<0)return;
++   dragN++;$('dropOv').hidden=false});
++  card.addEventListener('dragover',e=>e.preventDefault());
++  card.addEventListener('dragleave',e=>{e.preventDefault();
++   if(--dragN<=0){dragN=0;$('dropOv').hidden=true}});
++  card.addEventListener('drop',onDrop);
++  tok=sessionStorage.getItem('tok')||'';
++  if(tok){
++   const r=await fetch('/api/status',{headers:{Authorization:'Bearer '+tok}});
++    if(r.ok){$('login').hidden=true;$('main').hidden=false;upd(await r.json());ws();return}
++   tok=''}
++  $('code').focus();
++})();
++</script>
++</body>
++</html>
+diff --git a/web/control/lang.json b/web/control/lang.json
+new file mode 100644
+index 0000000000..43b9b3521b
+--- /dev/null
++++ b/web/control/lang.json
+@@ -0,0 +1,42 @@
++{
++ "en": {
++  "hint": "Enter the code shown on the player",
++  "btn": "Enter",
++  "bad": "Wrong code",
++  "stopped": "Not playing",
++  "conn": "Connection lost, retrying…",
++  "pl": "Playlist",
++  "plempty": "Playlist is empty",
++  "tabPlay": "Play",
++  "tabFiles": "Files",
++  "up": "Upload",
++  "play": "Play",
++  "del": "Delete",
++  "cancel": "Cancel",
++  "delq": "Delete this file?",
++  "empty": "Empty",
++  "drop": "Drop to upload to the current folder",
++  "upfail": "Upload failed",
++  "delfail": "Delete failed"
++ },
++ "zh": {
++  "hint": "输入播放器屏幕上显示的验证码",
++  "btn": "进入",
++  "bad": "验证码错误",
++  "stopped": "未在播放",
++  "conn": "连接中断，正在重连…",
++  "pl": "播放列表",
++  "plempty": "播放列表为空",
++  "tabPlay": "播放",
++  "tabFiles": "文件",
++  "up": "上传",
++  "play": "播放",
++  "del": "删除",
++  "cancel": "取消",
++  "delq": "删除这个文件？",
++  "empty": "空目录",
++  "drop": "松开鼠标上传到当前目录",
++  "upfail": "上传失败",
++  "delfail": "删除失败"
++ }
++}
 diff --git a/wps/WPSLIST b/wps/WPSLIST
 index d9438bb77b..5918aeb85b 100644
 --- a/wps/WPSLIST

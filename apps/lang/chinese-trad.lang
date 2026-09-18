@@ -11926,3 +11926,562 @@
     *: ""
   </voice>
 </phrase>
+
+<phrase>
+  id: LANG_WIFI
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "WiFi"
+  </source>
+  <dest>
+    *: "WiFi"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_ON
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Turn WiFi on"
+  </source>
+  <dest>
+    *: "開啟 WiFi"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_OFF
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Turn WiFi off"
+  </source>
+  <dest>
+    *: "關閉 WiFi"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_SCAN
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Scan and connect"
+  </source>
+  <dest>
+    *: "掃描熱點"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_SAVED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Saved networks"
+  </source>
+  <dest>
+    *: "已保存網路"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_STATUS
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Status"
+  </source>
+  <dest>
+    *: "狀態"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_STARTING
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Starting WiFi..."
+  </source>
+  <dest>
+    *: "正在開啟 WiFi..."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_STOPPING
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Stopping WiFi..."
+  </source>
+  <dest>
+    *: "正在關閉 WiFi..."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_CONNECTING
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Connecting..."
+  </source>
+  <dest>
+    *: "連線中..."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_CONNECTED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Connected"
+  </source>
+  <dest>
+    *: "已連線"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_FAILED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Operation failed"
+  </source>
+  <dest>
+    *: "操作失敗"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_NO_NETS
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "No networks found"
+  </source>
+  <dest>
+    *: "未找到網路"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_PASSWORD
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Enter password"
+  </source>
+  <dest>
+    *: "輸入密碼"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_CONNECT
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Connect"
+  </source>
+  <dest>
+    *: "連線"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_FORGET
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Delete"
+  </source>
+  <dest>
+    *: "刪除"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_SSID
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "SSID"
+  </source>
+  <dest>
+    *: "SSID"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_IP
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "IP address"
+  </source>
+  <dest>
+    *: "IP 位址"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_SIGNAL
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Signal"
+  </source>
+  <dest>
+    *: "訊號"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_NOT_CONNECTED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Not connected"
+  </source>
+  <dest>
+    *: "未連線"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_SCANNING
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Scanning..."
+  </source>
+  <dest>
+    *: "掃描中..."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_RADIO
+  desc: WiFi status screen, radio power state
+  user: core
+  <source>
+    *: "Radio"
+  </source>
+  <dest>
+    *: "無線電"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_RADIO_ON
+  desc: WiFi status screen, radio powered on
+  user: core
+  <source>
+    *: "Powered"
+  </source>
+  <dest>
+    *: "開啟"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_RADIO_OFF
+  desc: WiFi status screen, radio not powered
+  user: core
+  <source>
+    *: "Not powered"
+  </source>
+  <dest>
+    *: "關閉"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_RESET
+  desc: WiFi menu, reset to power-on state
+  user: core
+  <source>
+    *: "重置 WiFi"
+  </source>
+  <dest>
+    *: "重置 WiFi"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_RESET_CONFIRM
+  desc: WiFi reset confirmation
+  user: core
+  <source>
+    *: "重置 WiFi 到開機初始狀態？"
+  </source>
+  <dest>
+    *: "重置 WiFi 到開機初始狀態？"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_WIFI_RESETTING
+  desc: WiFi reset in progress
+  user: core
+  <source>
+    *: "重置中..."
+  </source>
+  <dest>
+    *: "重置中..."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_CONTROL
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Web control"
+  </source>
+  <dest>
+    *: "Web 控制"
+  </dest>
+  <voice>
+    *: "Web 控制"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_SERVICE
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Service"
+  </source>
+  <dest>
+    *: "服務"
+  </dest>
+  <voice>
+    *: "服務"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_RUNNING
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Running"
+  </source>
+  <dest>
+    *: "運行中"
+  </dest>
+  <voice>
+    *: "運行中"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_STOPPED
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Stopped"
+  </source>
+  <dest>
+    *: "已停止"
+  </dest>
+  <voice>
+    *: "已停止"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_CODE
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Code"
+  </source>
+  <dest>
+    *: "驗證碼"
+  </dest>
+  <voice>
+    *: "驗證碼"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_ADDRESS
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Address"
+  </source>
+  <dest>
+    *: "位址"
+  </dest>
+  <voice>
+    *: "位址"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_START
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Start"
+  </source>
+  <dest>
+    *: "啟動"
+  </dest>
+  <voice>
+    *: "啟動"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_STOP
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Stop"
+  </source>
+  <dest>
+    *: "停止"
+  </dest>
+  <voice>
+    *: "停止"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_STARTING
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Starting..."
+  </source>
+  <dest>
+    *: "正在啟動..."
+  </dest>
+  <voice>
+    *: "正在啟動..."
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_FAILED
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Start failed"
+  </source>
+  <dest>
+    *: "啟動失敗"
+  </dest>
+  <voice>
+    *: "啟動失敗"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_WEB_NO_FILES
+  desc: used by the web control screen
+  user: core
+  <source>
+    *: "Missing web page files"
+  </source>
+  <dest>
+    *: "缺少 Web 頁面檔案"
+  </dest>
+  <voice>
+    *: "缺少 Web 頁面檔案"
+  </voice>
+</phrase>
+
+<phrase>
+    id: LANG_WEB_NOT_LOCAL
+    desc: web control only in local playback mode
+    user: core
+    <source>
+        *: "Local file playback only"
+    </source>
+    <dest>
+        *: "僅本地文件播放可用"
+    </dest>
+    <voice>
+        *: "Local file playback only"
+    </voice>
+</phrase>

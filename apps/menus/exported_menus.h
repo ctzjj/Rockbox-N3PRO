@@ -45,7 +45,10 @@ extern const struct menu_item_ex
 #ifdef CAYIN_N3PRO
         n3pro_bluetooth_root_item,  /* n3pro_bluetooth_menu.c */
 #endif
-        theme_menu;                 /* theme_menu.c     */
+#ifdef HAVE_WIFI_MENU
+        wifi_root_item,             /* wifi_menu.c */
+#endif
+        theme_menu;                 /* theme_menu.c   */
 
 struct browse_folder_info {
     const char* dir;

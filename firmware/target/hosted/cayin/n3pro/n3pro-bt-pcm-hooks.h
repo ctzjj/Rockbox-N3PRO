@@ -245,4 +245,25 @@ int pcm_alsa_switch_playback_device(const char *device)
     return ok ? 0 : -1;
 }
 
+/* Positive "plain local file playback" check (see n3pro-bt-pcm.h):
+ * false whenever any external mode owns the audio path.  New external
+ * modes MUST be wired in here. */
+bool n3pro_local_playback(void)
+{
+    extern bool n3pro_bt_rx_get_active(void);
+
+    if (pcm_alsa_is_bluetooth_active())
+        return false;
+    if (n3pro_bt_rx_get_active())
+        return false;
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+    {
+        extern bool usb_audio_get_active(void);
+        if (usb_audio_get_active())
+            return false;
+    }
+#endif
+    return true;
+}
+
 #endif /* __N3PRO_BT_PCM_HOOKS_H__ */

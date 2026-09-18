@@ -1088,6 +1088,11 @@ const struct settings_list settings[] = {
     OFFON_SETTING(0, bt_volume_set, LANG_BLUETOOTH, false, "bt volume set",
                   NULL),
 #endif
+#ifdef HAVE_WIFI_MENU
+    /* Remembered WiFi network; hand-editable in config.cfg. */
+    TEXT_SETTING(0, wifi_ssid, "wifi ssid", "", NULL, NULL),
+    TEXT_SETTING(0, wifi_psk, "wifi password", "", NULL, NULL),
+#endif
 #ifdef HAVE_PITCHCONTROL
     SYSTEM_STATUS(F_SOUNDSETTING, resume_pitch, PITCH_SPEED_100, "pitch"),
     SYSTEM_STATUS(F_SOUNDSETTING, resume_speed, PITCH_SPEED_100, "speed"),

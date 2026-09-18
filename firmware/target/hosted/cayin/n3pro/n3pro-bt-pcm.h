@@ -37,4 +37,13 @@ bool pcm_alsa_is_bluetooth_active(void);
 bool pcm_alsa_bt_link_lost(void);
 void pcm_alsa_bt_link_lost_clear(void);
 
+/* Positive "plain local file playback" check.  True ONLY when the normal
+ * file player owns the whole audio path; false whenever any external mode
+ * is active (bluetooth receive, bluetooth output route, USB DAC input).
+ * This is the single choke point for such queries: when a new external
+ * playback mode is added to the port, it MUST be wired in here so that
+ * dependants (e.g. the web remote, which drives the file player only)
+ * refuse to run. */
+bool n3pro_local_playback(void);
+
 #endif /* __N3PRO_BT_PCM_H__ */

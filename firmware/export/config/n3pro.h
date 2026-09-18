@@ -65,6 +65,14 @@
  * other hosted linux targets with software volume (FiiO M3K Linux,
  * Aigo Eros Q, Sony NWZ). */
 #define HAVE_ALSA_32BIT
+/* The generic WiFi menu (apps/wifi_menu.c) is driven through the
+ * wifi_hal interface; the implementation lives in the n3pro target
+ * directory (n3pro-wifi.c, wpa_supplicant via wpa_cli). */
+#define HAVE_WIFI_MENU
+/* The generic web remote control (apps/web_control.c): HTTP +
+ * WebSocket server; pages are shipped under .rockbox/web/control/.
+ */
+#define HAVE_WEB_CONTROL
 
 /* We don't have hardware controls */
 #define HAVE_SW_TONE_CONTROLS

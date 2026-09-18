@@ -559,6 +559,9 @@ static struct menu_table menu_table[] = {
 #ifdef CAYIN_N3PRO
     { "bluetooth", &n3pro_bluetooth_root_item },
 #endif
+#ifdef HAVE_WIFI_MENU
+    { "wifi", &wifi_root_item },
+#endif
     { "plugins", &rocks_browser },
     { "system_menu", &system_menu_ },
     { "shortcuts", &shortcut_menu },
