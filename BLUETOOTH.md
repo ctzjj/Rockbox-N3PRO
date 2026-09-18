@@ -150,3 +150,19 @@ button-n3pro.c 增加读取 uinput 设备（AVRCP 连接时出现的 `/dev/input
 4. bluetoothd 老栈（4.101）对新手机兼容性——原厂同栈在卖，风险低
 5. `/etc/asound.conf` 为 rootfs 运行时文件：断开时必须还原（原厂同手法）
 6. D-Bus 元数据信号格式需在 PoC 阶段抓包确认（dbus-monitor）
+7. **`/etc/asound.conf` 改为 tmpfs + 符号链接覆盖（待研究，蓝牙重构时决定）**
+   - 目的：该文件是 rootfs 上的运行时配置，目前每次改动都要写 flash。现阶段已先缓解为
+     "**内容不变就不重写**"（`bt_write_asound()` 先读旧内容比较），蓝牙重构时再研究彻底方案。
+   - 思路：正式内容写到 `/tmp/asound.conf`，再把 `/etc/asound.conf` 换成指向它的符号链接。
+   - 依据：alsa-lib 读该文件走普通 `open()`，内核会跟随符号链接；标准 `alsa.conf` 以
+     `@hooks { func load files ["/etc/asound.conf" …] errors false }` 加载它，文件缺失/悬空只表示
+     "没有用户配置"，不会报错；现有 `fopen(BT_ASOUND_CONF,"w")` 会透过链接直接落到 tmpfs，
+     代码几乎不用改。
+   - 注意：
+     - 首次建链是一次 flash 写（`unlink` + `symlink`），需 rootfs 支持符号链接（`/` 为 UBIFS，
+       支持）；只读或失败时必须降级回普通文件写法。
+     - `/tmp` 是 tmpfs：重启后内容丢失、链接悬空 → 没有 `btvol` PCM 定义。系统本身不受影响，
+       蓝牙路由建立时我们会重新写入，可自愈。
+     - 凡是用 `stat()` 判断该文件是否存在的组件，在首次写入前会认为"不存在"。
+     - 备选：`mount --bind /tmp/asound.conf /etc/asound.conf`（同样不持久，需重新挂载）。
+   - 建议实现：惰性建链 + 失败降级，作为"把 `apps/n3pro_bluetooth.c` 抽成通用框架"重构的一部分。

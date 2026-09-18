@@ -1,0 +1,27 @@
+# 网络收音机预设 (Network radio presets)
+#
+# 每行一个电台，格式:  名称,地址
+# 名称与地址首尾空格会被忽略；以 # 开头的行是注释；空行会被忽略。
+#
+# 支持:
+#   - HTTP / HTTPS 的 MP3 直链 (Icecast/Shoutcast 连续流)
+#   - HLS 直播 (m3u8，MPEG-TS 内的 AAC 或 MPEG 音频)
+#
+# 提示: 部分电台地址带有时效 token，过期后需要重新获取。
+#       本文件位于存储卡的 .rockbox/stream/netfm/netfm.txt，可直接编辑。
+#
+# ---- 预置电台 (免令牌) ----
+中国之声, http://ngcdn001.cnr.cn/live/zgzs/index.m3u8
+经济之声, http://ngcdn001.cnr.cn/live/jjzs/index.m3u8
+音乐之声, http://ngcdn001.cnr.cn/live/yyzs/index.m3u8
+都市之声, http://ngcdn001.cnr.cn/live/dszs/index.m3u8
+中华之声, http://ngcdn001.cnr.cn/live/zhzs/index.m3u8
+民族之声, http://ngcdn001.cnr.cn/live/mzzs/index.m3u8
+文艺之声, http://ngcdn001.cnr.cn/live/wyzs/index.m3u8
+SomaFM Groove Salad, https://ice1.somafm.com/groovesalad-128-mp3
+SomaFM Lush, https://ice1.somafm.com/lush-128-mp3
+Radio Paradise, http://stream.radioparadise.com/mp3-128
+NPO Radio 1, http://icecast.omroep.nl/radio1-bb-mp3
+#
+# ---- 添加自己的电台 (示例) ----
+# 我的电台, http://example.com/stream.mp3

@@ -69,6 +69,7 @@
  * wifi_hal interface; the implementation lives in the n3pro target
  * directory (n3pro-wifi.c, wpa_supplicant via wpa_cli). */
 #define HAVE_WIFI_MENU
+#define HAVE_NETFM
 /* The generic web remote control (apps/web_control.c): HTTP +
  * WebSocket server; pages are shipped under .rockbox/web/control/.
  */

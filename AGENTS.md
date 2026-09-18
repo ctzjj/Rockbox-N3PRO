@@ -170,6 +170,14 @@ must obey the rules below.
    `.lng` shows wrong menu labels (the classic symptom: the USB / LED entries
    "disappear" because they are mislabelled).  When in doubt, replace the whole
    `.rockbox` from the matching zip.
+6. **No dynamic memory allocation unless absolutely necessary.**  This is an
+   embedded player, not a desktop: prefer static/global buffers (or `buflib`
+   where the rest of Rockbox already uses it) sized at compile time.
+   `malloc`/`calloc`/`realloc`/`free` fragment the heap, can fail at runtime
+   and are easy to leak where the code never frees — on the device that shows
+   up as an unbootable player or a slow death.  Only reach for the heap when an
+   API you must use forces it, keep it out of hot paths, and free it
+   deterministically.
 
 ---
 

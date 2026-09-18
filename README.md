@@ -35,6 +35,7 @@ Download the ready-made image and SD-card payload from the
 | USB Audio (USB DAC, incl. "DAC + storage" and "DAC + ADB" gadgets) | working* |
 | Bluetooth output (A2DP earphones: scan / pair / connect, LDAC/APTX/AAC/SBC) | working |
 | Bluetooth input (phone A2DP → Rockbox DSP → wired outputs) | working |
+| Internet radio (WiFi → HTTP/HLS streaming, AAC/MP3, self-decoded) | working |
 | RGB status LED (charge + playback, colour by sample rate) | working |
 | Battery gauge | working (kernel fuel gauge) |
 | Backlight / sleep | working |
@@ -136,6 +137,11 @@ hooks in `n3pro-bt-pcm-hooks.h`.  The model header is
 `apps/keymaps/keymap-n3pro.c`.  Registration is in `tools/configure`,
 `tools/builds.pm`, `firmware/SOURCES`, `apps/SOURCES`,
 `apps/bitmaps/native/SOURCES` and `apps/lang/english.lang`.
+The internet radio lives in `apps/netfm.{c,h}` (menu/status screen),
+`apps/netfm_stream.{c,h}` (HTTP/HLS worker + MPEG-TS demux) and
+`apps/netfm_playback.{c,h}` (own raw-pthread decoder feeding
+`PCM_MIXER_CHAN_NETFM`); stations are read from `stream/netfm/netfm.txt`
+(`name,url` per line, shipped to `.rockbox/stream/netfm`).
 `n3pro_port.patch` applies all of this to a pristine Rockbox checkout, and
 `n3pro_patcher.sh` builds the flashable `.upt`.
 

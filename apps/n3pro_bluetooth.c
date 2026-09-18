@@ -51,8 +51,8 @@ static char *bt_str(int id)
 #define BT_ASOUND_CONF "/etc/asound.conf"
 #define BT_AUDIO_CONF "/etc/bluetooth/audio.conf"
 #define BT_SYS_SOCKET "/var/run/sys_server"
-#define BT_LIST_FILE "/data/bt_list.txt"
-#define BT_SCAN_FILE "/data/bt_scan.txt"
+#define BT_LIST_FILE "/tmp/bt_list.txt"
+#define BT_SCAN_FILE "/tmp/bt_scan.txt"
 #define BT_SYS_REPLY_MAX 128
 #define BT_DEVICE_PICK_CANCEL (-1)
 #define BT_DEVICE_PICK_SCAN (-2)
@@ -644,47 +644,66 @@ static void bt_kick_audio_if_playing(void)
 }
 
 /* Write the peer the stock bluetooth ALSA plugin must stream to.  The
- * vendor player rewrites this file at runtime, so we do the same. */
+ * vendor player rewrites this file at runtime, so we do the same - but
+ * only when the content actually changes, so a routine reconnect does
+ * not touch the flash. */
 static void bt_write_asound(const char *mac)
 {
-    FILE *f = fopen(BT_ASOUND_CONF, "w");
+    char buf[1024];
+    int len = snprintf(buf, sizeof(buf),
+        "pcm.bluetooth {\n"
+        "    type bluetooth\n"
+        "    device \"%s\"\n"
+        "    profile \"a2dp\"\n"
+        "}\n"
+        /* The AK4493 hardware volume does not touch the bluetooth path, so
+         * wrap the plugin in a userspace softvol whose "Bluetooth Vol" mixer
+         * control is driven by audiohw_set_volume() while this route is up.
+         * The softvol chain sits behind a plug, because the 32-bit sample
+         * stream (HAVE_ALSA_32BIT) has to be converted down to the S16 the
+         * stock bluetooth plugin accepts; plug is pass-through when the
+         * formats already match. */
+        "pcm.%s {\n"
+        "    type plug\n"
+        "    slave.pcm {\n"
+        "        type softvol\n"
+        "        slave.pcm {\n"
+        "            type bluetooth\n"
+        "            device \"%s\"\n"
+        "            profile \"a2dp\"\n"
+        "        }\n"
+        "        control {\n"
+        "            name \"Bluetooth Vol\"\n"
+        "            card 0\n"
+        "        }\n"
+        /* The audible window of a digital attenuation is about 50 dB; use it
+         * all so the volume steps do not bunch up in the top few dB. */
+        "        min_dB -50.0\n"
+        "        max_dB 0.0\n"
+        "    }\n"
+        "}\n", mac, N3PRO_BT_DEVICE, mac);
 
-    if (!f)
+    if (len <= 0 || len >= (int)sizeof(buf))
         return;
 
-    fprintf(f, "pcm.bluetooth {\n");
-    fprintf(f, "    type bluetooth\n");
-    fprintf(f, "    device \"%s\"\n", mac);
-    fprintf(f, "    profile \"a2dp\"\n");
-    fprintf(f, "}\n");
+    {
+        char old[1024];
+        size_t rn = 0;
+        FILE *rf = fopen(BT_ASOUND_CONF, "r");
+        if (rf)
+        {
+            rn = fread(old, 1, sizeof(old) - 1, rf);
+            fclose(rf);
+            old[rn] = '\0';
+        }
+        if (rn == (size_t)len && memcmp(old, buf, rn) == 0)
+            return;                 /* already correct - do not wear flash */
+    }
 
-    /* The AK4493 hardware volume does not touch the bluetooth path, so
-     * wrap the plugin in a userspace softvol whose "Bluetooth Vol" mixer
-     * control is driven by audiohw_set_volume() while this route is up.
-     * The softvol chain sits behind a plug, because the 32-bit sample
-     * stream (HAVE_ALSA_32BIT) has to be converted down to the S16 the
-     * stock bluetooth plugin accepts; plug is pass-through when the
-     * formats already match. */
-    fprintf(f, "pcm.%s {\n", N3PRO_BT_DEVICE);
-    fprintf(f, "    type plug\n");
-    fprintf(f, "    slave.pcm {\n");
-    fprintf(f, "        type softvol\n");
-    fprintf(f, "        slave.pcm {\n");
-    fprintf(f, "            type bluetooth\n");
-    fprintf(f, "            device \"%s\"\n", mac);
-    fprintf(f, "            profile \"a2dp\"\n");
-    fprintf(f, "        }\n");
-    fprintf(f, "        control {\n");
-    fprintf(f, "            name \"Bluetooth Vol\"\n");
-    fprintf(f, "            card 0\n");
-    fprintf(f, "        }\n");
-    /* The audible window of a digital attenuation is about 50 dB; use it
-     * all so the volume steps do not bunch up in the top few dB. */
-    fprintf(f, "        min_dB -50.0\n");
-    fprintf(f, "        max_dB 0.0\n");
-    fprintf(f, "    }\n");
-    fprintf(f, "}\n");
-
+    FILE *f = fopen(BT_ASOUND_CONF, "w");
+    if (!f)
+        return;
+    fwrite(buf, 1, (size_t)len, f);
     fclose(f);
 }
 

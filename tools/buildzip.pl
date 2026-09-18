@@ -701,6 +701,11 @@ sub buildzip {
             glob_mkdir("$temp_dir/web/control");
             glob_copy("$ROOT/web/control/*", "$temp_dir/web/control");
         }
+        # network radio presets (read from .rockbox/stream/netfm)
+        if (-d "$ROOT/stream/netfm") {
+            glob_mkdir("$temp_dir/stream/netfm");
+            glob_copy("$ROOT/stream/netfm/*", "$temp_dir/stream/netfm");
+        }
     }
 
     # finally, bundle map files for debug

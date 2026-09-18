@@ -45,6 +45,9 @@
 #include "storage.h"
 #include "misc.h"
 #include "settings.h"
+#ifdef HAVE_NETFM
+#include "netfm_stream.h"
+#endif
 #include "audiohw.h"
 #include "general.h"
 #include "iap-usb.h"
@@ -3017,6 +3020,14 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
         queue_reply(&audio_queue, 0);
         return;
     }
+#endif
+#ifdef HAVE_NETFM
+    /* The network radio is a background source like the external inputs:
+     * it yields the output to local playback (its decoder thread and its
+     * mixer channel stop) instead of refusing to play.  The stop is
+     * asynchronous: this runs on the audio thread. */
+    if (netfm_stream_is_active())
+        netfm_stream_stop_async();
 #endif
     static struct audio_resume_info resume = { 0, 0 };
     enum play_status old_status = play_status;

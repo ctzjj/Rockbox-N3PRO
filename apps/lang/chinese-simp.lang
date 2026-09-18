@@ -18415,3 +18415,255 @@
         *: "Local file playback only"
     </voice>
 </phrase>
+<phrase>
+  id: LANG_NETFM
+  desc: network radio menu
+  user: core
+  <source>
+    *: "Network radio"
+  </source>
+  <dest>
+    *: "网络收音机"
+  </dest>
+  <voice>
+    *: "网络收音机"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_WIFI_REQUIRED
+  desc: network radio wifi required
+  user: core
+  <source>
+    *: "Connect WiFi first"
+  </source>
+  <dest>
+    *: "请先连接 WiFi"
+  </dest>
+  <voice>
+    *: "请先连接 WiFi"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_EMPTY
+  desc: no network radio presets
+  user: core
+  <source>
+    *: "No network radio presets"
+  </source>
+  <dest>
+    *: "未找到网络电台"
+  </dest>
+  <voice>
+    *: "未找到网络电台"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_START_FAIL
+  desc: network radio start failure
+  user: core
+  <source>
+    *: "Network radio failed to start"
+  </source>
+  <dest>
+    *: "网络收音机启动失败"
+  </dest>
+  <voice>
+    *: "网络收音机启动失败"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_ACTIVE
+  desc: network radio active playback gate
+  user: core
+  <source>
+    *: "Network radio is active"
+  </source>
+  <dest>
+    *: "网络收音机使用中"
+  </dest>
+  <voice>
+    *: "网络收音机使用中"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_CONFLICT
+  desc: network radio
+  user: core
+  <source>
+    *: "Unavailable in the current audio mode"
+  </source>
+  <dest>
+    *: "当前音频模式不可用"
+  </dest>
+  <voice>
+    *: "当前音频模式不可用"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_STATION
+  desc: network radio
+  user: core
+  <source>
+    *: "Station"
+  </source>
+  <dest>
+    *: "电台"
+  </dest>
+  <voice>
+    *: "电台"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_FORMAT
+  desc: network radio
+  user: core
+  <source>
+    *: "Format"
+  </source>
+  <dest>
+    *: "格式"
+  </dest>
+  <voice>
+    *: "格式"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_BITRATE
+  desc: network radio
+  user: core
+  <source>
+    *: "Bitrate"
+  </source>
+  <dest>
+    *: "码率"
+  </dest>
+  <voice>
+    *: "码率"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_BUFFER
+  desc: network radio
+  user: core
+  <source>
+    *: "Buffer"
+  </source>
+  <dest>
+    *: "缓冲"
+  </dest>
+  <voice>
+    *: "缓冲"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_BACK
+  desc: network radio
+  user: core
+  <source>
+    *: "Back"
+  </source>
+  <dest>
+    *: "返回"
+  </dest>
+  <voice>
+    *: "返回"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_ST_CONNECTING
+  desc: network radio
+  user: core
+  <source>
+    *: "Connecting"
+  </source>
+  <dest>
+    *: "连接中"
+  </dest>
+  <voice>
+    *: "连接中"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_ST_BUFFERING
+  desc: network radio
+  user: core
+  <source>
+    *: "Buffering"
+  </source>
+  <dest>
+    *: "缓冲中"
+  </dest>
+  <voice>
+    *: "缓冲中"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_ST_PLAYING
+  desc: network radio
+  user: core
+  <source>
+    *: "Playing"
+  </source>
+  <dest>
+    *: "播放中"
+  </dest>
+  <voice>
+    *: "播放中"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_ST_DISCONNECTED
+  desc: network radio
+  user: core
+  <source>
+    *: "Disconnected"
+  </source>
+  <dest>
+    *: "断开"
+  </dest>
+  <voice>
+    *: "断开"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_ST_ERROR
+  desc: network radio
+  user: core
+  <source>
+    *: "Error"
+  </source>
+  <dest>
+    *: "错误"
+  </dest>
+  <voice>
+    *: "错误"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_ST_STOPPED
+  desc: network radio
+  user: core
+  <source>
+    *: "Stopped"
+  </source>
+  <dest>
+    *: "停止"
+  </dest>
+  <voice>
+    *: "停止"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_NETFM_STOP
+  desc: network radio
+  user: core
+  <source>
+    *: "Stop"
+  </source>
+  <dest>
+    *: "停止"
+  </dest>
+  <voice>
+    *: "停止"
+  </voice>
+</phrase>

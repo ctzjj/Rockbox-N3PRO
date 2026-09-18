@@ -78,6 +78,10 @@ enum pcm_mixer_channel
     /* Bluetooth A2DP receive; see target/hosted/cayin/n3pro/n3pro-bt-input.c */
     PCM_MIXER_CHAN_BT_AUDIO,
 #endif
+#ifdef HAVE_NETFM
+    /* Network radio streaming; see apps/netfm_playback.c */
+    PCM_MIXER_CHAN_NETFM,
+#endif
     PCM_MIXER_CHAN_VOICE,
 #ifndef HAVE_HARDWARE_BEEP
     PCM_MIXER_CHAN_BEEP,
