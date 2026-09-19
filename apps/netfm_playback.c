@@ -207,7 +207,7 @@ static void nf_configure(int setting, intptr_t value)
     nf_src->configure(nf_src->context, setting, (long)value);
 }
 
-static int nf_get_command(intptr_t *param)
+static long nf_get_command(intptr_t *param)
 {
     (void)param;
     return nf_stop_req ? CODEC_ACTION_HALT : CODEC_ACTION_NULL;
@@ -218,9 +218,10 @@ static int nf_get_command(intptr_t *param)
  * on a scheduler entry the pthread does not own, and sleep() in
  * particular never gets woken again).  Use the host calls instead, as
  * the Bluetooth input pump does. */
-static void nf_codec_sleep(int ticks)
+static unsigned int nf_codec_sleep(unsigned int ticks)
 {
     usleep((useconds_t)ticks * (1000000 / HZ));
+    return 0;
 }
 
 static void nf_codec_yield(void)

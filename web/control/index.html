@@ -385,11 +385,11 @@ const MOON='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0
 const DEF={
   en:{hint:'Enter the code shown on the player',btn:'Enter',bad:'Wrong code',stopped:'Not playing',pl:'Playlist',plempty:'Playlist is empty',
    tabPlay:'Play',tabFiles:'Files',up:'Upload',play:'Play',del:'Delete',cancel:'Cancel',
-   delq:'Delete this file?',empty:'Empty',drop:'Drop to upload to the current folder',upfail:'Upload failed',delfail:'Delete failed',
+   delq:'Delete this file?',empty:'Empty',nosort:'Too many items to sort',drop:'Drop to upload to the current folder',upfail:'Upload failed',delfail:'Delete failed',
    sd:'Shut down',sdq:'Shut down the player?'},
   zh:{hint:'输入播放器屏幕上显示的验证码',btn:'进入',bad:'验证码错误',stopped:'未在播放',pl:'播放列表',plempty:'播放列表为空',
    tabPlay:'播放',tabFiles:'文件',up:'上传',play:'播放',del:'删除',cancel:'取消',
-   delq:'删除这个文件？',empty:'空目录',drop:'松开鼠标上传到当前目录',upfail:'上传失败',delfail:'删除失败',
+   delq:'删除这个文件？',empty:'空目录',nosort:'项目过多，未排序',drop:'松开鼠标上传到当前目录',upfail:'上传失败',delfail:'删除失败',
    sd:'关机',sdq:'确定关机吗？'}};
 async function loadLang(){
  try{const j=await (await fetch('/lang.json',{cache:'no-store'})).json();
@@ -424,27 +424,35 @@ async function login(){
    .then(r=>r.ok?r.json():null).then(s=>{if(s)upd(s)}).catch(()=>{});
 }
 
-/* playlist: stable playback order, cur marks the playing track */
-let pl=[],plCur=0;
-async function loadPl(){
+/* playlist: stable playback order, cur marks the playing track.
+   Loaded a page at a time and appended as the list is scrolled. */
+let plCur=0,plTotal=0,plOff=0,plBusy=false;
+const PLPAGE=200;
+async function loadPl(more){
   const box=$('plList');
-  if(!box)return;
+  if(!box||plBusy)return;
+  plBusy=true;
+  if(!more){plOff=0;plTotal=0;box.innerHTML=''}
   try{
-   const r=await fetch('/api/playlist',{headers:{Authorization:'Bearer '+tok}});
-   if(!r.ok){box.innerHTML='<div style="color:#ec4141">'+(r.status===401?T().bad:'E'+r.status)+'</div>';return}
-   const j=await r.json();pl=j.tracks||[];plCur=j.cur||0;
-   box.innerHTML='';
-   if(!pl.length){box.innerHTML='<div style="color:var(--mut)">'+T().plempty+'</div>';return}
-   pl.forEach((t,i)=>{const d=document.createElement('div');
+   const r=await fetch('/api/playlist?offset='+plOff+'&limit='+PLPAGE,{headers:{Authorization:'Bearer '+tok}});
+   if(!r.ok){if(!more)box.innerHTML='<div style="color:#ec4141">'+(r.status===401?T().bad:'E'+r.status)+'</div>';return}
+   const j=await r.json();plCur=j.cur||0;plTotal=j.total||0;
+   const tracks=j.tracks||[];
+   if(!more&&!plTotal){box.innerHTML='<div style="color:var(--mut)">'+T().plempty+'</div>';return}
+   const base=plOff;plOff+=tracks.length;
+   tracks.forEach((t,k)=>{const i=base+k;const d=document.createElement('div');
     d.textContent=(i+1)+'. '+(t||'-');if(i===plCur)d.className='cur';
-    d.onclick=()=>{post('cmd=jump&param='+i);togglePl(false);setTimeout(loadPl,900)};
+    d.onclick=()=>{post('cmd=jump&param='+i);togglePl(false);setTimeout(()=>loadPl(false),900)};
     box.appendChild(d)});
-   const c=box.children[plCur];if(c)try{c.scrollIntoView({block:'center'})}catch(_){}
-  }catch(e){box.innerHTML='<div style="color:#ec4141">✗ '+e.message+'</div>'}}
+   if(!more&&plCur>=0&&plCur<plOff){const c=box.children[plCur];if(c)try{c.scrollIntoView({block:'center'})}catch(_){}}
+   if(plOff<plTotal&&box.scrollHeight<=box.clientHeight+8)setTimeout(()=>loadPl(true),0);
+  }catch(e){if(!more)box.innerHTML='<div style="color:#ec4141">✗ '+e.message+'</div>'}
+  finally{plBusy=false}
+}
 function togglePl(open){
   const vis=!$('plWrap').hidden;
   const o=(open===undefined)?!vis:open;
-  if(o)loadPl();
+  if(o)loadPl(false);
   $('plWrap').hidden=!o;
 }
 
@@ -522,37 +530,52 @@ function switchView(v){
   if(v==='files'&&fdir===null)loadFiles(null);
 }
 
-/* file management */
-let fdir=null;
+/* file management: paged; more rows are appended as the list scrolls */
+let fdir=null,fOff=0,fTotal=0,fSorted=true,fBusy=false;
+const FPAGE=200;
 const ICON_DIR='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 const ICON_FILE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2.5L18.5 9H14V4.5z"/></svg>';
-async function loadFiles(p){
+async function loadFiles(p,more){
   const box=$('fList');
+  if(fBusy)return;
+  fBusy=true;
+  if(!more){fOff=0;fTotal=0;fdir=p||null;box.innerHTML=''}
   try{
-   const r=await fetch('/api/files'+(p?('?path='+enc(p)):''),{headers:{Authorization:'Bearer '+tok}});
-   if(!r.ok){box.innerHTML='<div style="color:#ec4141;padding:12px">'+(r.status===401?T().bad:'E'+r.status)+'</div>';return}
-   const j=await r.json();fdir=j.path||'/';
-   const cb=$('crumb');cb.innerHTML='';
-   const segs=fdir.split('/').filter(s=>s);
-   const mk=(label,path)=>{const b=document.createElement('b');b.textContent=label;
-    b.onclick=()=>loadFiles(path);cb.appendChild(b)};
-   mk('SD','/');
-   let acc='';
-   segs.forEach(s=>{acc+='/'+s;
-    const sp=document.createElement('span');sp.textContent='/';cb.appendChild(sp);
-    mk(s,acc)});
-   box.innerHTML='';
-   if(!j.dirs.length&&!j.files.length)
-    box.innerHTML='<div style="color:var(--mut);padding:14px">'+T().empty+'</div>';
+   const q=(fdir?('path='+enc(fdir)+'&'):'')+'offset='+fOff+'&limit='+FPAGE;
+   const r=await fetch('/api/files?'+q,{headers:{Authorization:'Bearer '+tok}});
+   if(!r.ok){if(!more)box.innerHTML='<div style="color:#ec4141;padding:12px">'+(r.status===401?T().bad:'E'+r.status)+'</div>';return}
+   const j=await r.json();
+   if(!more){
+    fdir=j.path||'/';fTotal=j.total||0;fSorted=j.sorted!==false;
+    const cb=$('crumb');cb.innerHTML='';
+    const segs=fdir.split('/').filter(s=>s);
+    const mk=(label,path)=>{const b=document.createElement('b');b.textContent=label;
+     b.onclick=()=>loadFiles(path);cb.appendChild(b)};
+    mk('SD','/');
+    let acc='';
+    segs.forEach(s=>{acc+='/'+s;
+     const sp=document.createElement('span');sp.textContent='/';cb.appendChild(sp);
+     mk(s,acc)});
+    box.innerHTML='';
+    if(!fTotal)box.innerHTML='<div style="color:var(--mut);padding:14px">'+T().empty+'</div>';
+    if(!fSorted){const w=document.createElement('div');
+     w.style.cssText='color:var(--mut);padding:10px 12px;font-size:12px';
+     w.textContent=T().nosort;box.appendChild(w)}
+   }
+   const dirs=j.dirs||[],files=j.files||[];
+   fOff+=dirs.length+files.length;
    const mkRow=(n,isdir)=>{const r=document.createElement('div');
     r.className='frow'+(isdir?' isdir':'');
     r.innerHTML=(isdir?ICON_DIR:ICON_FILE)+'<div class="fname"></div>';
     r.querySelector('.fname').textContent=n;
     r.onclick=()=>{if(isdir)loadFiles(fdir==='/'?('/'+n):(fdir+'/'+n));else openFMenu(n)};
     return r};
-   j.dirs.forEach(d=>box.appendChild(mkRow(d,true)));
-   j.files.forEach(f=>box.appendChild(mkRow(f,false)));
-  }catch(e){box.innerHTML='<div style="color:#ec4141;padding:12px">✗ '+e.message+'</div>'}}
+   dirs.forEach(d=>box.appendChild(mkRow(d,true)));
+   files.forEach(f=>box.appendChild(mkRow(f,false)));
+   if(fOff<fTotal&&box.scrollHeight<=box.clientHeight+8)setTimeout(()=>loadFiles(fdir,true),0);
+  }catch(e){if(!more)box.innerHTML='<div style="color:#ec4141;padding:12px">✗ '+e.message+'</div>'}
+  finally{fBusy=false}
+}
 
 let fSel=null;
 function openFMenu(name){fSel=name;$('fMenuName').textContent=name;$('fMenu').hidden=false}
@@ -624,6 +647,10 @@ async function onDrop(e){
   $('bar').addEventListener('click',e=>seek(e));
   $('navPlay').addEventListener('click',()=>switchView('play'));
   $('navFiles').addEventListener('click',()=>switchView('files'));
+  $('fList').addEventListener('scroll',e=>{const b=e.target;
+   if(fOff<fTotal&&b.scrollTop+b.clientHeight>=b.scrollHeight-160)loadFiles(fdir,true)});
+  $('plList').addEventListener('scroll',e=>{const b=e.target;
+   if(plOff<plTotal&&b.scrollTop+b.clientHeight>=b.scrollHeight-120)loadPl(true)});
   $('fPlay').addEventListener('click',playFile);
   $('fDel').addEventListener('click',askDelete);
   $('fCancel').addEventListener('click',closeFMenu);

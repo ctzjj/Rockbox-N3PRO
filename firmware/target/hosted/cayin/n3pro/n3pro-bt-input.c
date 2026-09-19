@@ -178,7 +178,8 @@ static bool btin_find_peer(char *mac, size_t len)
                 continue;
 
             char path[64];
-            snprintf(path, sizeof(path), BTIN_SYSFS_BT "/%s/address",
+            snprintf(path, sizeof(path), BTIN_SYSFS_BT "/%.*s/address",
+                     (int)sizeof(path) - (int)sizeof(BTIN_SYSFS_BT) - 9,
                      de->d_name);
             FILE *f = fopen(path, "r");
             if (!f)
@@ -192,7 +193,8 @@ static bool btin_find_peer(char *mac, size_t len)
                 /* D-Bus device lookups want canonical upper case. */
                 for (char *p = mac; *p; p++)
                     *p = toupper((unsigned char)*p);
-                snprintf(btin_peer_mac, sizeof(btin_peer_mac), "%s", mac);
+                snprintf(btin_peer_mac, sizeof(btin_peer_mac), "%.*s",
+                         (int)sizeof(btin_peer_mac) - 1, mac);
                 closedir(d);
                 return true;
             }

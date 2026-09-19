@@ -667,7 +667,7 @@ static void ts_emit_pes(const unsigned char *pes, size_t len)
              * it here (the probe runs before the codec starts) */
             int sfi = (pes[i + 2] >> 2) & 0xf;
             if (sfi < 13 && aac_samplerates[sfi] &&
-                source.id3.frequency != aac_samplerates[sfi])
+                source.id3.frequency != (unsigned long)aac_samplerates[sfi])
             {
                 source.id3.frequency = aac_samplerates[sfi];
                 pthread_mutex_lock(&source.lock);

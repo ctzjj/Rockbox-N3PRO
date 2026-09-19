@@ -526,7 +526,8 @@ static bool bt_acl_peer(char *mac_out, size_t mac_out_len)
         if (strncmp(de->d_name, "hci0:", 5) != 0)
             continue;
 
-        snprintf(path, sizeof(path), "/sys/class/bluetooth/%s/address",
+        snprintf(path, sizeof(path), "/sys/class/bluetooth/%.*s/address",
+                 (int)sizeof(path) - (int)sizeof("/sys/class/bluetooth/") - 8,
                  de->d_name);
         f = fopen(path, "r");
         if (!f)

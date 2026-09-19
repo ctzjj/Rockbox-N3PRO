@@ -69,7 +69,7 @@ static bool wifi_wpa_line(const char *args, char *out, size_t outsz)
             return false;
         line++;
     }
-    snprintf(out, outsz, "%s", line);
+    snprintf(out, outsz, "%.*s", (int)outsz - 1, line);
     size_t len = strlen(out);
     while (len > 0 && (out[len - 1] == '\n' || out[len - 1] == '\r'))
         out[--len] = '\0';

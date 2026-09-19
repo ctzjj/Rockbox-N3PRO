@@ -1,6 +1,7 @@
 #include "config.h"
 #ifdef HAVE_NETFM
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "action.h"
 #include "audio.h"
@@ -17,8 +18,13 @@
 #define NETFM_PATH ROCKBOX_DIR "/stream/netfm/netfm.txt"
 #define NETFM_STATUS_ROWS 7
 
-static struct netfm_station stations[NETFM_MAX_STATIONS];
+/* The station list is malloc'd and sized to the file, so it is not
+ * limited by a compile-time cap.  core_alloc() must NOT be used here:
+ * this target's buflib backend (buflib_malloc.c) is not thread-safe.
+ * The list is freed when the menu exits. */
+static struct netfm_station *stations;
 static int station_count;
+static char line_buf[NETFM_NAME_LEN + NETFM_URL_LEN + 4];
 
 static void trim(char *s)
 {
@@ -31,44 +37,116 @@ static void trim(char *s)
                  s[n - 1] == '\r' || s[n - 1] == '\n')) s[--n] = '\0';
 }
 
-int netfm_parse_presets(struct netfm_station *out, int max)
+/* Parse one preset line held in line_buf into name/url.  Returns false
+ * for comments, blanks and malformed lines. */
+static bool split_preset(char *line, struct netfm_station *out)
 {
-    int fd = open(NETFM_PATH, O_RDONLY), count = 0;
-    char line[NETFM_NAME_LEN + NETFM_URL_LEN + 4];
-    if (fd < 0) return 0;
-    while (count < max)
+    char *comma;
+    trim(line);
+    if (!line[0] || line[0] == '#') return false;
+    comma = strchr(line, ',');
+    if (!comma) return false;
+    *comma++ = '\0';
+    trim(line);
+    trim(comma);
+    if (!line[0] || !comma[0]) return false;
+    snprintf(out->name, sizeof(out->name), "%.127s", line);
+    snprintf(out->url, sizeof(out->url), "%.511s", comma);
+    return true;
+}
+
+/* Read the next line of the preset file into line_buf.  Returns the
+ * number of bytes read, or 0 at end of file. */
+static int read_preset_line(int fd)
+{
+    int n = 0;
+    while (n + 1 < (int)sizeof(line_buf))
     {
-        int n = 0;
         char c;
-        while (n + 1 < (int)sizeof(line) && read(fd, &c, 1) == 1)
-        {
-            line[n++] = c;
-            if (c == '\n') break;
-        }
-        if (!n) break;
-        line[n] = '\0';
-        trim(line);
-        if (!line[0] || line[0] == '#') continue;
-        char *comma = strchr(line, ',');
-        if (!comma) continue;
-        *comma++ = '\0';
-        trim(line);
-        trim(comma);
-        if (!line[0] || !comma[0]) continue;
-        snprintf(out[count].name, sizeof(out[count].name), "%.127s", line);
-        snprintf(out[count].url, sizeof(out[count].url), "%.511s", comma);
-        count++;
+        if (read(fd, &c, 1) != 1) break;
+        line_buf[n++] = c;
+        if (c == '\n') break;
     }
+    line_buf[n] = '\0';
+    return n;
+}
+
+/* The parsed stations. */
+static struct netfm_station *stations_ptr(void)
+{
+    return stations;
+}
+
+/* Release the station block; the menu calls this on the way out so the
+ * list costs nothing while it is not open. */
+static void free_station_index(void)
+{
+    free(stations);
+    stations = NULL;
+    station_count = 0;
+}
+
+/* Parse the file into a malloc'd block sized to the number of stations.
+ * Like the file browser, this is not limited by a compile-time array. */
+static bool build_station_index(void)
+{
+    int fd = open(NETFM_PATH, O_RDONLY);
+    int count = 0;
+    struct netfm_station tmp;
+    struct netfm_station *out;
+
+    free_station_index();
+    if (fd < 0) return false;
+
+    /* first pass: count the usable lines */
+    while (read_preset_line(fd) > 0)
+    {
+        if (split_preset(line_buf, &tmp))
+            count++;
+    }
+
+    if (count > 0)
+    {
+        stations = malloc((size_t)count * sizeof(struct netfm_station));
+        if (!stations)
+        {
+            close(fd);
+            free_station_index();
+            return false;
+        }
+        out = stations;
+
+        /* second pass: parse them into the block */
+        if (lseek(fd, 0, SEEK_SET) < 0)
+        {
+            close(fd);
+            free_station_index();
+            return false;
+        }
+        count = 0;
+        while (read_preset_line(fd) > 0)
+        {
+            if (split_preset(line_buf, &out[count]))
+                count++;
+        }
+        station_count = count;
+    }
+
     close(fd);
-    return count;
+    return true;
 }
 
 static const char *station_name_cb(int selected, void *data,
                                    char *buffer, size_t size)
 {
+    struct netfm_station *s;
     (void)data;
-    if (selected < 0 || selected >= station_count) return "";
-    snprintf(buffer, size, "%.127s", stations[selected].name);
+    if (selected < 0 || selected >= station_count)
+        return "";
+    s = stations_ptr();
+    if (!s)
+        return "";
+    snprintf(buffer, size, "%.127s", s[selected].name);
     return buffer;
 }
 
@@ -234,15 +312,17 @@ int netfm_menu(void)
         splash(HZ * 2, str(LANG_NETFM_WIFI_REQUIRED));
         return 0;
     }
-    station_count = netfm_parse_presets(stations, NETFM_MAX_STATIONS);
-    if (!station_count)
+    if (!build_station_index() || !station_count)
     {
+        free_station_index();
         splash(HZ * 2, str(LANG_NETFM_EMPTY));
         return 0;
     }
     while (true)
     {
         struct simplelist_info info;
+        struct netfm_station station;
+        struct netfm_station *s;
         simplelist_info_init(&info, str(LANG_NETFM), station_count, NULL);
         info.get_name = station_name_cb;
         info.selection = -1;
@@ -250,8 +330,13 @@ int netfm_menu(void)
         simplelist_show_list(&info);
         if (info.selection < 0)
             break;
-        netfm_play_screen(&stations[info.selection]);
+        s = stations_ptr();
+        if (!s)
+            break;
+        memcpy(&station, &s[info.selection], sizeof(station));
+        netfm_play_screen(&station);
     }
+    free_station_index();
     return 0;
 }
 #endif

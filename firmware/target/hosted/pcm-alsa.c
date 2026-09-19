@@ -99,7 +99,9 @@ static unsigned int xruns = 0;
 
 static snd_async_handler_t *ahandler = NULL;
 static pthread_mutex_t pcm_mtx;
+#if !defined(CAYIN_N3PRO)
 static long signal_stack[SIGSTKSZ/sizeof(long)];
+#endif
 
 static const char *playback_dev = DEFAULT_PLAYBACK_DEVICE;
 
