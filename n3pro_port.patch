@@ -1,4 +1,4 @@
-# rockbox-base: 1784c9b8a7f1f2c8c535d8cb9dc965db0fe29e29
+# rockbox-base: 98a55f623b13c7a06db76c52bd2ac05867dd4bd1
 diff --git a/apps/SOURCES b/apps/SOURCES
 index f81261f766..61270fedef 100644
 --- a/apps/SOURCES
@@ -12654,7 +12654,7 @@ index 29f06dcb69..510f2994b5 100644
      static struct audio_resume_info resume = { 0, 0 };
      enum play_status old_status = play_status;
 diff --git a/apps/plugin.c b/apps/plugin.c
-index 7f517fe727..e9764aec6c 100644
+index 83574d5ed0..2e99ac4889 100644
 --- a/apps/plugin.c
 +++ b/apps/plugin.c
 @@ -31,6 +31,7 @@
@@ -12674,7 +12674,7 @@ index 7f517fe727..e9764aec6c 100644
      dsp_dither_enable,
  #ifdef HAVE_PITCHCONTROL
 diff --git a/apps/plugin.h b/apps/plugin.h
-index 0cbf638444..af431d4540 100644
+index e98c4b78a3..52714b21ad 100644
 --- a/apps/plugin.h
 +++ b/apps/plugin.h
 @@ -778,6 +778,7 @@ struct plugin_api {
@@ -19442,7 +19442,7 @@ index 6e50e12ab0..a63cd90b84 100644
  
  #elif CONFIG_KEYPAD == RG_NANO_PAD
 diff --git a/apps/plugins/mp3_encoder.c b/apps/plugins/mp3_encoder.c
-index 9a8acecf88..66b8da8a0e 100644
+index 5d3c525e8c..0626d1bd99 100644
 --- a/apps/plugins/mp3_encoder.c
 +++ b/apps/plugins/mp3_encoder.c
 @@ -2578,7 +2578,7 @@ CONFIG_KEYPAD == MROBE500_PAD
@@ -19660,7 +19660,7 @@ index ac23ff7b6f..c011053012 100644
  
  #define BLOCK_WIDTH 19
 diff --git a/apps/plugins/rockboy/rockboy.c b/apps/plugins/rockboy/rockboy.c
-index 3c4bcb829d..333370935b 100644
+index fb822996e3..fb8108b9bf 100644
 --- a/apps/plugins/rockboy/rockboy.c
 +++ b/apps/plugins/rockboy/rockboy.c
 @@ -457,7 +457,7 @@ static void setoptions (void)
@@ -19890,10 +19890,10 @@ index cb00fef74f..22d146962e 100644
               * for cell; page three completes Latin-1 and adds the accented
               * letters common to the other European locales. The space bar
 diff --git a/apps/root_menu.c b/apps/root_menu.c
-index a989475740..a2292db958 100644
+index 918669b245..0daf67e395 100644
 --- a/apps/root_menu.c
 +++ b/apps/root_menu.c
-@@ -556,6 +556,12 @@ static struct menu_table menu_table[] = {
+@@ -563,6 +563,12 @@ static struct menu_table menu_table[] = {
      { "radio", &fm },
  #endif
      { "playlists", &playlists },
@@ -19983,13 +19983,17 @@ index 5a0f4f83e3..d640f020f1 100644
  #ifdef HAVE_PERCEPTUAL_VOLUME
      int volume_adjust_mode;
 diff --git a/apps/settings_list.c b/apps/settings_list.c
-index 24edac9bb7..a564f84c5b 100644
+index 24edac9bb7..4b6afbe6ea 100644
 --- a/apps/settings_list.c
 +++ b/apps/settings_list.c
-@@ -648,6 +648,15 @@ static void crossfeed_cross_set(int val)
-                                   global_settings.crossfeed_hf_cutoff);
- }
- 
+@@ -645,7 +645,16 @@ static void crossfeed_cross_set(int val)
+    (void)val;
+    dsp_set_crossfeed_cross_params(global_settings.crossfeed_cross_gain,
+                                   global_settings.crossfeed_hf_attenuation,
+-                                  global_settings.crossfeed_hf_cutoff);
++                                   global_settings.crossfeed_hf_cutoff);
++}
++
 +static void space80_set(int val)
 +{
 +   (void)val;
@@ -19997,11 +20001,9 @@ index 24edac9bb7..a564f84c5b 100644
 +                          global_settings.space80_freq,
 +                          global_settings.space80_gain,
 +                          global_settings.space80_mix);
-+}
-+
+ }
+ 
  static void surround_set_factor(int val)
- {
-     (void)val;
 @@ -1072,6 +1081,18 @@ static void hp_lo_select_apply(int arg)
  const struct settings_list settings[] = {
  /* system_status settings .resume.cfg */

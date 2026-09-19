@@ -645,7 +645,7 @@ static void crossfeed_cross_set(int val)
    (void)val;
    dsp_set_crossfeed_cross_params(global_settings.crossfeed_cross_gain,
                                   global_settings.crossfeed_hf_attenuation,
-                                  global_settings.crossfeed_hf_cutoff);
+                                   global_settings.crossfeed_hf_cutoff);
 }
 
 static void space80_set(int val)
