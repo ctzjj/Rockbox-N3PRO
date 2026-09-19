@@ -103,7 +103,7 @@ jobs:
             mv /tmp/stock.upt stock-update.upt
             rockbox/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh \
                 stock-update.upt bootloader.n3pro
-            mv update_rb.upt n3pro_rockbox.upt
+            mv stock-update_rb.upt n3pro_rockbox.upt
             rm stock-update.upt
             md5sum n3pro_rockbox.upt
           else
@@ -128,7 +128,7 @@ jobs:
         run: |
           TAG="${{ inputs.tag || github.event.release.tag_name }}"
           cd "$GITHUB_WORKSPACE"
-          files="rockbox-n3pro.zip bootloader.n3pro"
+          files="rockbox-n3pro.zip"
           [ -f n3pro_rockbox.upt ] && files="$files n3pro_rockbox.upt"
           gh release upload "$TAG" $files --clobber -R "${{ github.repository }}"
           if gh release view "$TAG" -R "${{ github.repository }}" --json assets \
