@@ -453,6 +453,22 @@ enum channel_status mixer_channel_status(enum pcm_mixer_channel channel)
     return channels[channel].status;
 }
 
+#if defined(CAYIN_N3PRO)
+/* True while any content source (local playback, USB DAC, Bluetooth
+ * receive or network radio) has an actively playing channel.  Voice
+ * prompts and beeps sit after PCM_MIXER_CHAN_VOICE and are excluded. */
+bool pcm_mixer_content_playing(void)
+{
+    for (int i = 0; i < PCM_MIXER_CHAN_VOICE; i++)
+    {
+        if (channels[i].status == CHANNEL_PLAYING)
+            return true;
+    }
+
+    return false;
+}
+#endif
+
 /* Returns amount data remaining in channel before next callback */
 size_t mixer_channel_get_bytes_waiting(enum pcm_mixer_channel channel)
 {

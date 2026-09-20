@@ -130,6 +130,15 @@ void mixer_channel_set_amplitude(enum pcm_mixer_channel channel,
 /* Return channel's playback status */
 enum channel_status mixer_channel_status(enum pcm_mixer_channel channel);
 
+#if defined(CAYIN_N3PRO)
+/* True while any content source (local playback, USB DAC, Bluetooth
+ * receive or network radio) has an actively playing mixer channel.
+ * Voice prompts and beeps are excluded on purpose.  Lets the idle
+ * poweroff timer and the indicator LED treat every input like local
+ * playback instead of each source having to report separately. */
+bool pcm_mixer_content_playing(void);
+#endif
+
 /* Returns amount data remaining in channel before next callback */
 size_t mixer_channel_get_bytes_waiting(enum pcm_mixer_channel channel);
 

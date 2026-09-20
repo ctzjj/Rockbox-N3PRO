@@ -25,8 +25,8 @@
 #include "power.h"
 #include "powermgmt.h"
 #include "kernel.h"
-#include "playback.h"
-#include "audio.h"
+#include "pcm-internal.h"
+#include "pcm_mixer.h"
 
 /* The N3Pro's RGB indicator is a TI LP5562 driven by a custom kernel pattern
  * engine.  The individual /sys/class/leds/{R,G,B,W}/brightness files have no
@@ -131,12 +131,11 @@ void led_n3pro_tick(void)
     } else {
         /* Like the stock firmware: lit only while audio is playing (and only
          * if the user enabled the LED indicators), with the colour chosen by
-         * the track's sample rate. */
-        unsigned int st = audio_status();
-        if ((st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE)
-            && global_settings.use_led_indicators) {
-            struct mp3entry *id3 = audio_current_track();
-            unsigned int hz = id3 ? id3->frequency : 0;
+         * the current output sample rate.  Driven from the mixer so every
+         * input -- local playback, network radio, Bluetooth and USB DAC --
+         * lights it, while voice prompts and beeps do not. */
+        if (pcm_mixer_content_playing() && global_settings.use_led_indicators) {
+            unsigned int hz = pcm_get_frequency();
 
             if (hz == 0)             set_led(DEFAULT_PATTERN);
             else if (hz <= 48000)    set_led(N3PRO_LED_YELLOW_GREEN); /* 44.1/48k */

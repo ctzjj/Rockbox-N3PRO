@@ -23458,7 +23458,7 @@ index 7ffbb08b36..15ce8043c5 100644
  void pcm_apply_settings(void);
  
 diff --git a/firmware/export/pcm_mixer.h b/firmware/export/pcm_mixer.h
-index bbc2c2c9cd..8139446432 100644
+index bbc2c2c9cd..a2d7638996 100644
 --- a/firmware/export/pcm_mixer.h
 +++ b/firmware/export/pcm_mixer.h
 @@ -73,6 +73,14 @@ enum pcm_mixer_channel
@@ -23476,6 +23476,22 @@ index bbc2c2c9cd..8139446432 100644
  #endif
      PCM_MIXER_CHAN_VOICE,
  #ifndef HAVE_HARDWARE_BEEP
+@@ -122,6 +130,15 @@ void mixer_channel_set_amplitude(enum pcm_mixer_channel channel,
+ /* Return channel's playback status */
+ enum channel_status mixer_channel_status(enum pcm_mixer_channel channel);
+ 
++#if defined(CAYIN_N3PRO)
++/* True while any content source (local playback, USB DAC, Bluetooth
++ * receive or network radio) has an actively playing mixer channel.
++ * Voice prompts and beeps are excluded on purpose.  Lets the idle
++ * poweroff timer and the indicator LED treat every input like local
++ * playback instead of each source having to report separately. */
++bool pcm_mixer_content_playing(void);
++#endif
++
+ /* Returns amount data remaining in channel before next callback */
+ size_t mixer_channel_get_bytes_waiting(enum pcm_mixer_channel channel);
+ 
 diff --git a/firmware/export/sound.h b/firmware/export/sound.h
 index 75a1202d57..aa1d1e3068 100644
 --- a/firmware/export/sound.h
@@ -23640,10 +23656,33 @@ index bea1edb376..319ca35e80 100644
      index = round_value_to_list32(samplerate, sink->caps.samprs, sink->caps.num_samprs, false);
  
 diff --git a/firmware/pcm_mixer.c b/firmware/pcm_mixer.c
-index 7c17255990..5355dd1f3b 100644
+index 7c17255990..92bc02291f 100644
 --- a/firmware/pcm_mixer.c
 +++ b/firmware/pcm_mixer.c
-@@ -526,6 +526,15 @@ void mixer_reset(void)
+@@ -453,6 +453,22 @@ enum channel_status mixer_channel_status(enum pcm_mixer_channel channel)
+     return channels[channel].status;
+ }
+ 
++#if defined(CAYIN_N3PRO)
++/* True while any content source (local playback, USB DAC, Bluetooth
++ * receive or network radio) has an actively playing channel.  Voice
++ * prompts and beeps sit after PCM_MIXER_CHAN_VOICE and are excluded. */
++bool pcm_mixer_content_playing(void)
++{
++    for (int i = 0; i < PCM_MIXER_CHAN_VOICE; i++)
++    {
++        if (channels[i].status == CHANNEL_PLAYING)
++            return true;
++    }
++
++    return false;
++}
++#endif
++
+ /* Returns amount data remaining in channel before next callback */
+ size_t mixer_channel_get_bytes_waiting(enum pcm_mixer_channel channel)
+ {
+@@ -526,6 +542,15 @@ void mixer_reset(void)
  /* Set output samplerate */
  void mixer_set_frequency(unsigned int samplerate)
  {
@@ -23659,6 +23698,43 @@ index 7c17255990..5355dd1f3b 100644
      if(pcm_get_frequency() == samplerate)
          return;
  
+diff --git a/firmware/powermgmt.c b/firmware/powermgmt.c
+index e89c0ce034..0534aa79c5 100644
+--- a/firmware/powermgmt.c
++++ b/firmware/powermgmt.c
+@@ -30,6 +30,9 @@
+ #include "storage.h"
+ #include "power.h"
+ #include "audio.h"
++#if defined(CAYIN_N3PRO)
++#include "pcm_mixer.h"
++#endif
+ #include "usb.h"
+ #include "powermgmt.h"
+ #include "backlight.h"
+@@ -1227,6 +1230,12 @@ void handle_auto_poweroff(void)
+     if (audio_stat == AUDIO_STATUS_PLAY
+ #if CONFIG_CHARGING
+         || charger_input_state == CHARGER
++#endif
++#if defined(CAYIN_N3PRO)
++        /* Non-local sources (network radio, Bluetooth/USB input) do not
++         * set the local play status; treat any active content channel as
++         * "playing" so the idle timer cannot shut them down. */
++        || pcm_mixer_content_playing()
+ #endif
+     ) {
+         last_event_tick = current_tick;
+@@ -1242,6 +1251,9 @@ void handle_auto_poweroff(void)
+         !(get_radio_status() & FMRADIO_PLAYING) &&
+ #endif
+         !usb_inserted() &&
++#if defined(CAYIN_N3PRO)
++        !pcm_mixer_content_playing() &&
++#endif
+         (audio_stat == 0 ||
+          audio_stat == (AUDIO_STATUS_PLAY | AUDIO_STATUS_PAUSE)))
+     {
 diff --git a/firmware/sound.c b/firmware/sound.c
 index c7d510dc2f..48f071a7dd 100644
 --- a/firmware/sound.c
@@ -24410,10 +24486,10 @@ index 0000000000..596673e901
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/led-n3pro.c b/firmware/target/hosted/cayin/n3pro/led-n3pro.c
 new file mode 100644
-index 0000000000..a25dcfbfc2
+index 0000000000..4ce003796a
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/led-n3pro.c
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,151 @@
 +/***************************************************************************
 + *             __________               __   ___
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -24441,8 +24517,8 @@ index 0000000000..a25dcfbfc2
 +#include "power.h"
 +#include "powermgmt.h"
 +#include "kernel.h"
-+#include "playback.h"
-+#include "audio.h"
++#include "pcm-internal.h"
++#include "pcm_mixer.h"
 +
 +/* The N3Pro's RGB indicator is a TI LP5562 driven by a custom kernel pattern
 + * engine.  The individual /sys/class/leds/{R,G,B,W}/brightness files have no
@@ -24547,12 +24623,11 @@ index 0000000000..a25dcfbfc2
 +    } else {
 +        /* Like the stock firmware: lit only while audio is playing (and only
 +         * if the user enabled the LED indicators), with the colour chosen by
-+         * the track's sample rate. */
-+        unsigned int st = audio_status();
-+        if ((st & AUDIO_STATUS_PLAY) && !(st & AUDIO_STATUS_PAUSE)
-+            && global_settings.use_led_indicators) {
-+            struct mp3entry *id3 = audio_current_track();
-+            unsigned int hz = id3 ? id3->frequency : 0;
++         * the current output sample rate.  Driven from the mixer so every
++         * input -- local playback, network radio, Bluetooth and USB DAC --
++         * lights it, while voice prompts and beeps do not. */
++        if (pcm_mixer_content_playing() && global_settings.use_led_indicators) {
++            unsigned int hz = pcm_get_frequency();
 +
 +            if (hz == 0)             set_led(DEFAULT_PATTERN);
 +            else if (hz <= 48000)    set_led(N3PRO_LED_YELLOW_GREEN); /* 44.1/48k */
