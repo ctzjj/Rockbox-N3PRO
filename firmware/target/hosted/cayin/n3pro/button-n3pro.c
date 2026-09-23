@@ -50,12 +50,17 @@ int button_map(int keycode)
             return BUTTON_POWER;
 
         case KEY_PREVIOUSSONG:
+        case KEY_BACK:                /* AVRCP "Backward" (BT earphones) */
             return BUTTON_PREV;
 
         case KEY_NEXTSONG:
+        case KEY_FORWARD:               /* AVRCP "Forward" (BT earphones) */
             return BUTTON_NEXT;
 
         case KEY_PLAYPAUSE:
+        case KEY_PLAYCD:             /* AVRCP "Play" (BT earphones) */
+        case KEY_PAUSE:              /* AVRCP "Pause" (BT earphones) */
+        case KEY_PLAY:
             return BUTTON_PLAY;
 
         /* Rotary volume encoder: ticks arrive as KEY_LEFT/KEY_RIGHT and each

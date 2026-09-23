@@ -1060,10 +1060,10 @@ index 0000000000..22693ef5f8
 +    return button_context_standard;
 +}
 diff --git a/apps/lang/arabic.lang b/apps/lang/arabic.lang
-index 53313bf624..9036b0bd36 100644
+index 53313bf624..38aa9df0c1 100644
 --- a/apps/lang/arabic.lang
 +++ b/apps/lang/arabic.lang
-@@ -6835,3 +6835,89 @@
+@@ -6835,3 +6835,91 @@
      *: "حجم الملف"
    </voice>
  </phrase>
@@ -1153,11 +1153,13 @@ index 53313bf624..9036b0bd36 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/basque.lang b/apps/lang/basque.lang
-index 8b8acc7cb8..e61d968003 100644
+index 8b8acc7cb8..7a864ecdf3 100644
 --- a/apps/lang/basque.lang
 +++ b/apps/lang/basque.lang
-@@ -12634,3 +12634,89 @@
+@@ -12634,3 +12634,91 @@
      *: "Aukeratu eskaneatzeko direktorioak"
    </voice>
  </phrase>
@@ -1247,11 +1249,13 @@ index 8b8acc7cb8..e61d968003 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/bulgarian.lang b/apps/lang/bulgarian.lang
-index 5f711a6eb9..7e0f4616ea 100644
+index 5f711a6eb9..de1a6c2369 100644
 --- a/apps/lang/bulgarian.lang
 +++ b/apps/lang/bulgarian.lang
-@@ -17163,3 +17163,89 @@
+@@ -17163,3 +17163,91 @@
      touchscreen: "Преки пътища на тъчскрийн"
    </voice>
  </phrase>
@@ -1341,11 +1345,13 @@ index 5f711a6eb9..7e0f4616ea 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/catala.lang b/apps/lang/catala.lang
-index 3d046e9351..db2335d937 100644
+index 3d046e9351..4bae2a4eb6 100644
 --- a/apps/lang/catala.lang
 +++ b/apps/lang/catala.lang
-@@ -12766,3 +12766,89 @@
+@@ -12766,3 +12766,91 @@
      *: "Color del separador de línies"
    </voice>
  </phrase>
@@ -1435,11 +1441,13 @@ index 3d046e9351..db2335d937 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..6825a051d4 100644
+index 3c8be16c72..e485a1e3e1 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,1516 @@
+@@ -17168,3 +17168,1518 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -2956,11 +2964,13 @@ index 3c8be16c72..6825a051d4 100644
 +    *: "Disconnect Bluetooth output first"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/chinese-trad.lang b/apps/lang/chinese-trad.lang
-index 2ffee1e338..15e949de13 100644
+index 2ffee1e338..aa4add0d32 100644
 --- a/apps/lang/chinese-trad.lang
 +++ b/apps/lang/chinese-trad.lang
-@@ -11238,3 +11238,1516 @@
+@@ -11238,3 +11238,1518 @@
      ibassodx50,ibassodx90: "CPU頻率管理器"
    </voice>
  </phrase>
@@ -4477,11 +4487,13 @@ index 2ffee1e338..15e949de13 100644
 +    *: "Disconnect Bluetooth output first"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/czech.lang b/apps/lang/czech.lang
-index 170b57de93..3991c49022 100644
+index 170b57de93..1e9db4c206 100644
 --- a/apps/lang/czech.lang
 +++ b/apps/lang/czech.lang
-@@ -14467,3 +14467,89 @@
+@@ -14467,3 +14467,91 @@
      *: "Čeština"
    </voice>
  </phrase>
@@ -4571,11 +4583,13 @@ index 170b57de93..3991c49022 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/dansk.lang b/apps/lang/dansk.lang
-index cac98f22db..43f74bdbbf 100644
+index cac98f22db..c807d75790 100644
 --- a/apps/lang/dansk.lang
 +++ b/apps/lang/dansk.lang
-@@ -12662,3 +12662,89 @@
+@@ -12662,3 +12662,91 @@
      *: "og"
    </voice>
  </phrase>
@@ -4665,11 +4679,13 @@ index cac98f22db..43f74bdbbf 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/deutsch.lang b/apps/lang/deutsch.lang
-index 6f3db1d509..e9fac5a13d 100644
+index 6f3db1d509..8745da4415 100644
 --- a/apps/lang/deutsch.lang
 +++ b/apps/lang/deutsch.lang
-@@ -17180,3 +17180,89 @@
+@@ -17180,3 +17180,91 @@
      touchscreen: "Wischgesten Kurzbefehle"
    </voice>
  </phrase>
@@ -4759,11 +4775,13 @@ index 6f3db1d509..e9fac5a13d 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/eesti.lang b/apps/lang/eesti.lang
-index f1eb655849..5580bfda20 100644
+index f1eb655849..949949faac 100644
 --- a/apps/lang/eesti.lang
 +++ b/apps/lang/eesti.lang
-@@ -7887,3 +7887,89 @@
+@@ -7887,3 +7887,91 @@
      *: "Failisuurus"
    </voice>
  </phrase>
@@ -4853,11 +4871,13 @@ index f1eb655849..5580bfda20 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/english-us.lang b/apps/lang/english-us.lang
-index 55028062cd..ae85f0a296 100644
+index 55028062cd..4f75bd4a00 100644
 --- a/apps/lang/english-us.lang
 +++ b/apps/lang/english-us.lang
-@@ -17158,3 +17158,89 @@
+@@ -17158,3 +17158,91 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -4947,8 +4967,10 @@ index 55028062cd..ae85f0a296 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..37068b2140 100644
+index 4c2f0d58b0..1da219cacc 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -5014,7 +5036,7 @@ index 4c2f0d58b0..37068b2140 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,1460 @@
+@@ -17231,3 +17287,1462 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -6475,11 +6497,13 @@ index 4c2f0d58b0..37068b2140 100644
 +    *: "Disconnect Bluetooth output first"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/espanol.lang b/apps/lang/espanol.lang
-index 6dffa08c33..1a4dd58814 100644
+index 6dffa08c33..23a8e4c268 100644
 --- a/apps/lang/espanol.lang
 +++ b/apps/lang/espanol.lang
-@@ -16995,3 +16995,89 @@
+@@ -16995,3 +16995,91 @@
      *: "~U S B"
    </voice>
  </phrase>
@@ -6569,11 +6593,13 @@ index 6dffa08c33..1a4dd58814 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/esperanto.lang b/apps/lang/esperanto.lang
-index 521edc62f9..e8ebabeb6d 100644
+index 521edc62f9..06395c9285 100644
 --- a/apps/lang/esperanto.lang
 +++ b/apps/lang/esperanto.lang
-@@ -7486,3 +7486,89 @@
+@@ -7486,3 +7486,91 @@
      *: ""
    </voice>
  </phrase>
@@ -6663,11 +6689,13 @@ index 521edc62f9..e8ebabeb6d 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/finnish.lang b/apps/lang/finnish.lang
-index 9e709b570f..8dbb7298b1 100644
+index 9e709b570f..50199d32f8 100644
 --- a/apps/lang/finnish.lang
 +++ b/apps/lang/finnish.lang
-@@ -12636,3 +12636,89 @@
+@@ -12636,3 +12636,91 @@
      *: "Valitse tarkistettavat hakemistot"
    </voice>
  </phrase>
@@ -6757,11 +6785,13 @@ index 9e709b570f..8dbb7298b1 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/francais.lang b/apps/lang/francais.lang
-index 2b16347de9..dbf2c3d458 100644
+index 2b16347de9..efef0ed090 100644
 --- a/apps/lang/francais.lang
 +++ b/apps/lang/francais.lang
-@@ -16966,3 +16966,89 @@
+@@ -16966,3 +16966,91 @@
      *: "~U S B"
    </voice>
  </phrase>
@@ -6851,11 +6881,13 @@ index 2b16347de9..dbf2c3d458 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/galego.lang b/apps/lang/galego.lang
-index cfff98cd5d..bd0eda3453 100644
+index cfff98cd5d..917a70f2a7 100644
 --- a/apps/lang/galego.lang
 +++ b/apps/lang/galego.lang
-@@ -12518,3 +12518,89 @@
+@@ -12518,3 +12518,91 @@
      *: "Iniciar o temporizador de apagado no encendido"
    </voice>
  </phrase>
@@ -6945,11 +6977,13 @@ index cfff98cd5d..bd0eda3453 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/greek.lang b/apps/lang/greek.lang
-index 8b22e8174a..b213de0b45 100644
+index 8b22e8174a..398c99dff9 100644
 --- a/apps/lang/greek.lang
 +++ b/apps/lang/greek.lang
-@@ -15577,3 +15577,89 @@
+@@ -15577,3 +15577,91 @@
      *: "Ελληνικά"
    </voice>
  </phrase>
@@ -7039,11 +7073,13 @@ index 8b22e8174a..b213de0b45 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/hebrew.lang b/apps/lang/hebrew.lang
-index c8be3cf297..8a97d8e264 100644
+index c8be3cf297..ef75cf7910 100644
 --- a/apps/lang/hebrew.lang
 +++ b/apps/lang/hebrew.lang
-@@ -12243,3 +12243,89 @@
+@@ -12243,3 +12243,91 @@
      *: "גודל קובץ"
    </voice>
  </phrase>
@@ -7133,11 +7169,13 @@ index c8be3cf297..8a97d8e264 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/hindi.lang b/apps/lang/hindi.lang
-index 6c4e38d397..6db51ff67a 100644
+index 6c4e38d397..d1c6364bd0 100644
 --- a/apps/lang/hindi.lang
 +++ b/apps/lang/hindi.lang
-@@ -4702,3 +4702,89 @@
+@@ -4702,3 +4702,91 @@
      *: "आवाज के सेटिनगस बचा"
    </voice>
  </phrase>
@@ -7227,11 +7265,13 @@ index 6c4e38d397..6db51ff67a 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/hrvatski.lang b/apps/lang/hrvatski.lang
-index 83c466561b..805617c8c8 100644
+index 83c466561b..03fcec0202 100644
 --- a/apps/lang/hrvatski.lang
 +++ b/apps/lang/hrvatski.lang
-@@ -12484,3 +12484,89 @@
+@@ -12484,3 +12484,91 @@
      *: "Pokreni tajmer spavanja pri paljenju "
    </voice>
  </phrase>
@@ -7321,11 +7361,13 @@ index 83c466561b..805617c8c8 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/islenska.lang b/apps/lang/islenska.lang
-index 83a1478254..b15ea61c48 100644
+index 83a1478254..d492a451c4 100644
 --- a/apps/lang/islenska.lang
 +++ b/apps/lang/islenska.lang
-@@ -6329,3 +6329,89 @@
+@@ -6329,3 +6329,91 @@
      radio: ""
    </voice>
  </phrase>
@@ -7415,11 +7457,13 @@ index 83a1478254..b15ea61c48 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/italiano.lang b/apps/lang/italiano.lang
-index 8dd4d21165..7978cfebc0 100644
+index 8dd4d21165..e9f08588ff 100644
 --- a/apps/lang/italiano.lang
 +++ b/apps/lang/italiano.lang
-@@ -17161,3 +17161,89 @@
+@@ -17161,3 +17161,91 @@
      touchscreen: "Scorciatoie mediante lo scorrimento sul touchscreen"
    </voice>
  </phrase>
@@ -7509,11 +7553,13 @@ index 8dd4d21165..7978cfebc0 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/japanese.lang b/apps/lang/japanese.lang
-index b080759121..6c317051e4 100644
+index b080759121..d55a81496d 100644
 --- a/apps/lang/japanese.lang
 +++ b/apps/lang/japanese.lang
-@@ -16527,3 +16527,89 @@
+@@ -16527,3 +16527,91 @@
      *: "~U S B"
    </voice>
  </phrase>
@@ -7603,11 +7649,13 @@ index b080759121..6c317051e4 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/korean.lang b/apps/lang/korean.lang
-index 8b11ae3e34..639f4c07fe 100644
+index 8b11ae3e34..3b3d5695fb 100644
 --- a/apps/lang/korean.lang
 +++ b/apps/lang/korean.lang
-@@ -17113,3 +17113,89 @@
+@@ -17113,3 +17113,91 @@
      *: "컨텍스트 항목 설정"
    </voice>
  </phrase>
@@ -7697,11 +7745,13 @@ index 8b11ae3e34..639f4c07fe 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/latviesu.lang b/apps/lang/latviesu.lang
-index ab4c8dccd8..6451c0ed10 100644
+index ab4c8dccd8..40ad48fb67 100644
 --- a/apps/lang/latviesu.lang
 +++ b/apps/lang/latviesu.lang
-@@ -17098,3 +17098,89 @@
+@@ -17098,3 +17098,91 @@
      *: "Iestatīt konteksta vienumu"
    </voice>
  </phrase>
@@ -7791,11 +7841,13 @@ index ab4c8dccd8..6451c0ed10 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/lietuviu.lang b/apps/lang/lietuviu.lang
-index d96f0305c3..01f802c68a 100644
+index d96f0305c3..6dc814f9a3 100644
 --- a/apps/lang/lietuviu.lang
 +++ b/apps/lang/lietuviu.lang
-@@ -11011,3 +11011,89 @@
+@@ -11011,3 +11011,91 @@
      *: "Failo dydis"
    </voice>
  </phrase>
@@ -7885,11 +7937,13 @@ index d96f0305c3..01f802c68a 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/magyar.lang b/apps/lang/magyar.lang
-index 31a324c04b..38c6c7fa68 100644
+index 31a324c04b..c5c7eeb1d8 100644
 --- a/apps/lang/magyar.lang
 +++ b/apps/lang/magyar.lang
-@@ -17129,3 +17129,89 @@
+@@ -17129,3 +17129,91 @@
      *: "Szűrő típusa"
    </voice>
  </phrase>
@@ -7979,11 +8033,13 @@ index 31a324c04b..38c6c7fa68 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/moldoveneste.lang b/apps/lang/moldoveneste.lang
-index 41d2163218..4cf1af8f6e 100644
+index 41d2163218..51acde7de1 100644
 --- a/apps/lang/moldoveneste.lang
 +++ b/apps/lang/moldoveneste.lang
-@@ -17132,3 +17132,89 @@
+@@ -17132,3 +17132,91 @@
      *: "Tip filtru"
    </voice>
  </phrase>
@@ -8073,11 +8129,13 @@ index 41d2163218..4cf1af8f6e 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/nederlands.lang b/apps/lang/nederlands.lang
-index 398e62d26f..52e3fecce4 100644
+index 398e62d26f..d4841a43cf 100644
 --- a/apps/lang/nederlands.lang
 +++ b/apps/lang/nederlands.lang
-@@ -17135,3 +17135,89 @@
+@@ -17135,3 +17135,91 @@
      *: "Filter Type"
    </voice>
  </phrase>
@@ -8167,11 +8225,13 @@ index 398e62d26f..52e3fecce4 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/norsk-nynorsk.lang b/apps/lang/norsk-nynorsk.lang
-index be6540c498..106196e3c2 100644
+index be6540c498..3bc5a1b6dd 100644
 --- a/apps/lang/norsk-nynorsk.lang
 +++ b/apps/lang/norsk-nynorsk.lang
-@@ -16991,3 +16991,89 @@
+@@ -16991,3 +16991,91 @@
      *: "~U S B"
    </voice>
  </phrase>
@@ -8261,11 +8321,13 @@ index be6540c498..106196e3c2 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/norsk.lang b/apps/lang/norsk.lang
-index c5e6503fcf..73ef1ce0c6 100644
+index c5e6503fcf..cf5f236b6e 100644
 --- a/apps/lang/norsk.lang
 +++ b/apps/lang/norsk.lang
-@@ -15581,3 +15581,89 @@
+@@ -15581,3 +15581,91 @@
      *: "Norsk"
    </voice>
  </phrase>
@@ -8355,11 +8417,13 @@ index c5e6503fcf..73ef1ce0c6 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/polski.lang b/apps/lang/polski.lang
-index 19320cbe5c..d6ab429163 100644
+index 19320cbe5c..3d41cf6ded 100644
 --- a/apps/lang/polski.lang
 +++ b/apps/lang/polski.lang
-@@ -17168,3 +17168,89 @@
+@@ -17168,3 +17168,91 @@
      touchscreen: "Skróty ekranu dotykowego"
    </voice>
  </phrase>
@@ -8449,11 +8513,13 @@ index 19320cbe5c..d6ab429163 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/portugues-brasileiro.lang b/apps/lang/portugues-brasileiro.lang
-index 42ba9cbbe3..69d7507e18 100644
+index 42ba9cbbe3..f60f100e84 100644
 --- a/apps/lang/portugues-brasileiro.lang
 +++ b/apps/lang/portugues-brasileiro.lang
-@@ -16996,3 +16996,89 @@
+@@ -16996,3 +16996,91 @@
      *: "~U S B"
    </voice>
  </phrase>
@@ -8543,11 +8609,13 @@ index 42ba9cbbe3..69d7507e18 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/portugues.lang b/apps/lang/portugues.lang
-index c76da1116e..64a852a21b 100644
+index c76da1116e..6fb66aef70 100644
 --- a/apps/lang/portugues.lang
 +++ b/apps/lang/portugues.lang
-@@ -12944,3 +12944,89 @@
+@@ -12944,3 +12944,91 @@
      *: "Ponte de Debug Android"
    </voice>
  </phrase>
@@ -8637,11 +8705,13 @@ index c76da1116e..64a852a21b 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/romaneste.lang b/apps/lang/romaneste.lang
-index 5daddd66bc..eb07e54dfb 100644
+index 5daddd66bc..5954bada33 100644
 --- a/apps/lang/romaneste.lang
 +++ b/apps/lang/romaneste.lang
-@@ -17132,3 +17132,89 @@
+@@ -17132,3 +17132,91 @@
      *: "Tip filtru"
    </voice>
  </phrase>
@@ -8731,11 +8801,13 @@ index 5daddd66bc..eb07e54dfb 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/russian.lang b/apps/lang/russian.lang
-index c8da55dc91..ef06f9458d 100644
+index c8da55dc91..8b1fae1e29 100644
 --- a/apps/lang/russian.lang
 +++ b/apps/lang/russian.lang
-@@ -17143,3 +17143,89 @@
+@@ -17143,3 +17143,91 @@
      *: "Тип фильтра"
    </voice>
  </phrase>
@@ -8825,11 +8897,13 @@ index c8da55dc91..ef06f9458d 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/slovak.lang b/apps/lang/slovak.lang
-index 7f459d8ba5..bde96d1439 100644
+index 7f459d8ba5..13f19800ca 100644
 --- a/apps/lang/slovak.lang
 +++ b/apps/lang/slovak.lang
-@@ -17161,3 +17161,89 @@
+@@ -17161,3 +17161,91 @@
      touchscreen: "Skratky švihnutia na obrazovke"
    </voice>
  </phrase>
@@ -8919,11 +8993,13 @@ index 7f459d8ba5..bde96d1439 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/slovenscina.lang b/apps/lang/slovenscina.lang
-index c624687ec1..20804197cb 100644
+index c624687ec1..04897c5615 100644
 --- a/apps/lang/slovenscina.lang
 +++ b/apps/lang/slovenscina.lang
-@@ -12558,3 +12558,89 @@
+@@ -12558,3 +12558,91 @@
      masf: ""
    </voice>
  </phrase>
@@ -9013,11 +9089,13 @@ index c624687ec1..20804197cb 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/srpski.lang b/apps/lang/srpski.lang
-index 96ff7347a6..79fc318ed7 100644
+index 96ff7347a6..ee9c98b30f 100644
 --- a/apps/lang/srpski.lang
 +++ b/apps/lang/srpski.lang
-@@ -17097,3 +17097,89 @@
+@@ -17097,3 +17097,91 @@
      *: "Готово"
    </voice>
  </phrase>
@@ -9107,11 +9185,13 @@ index 96ff7347a6..79fc318ed7 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/svenska.lang b/apps/lang/svenska.lang
-index dc68d41792..fc05bf229f 100644
+index dc68d41792..6bd8e2519b 100644
 --- a/apps/lang/svenska.lang
 +++ b/apps/lang/svenska.lang
-@@ -17106,3 +17106,89 @@
+@@ -17106,3 +17106,91 @@
      *: "Slutförd"
    </voice>
  </phrase>
@@ -9201,11 +9281,13 @@ index dc68d41792..fc05bf229f 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/tagalog.lang b/apps/lang/tagalog.lang
-index 9b098636e0..9dd2af5054 100644
+index 9b098636e0..c42fe025be 100644
 --- a/apps/lang/tagalog.lang
 +++ b/apps/lang/tagalog.lang
-@@ -12241,3 +12241,89 @@
+@@ -12241,3 +12241,91 @@
      *: "Dami salansan"
    </voice>
  </phrase>
@@ -9295,11 +9377,13 @@ index 9b098636e0..9dd2af5054 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/thai.lang b/apps/lang/thai.lang
-index e7f5f137d8..43e799d773 100644
+index e7f5f137d8..f8df88f64b 100644
 --- a/apps/lang/thai.lang
 +++ b/apps/lang/thai.lang
-@@ -12195,3 +12195,89 @@
+@@ -12195,3 +12195,91 @@
      *: "ขนาดไฟล์"
    </voice>
  </phrase>
@@ -9389,11 +9473,13 @@ index e7f5f137d8..43e799d773 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/turkce.lang b/apps/lang/turkce.lang
-index 6daad2e8cb..37174b688d 100644
+index 6daad2e8cb..3992afe6f9 100644
 --- a/apps/lang/turkce.lang
 +++ b/apps/lang/turkce.lang
-@@ -16988,3 +16988,89 @@
+@@ -16988,3 +16988,91 @@
      *: "~U S B"
    </voice>
  </phrase>
@@ -9483,11 +9569,13 @@ index 6daad2e8cb..37174b688d 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/ukrainian.lang b/apps/lang/ukrainian.lang
-index c4db36cd31..7578cec3e1 100644
+index c4db36cd31..74989656a4 100644
 --- a/apps/lang/ukrainian.lang
 +++ b/apps/lang/ukrainian.lang
-@@ -16958,3 +16958,89 @@
+@@ -16958,3 +16958,91 @@
      *: "~U S B"
    </voice>
  </phrase>
@@ -9577,11 +9665,13 @@ index c4db36cd31..7578cec3e1 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/vietnamese.lang b/apps/lang/vietnamese.lang
-index 2bc418cdcc..c383a4de9a 100644
+index 2bc418cdcc..69629067c8 100644
 --- a/apps/lang/vietnamese.lang
 +++ b/apps/lang/vietnamese.lang
-@@ -17125,3 +17125,89 @@
+@@ -17125,3 +17125,91 @@
      *: "Kiểu bộ lọc"
    </voice>
  </phrase>
@@ -9671,11 +9761,13 @@ index 2bc418cdcc..c383a4de9a 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/vlaams.lang b/apps/lang/vlaams.lang
-index 1f19cddf6f..e15c838197 100644
+index 1f19cddf6f..7de79525b0 100644
 --- a/apps/lang/vlaams.lang
 +++ b/apps/lang/vlaams.lang
-@@ -13262,3 +13262,89 @@
+@@ -13262,3 +13262,91 @@
      *: "Nummer wordt verplaatst"
    </voice>
  </phrase>
@@ -9765,11 +9857,13 @@ index 1f19cddf6f..e15c838197 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/lang/walon.lang b/apps/lang/walon.lang
-index 231f45ad22..7c94c254d8 100644
+index 231f45ad22..c8a58ce8f0 100644
 --- a/apps/lang/walon.lang
 +++ b/apps/lang/walon.lang
-@@ -11754,3 +11754,89 @@
+@@ -11754,3 +11754,91 @@
      *: "Grandeu do fitchî"
    </voice>
  </phrase>
@@ -9859,6 +9953,8 @@ index 231f45ad22..7c94c254d8 100644
 +    swcodec: "Dry / Wet Mix"
 +  </voice>
 +</phrase>
++
++
 diff --git a/apps/menus/bluetooth_menu.c b/apps/menus/bluetooth_menu.c
 new file mode 100644
 index 0000000000..fb90f0168c
@@ -23766,12 +23862,66 @@ index c7d510dc2f..48f071a7dd 100644
  #if defined(AUDIOHW_HAVE_EQ)
  int sound_enum_hw_eq_band_setting(unsigned int band,
                                    unsigned int band_setting)
+diff --git a/firmware/target/hosted/button-devinput.c b/firmware/target/hosted/button-devinput.c
+index 1c5e2abea2..7defe044af 100644
+--- a/firmware/target/hosted/button-devinput.c
++++ b/firmware/target/hosted/button-devinput.c
+@@ -33,6 +33,7 @@
+ #include "sysfs.h"
+ #include "button.h"
+ #include "panic.h"
++#include "button-devinput.h"
+ 
+ #ifdef HAVE_SCROLLWHEEL
+ #include "powermgmt.h"
+@@ -50,8 +51,6 @@
+    * Compute to angular velocity (degrees per second)
+ 
+  */
+-#define NR_POLL_DESC    5
+-
+ static int num_devices = 0;
+ static struct pollfd poll_fds[NR_POLL_DESC];
+ 
+@@ -106,6 +105,11 @@ void button_close_device(void)
+     }
+ }
+ 
++bool button_input_device_is_open(int i)
++{
++    return i >= 0 && i < NR_POLL_DESC && poll_fds[i].fd >= 0;
++}
++
+ #ifdef BUTTON_DELAY_RELEASE
+ static int button_delay_release = 0;
+ static int delay_tick = 0;
+diff --git a/firmware/target/hosted/button-devinput.h b/firmware/target/hosted/button-devinput.h
+index 20c76cab4b..03b3dbf2bf 100644
+--- a/firmware/target/hosted/button-devinput.h
++++ b/firmware/target/hosted/button-devinput.h
+@@ -21,8 +21,16 @@
+ #ifndef __BUTTON_DEVINPUT_H__
+ #define __BUTTON_DEVINPUT_H__
+ 
++#include <stdbool.h>
++
++/* Highest /dev/input/event<N> index polled.  Must cover every node that
++ * may be wired in at runtime (e.g. a Bluetooth peer's AVRCP device that
++ * only exists while the link is up). */
++#define NR_POLL_DESC 10
++
+ void button_close_device(void);
+ void button_add_input_device(int i);
+ void button_remove_input_device(int i);
++bool button_input_device_is_open(int i);
+ 
+ #endif
 diff --git a/firmware/target/hosted/cayin/n3pro/button-n3pro.c b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
 new file mode 100644
-index 0000000000..23ca34b809
+index 0000000000..6a0b04e7fc
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,133 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -23824,12 +23974,17 @@ index 0000000000..23ca34b809
 +            return BUTTON_POWER;
 +
 +        case KEY_PREVIOUSSONG:
++        case KEY_BACK:                /* AVRCP "Backward" (BT earphones) */
 +            return BUTTON_PREV;
 +
 +        case KEY_NEXTSONG:
++        case KEY_FORWARD:               /* AVRCP "Forward" (BT earphones) */
 +            return BUTTON_NEXT;
 +
 +        case KEY_PLAYPAUSE:
++        case KEY_PLAYCD:             /* AVRCP "Play" (BT earphones) */
++        case KEY_PAUSE:              /* AVRCP "Pause" (BT earphones) */
++        case KEY_PLAY:
 +            return BUTTON_PLAY;
 +
 +        /* Rotary volume encoder: ticks arrive as KEY_LEFT/KEY_RIGHT and each
@@ -24643,10 +24798,10 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..13b11fbc23
+index 0000000000..b09d2bfdba
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1567 @@
+@@ -0,0 +1,1667 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -24703,6 +24858,7 @@ index 0000000000..13b11fbc23
 +#include "n3pro-bt-pcm.h"
 +#include "bt_audio.h"
 +#include "bt_input.h"
++#include "button-devinput.h"
 +#include "statusbar_rf.h"
 +
 +/* str() yields const unsigned char *; keep the string call sites simple. */
@@ -25928,6 +26084,100 @@ index 0000000000..13b11fbc23
 +    return bt_peer_linked(mac);
 +}
 +
++/* ------------------------------------------------------------------ */
++/* AVRCP: the earphone's buttons                                       */
++/*                                                                     */
++/* The peer's AVRCP input device also carries its button events as      */
++/* ordinary Linux key codes (KEY_PLAYPAUSE / KEY_NEXTSONG / ...), so    */
++/* wiring its event node into the button driver is all it takes to let  */
++/* the earphone control playback.  The node only exists while the link  */
++/* is up, so it is (un)wired from the output watchdog.                  */
++
++/* Index of the peer's AVRCP event node (/dev/input/event<n>), -1 when
++ * the peer device is not present. */
++static int bt_peer_event_node(const char *mac)
++{
++    char path[64];
++    char name[80];
++    int i;
++
++    if (!mac || !mac[0])
++        return -1;
++
++    for (i = 0; i < 16; i++)
++    {
++        DIR *d;
++        struct dirent *de;
++        FILE *f;
++
++        snprintf(path, sizeof(path), "/sys/class/input/input%d/name", i);
++        f = fopen(path, "r");
++        if (!f)
++            continue;
++
++        name[0] = '\0';
++        if (fgets(name, sizeof(name), f))
++        {
++            char *nl = strchr(name, '\n');
++
++            if (nl)
++                *nl = '\0';
++        }
++        fclose(f);
++
++        if (!name[0] || strcasecmp(name, mac))
++            continue;
++
++        snprintf(path, sizeof(path), "/sys/class/input/input%d", i);
++        d = opendir(path);
++        if (!d)
++            return -1;
++
++        while ((de = readdir(d)))
++        {
++            int ev;
++
++            if (sscanf(de->d_name, "event%d", &ev) == 1)
++            {
++                closedir(d);
++                return ev;
++            }
++        }
++
++        closedir(d);
++        return -1;
++    }
++
++    return -1;
++}
++
++/* Event node currently wired into the button driver, -1 when none. */
++static int bt_avrcp_event = -1;
++
++/* Wire (mac given and linked) or unwire (NULL) the peer's AVRCP node.
++ * Safe to call on every watchdog tick. */
++static void bt_avrcp_wire(const char *mac)
++{
++    int ev = (mac && bt_peer_linked(mac)) ? bt_peer_event_node(mac) : -1;
++
++    if (ev >= NR_POLL_DESC)
++        ev = -1;                     /* no polling slot for it */
++
++    if (ev == bt_avrcp_event && (ev < 0 || button_input_device_is_open(ev)))
++        return;                      /* already in the wanted state */
++
++    if (bt_avrcp_event >= 0)
++        button_remove_input_device(bt_avrcp_event);
++
++    bt_avrcp_event = -1;
++
++    if (ev >= 0)
++    {
++        button_add_input_device(ev);
++        bt_avrcp_event = ev;
++    }
++}
++
 +/* True when the vendor's paired list marks this MAC as an A2DP sink (an
 + * output device), so the watchdog only auto-routes to something we can
 + * actually send audio to.  Cached per MAC. */
@@ -26008,6 +26258,10 @@ index 0000000000..13b11fbc23
 +            continue;
 +        last_check = current_tick;
 +
++        /* Keep the earphone's AVRCP buttons (play / prev / next) wired
++         * into the button driver for as long as the link is up. */
++        bt_avrcp_wire(bt_selected_mac[0] ? bt_selected_mac : NULL);
++
 +        char mac[BT_AUDIO_MAC_LEN];
 +        bool have_peer = bt_acl_peer(mac, sizeof(mac));
 +
@@ -26058,6 +26312,7 @@ index 0000000000..13b11fbc23
 +    }
 +
 +    /* Exiting: the starter may create a fresh instance. */
++    bt_avrcp_wire(NULL);
 +    bt_watchdog_started = false;
 +}
 +

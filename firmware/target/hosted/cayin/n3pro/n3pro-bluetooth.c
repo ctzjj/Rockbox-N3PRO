@@ -54,6 +54,7 @@
 #include "n3pro-bt-pcm.h"
 #include "bt_audio.h"
 #include "bt_input.h"
+#include "button-devinput.h"
 #include "statusbar_rf.h"
 
 /* str() yields const unsigned char *; keep the string call sites simple. */
@@ -1279,6 +1280,100 @@ static bool bt_wait_linked(const char *mac, int ms)
     return bt_peer_linked(mac);
 }
 
+/* ------------------------------------------------------------------ */
+/* AVRCP: the earphone's buttons                                       */
+/*                                                                     */
+/* The peer's AVRCP input device also carries its button events as      */
+/* ordinary Linux key codes (KEY_PLAYPAUSE / KEY_NEXTSONG / ...), so    */
+/* wiring its event node into the button driver is all it takes to let  */
+/* the earphone control playback.  The node only exists while the link  */
+/* is up, so it is (un)wired from the output watchdog.                  */
+
+/* Index of the peer's AVRCP event node (/dev/input/event<n>), -1 when
+ * the peer device is not present. */
+static int bt_peer_event_node(const char *mac)
+{
+    char path[64];
+    char name[80];
+    int i;
+
+    if (!mac || !mac[0])
+        return -1;
+
+    for (i = 0; i < 16; i++)
+    {
+        DIR *d;
+        struct dirent *de;
+        FILE *f;
+
+        snprintf(path, sizeof(path), "/sys/class/input/input%d/name", i);
+        f = fopen(path, "r");
+        if (!f)
+            continue;
+
+        name[0] = '\0';
+        if (fgets(name, sizeof(name), f))
+        {
+            char *nl = strchr(name, '\n');
+
+            if (nl)
+                *nl = '\0';
+        }
+        fclose(f);
+
+        if (!name[0] || strcasecmp(name, mac))
+            continue;
+
+        snprintf(path, sizeof(path), "/sys/class/input/input%d", i);
+        d = opendir(path);
+        if (!d)
+            return -1;
+
+        while ((de = readdir(d)))
+        {
+            int ev;
+
+            if (sscanf(de->d_name, "event%d", &ev) == 1)
+            {
+                closedir(d);
+                return ev;
+            }
+        }
+
+        closedir(d);
+        return -1;
+    }
+
+    return -1;
+}
+
+/* Event node currently wired into the button driver, -1 when none. */
+static int bt_avrcp_event = -1;
+
+/* Wire (mac given and linked) or unwire (NULL) the peer's AVRCP node.
+ * Safe to call on every watchdog tick. */
+static void bt_avrcp_wire(const char *mac)
+{
+    int ev = (mac && bt_peer_linked(mac)) ? bt_peer_event_node(mac) : -1;
+
+    if (ev >= NR_POLL_DESC)
+        ev = -1;                     /* no polling slot for it */
+
+    if (ev == bt_avrcp_event && (ev < 0 || button_input_device_is_open(ev)))
+        return;                      /* already in the wanted state */
+
+    if (bt_avrcp_event >= 0)
+        button_remove_input_device(bt_avrcp_event);
+
+    bt_avrcp_event = -1;
+
+    if (ev >= 0)
+    {
+        button_add_input_device(ev);
+        bt_avrcp_event = ev;
+    }
+}
+
 /* True when the vendor's paired list marks this MAC as an A2DP sink (an
  * output device), so the watchdog only auto-routes to something we can
  * actually send audio to.  Cached per MAC. */
@@ -1359,6 +1454,10 @@ static void bt_watchdog(void)
             continue;
         last_check = current_tick;
 
+        /* Keep the earphone's AVRCP buttons (play / prev / next) wired
+         * into the button driver for as long as the link is up. */
+        bt_avrcp_wire(bt_selected_mac[0] ? bt_selected_mac : NULL);
+
         char mac[BT_AUDIO_MAC_LEN];
         bool have_peer = bt_acl_peer(mac, sizeof(mac));
 
@@ -1409,6 +1508,7 @@ static void bt_watchdog(void)
     }
 
     /* Exiting: the starter may create a fresh instance. */
+    bt_avrcp_wire(NULL);
     bt_watchdog_started = false;
 }
 
