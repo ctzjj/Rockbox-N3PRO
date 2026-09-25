@@ -14,6 +14,15 @@
 #include "netfm_stream.h"
 #include "splash.h"
 #include "wifi_hal.h"
+#ifdef HAVE_DLNA
+#include "dlna/dlna_stream.h"
+#endif
+#ifdef HAVE_BT_INPUT
+#include "bt_input.h"
+#endif
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+#include "usb.h"
+#endif
 
 #define NETFM_PATH ROCKBOX_DIR "/stream/netfm/netfm.txt"
 #define NETFM_STATUS_ROWS 7
@@ -271,11 +280,28 @@ static void netfm_play_screen(const struct netfm_station *station)
 
     if (!same)
     {
-        if (!netfm_stream_can_start())
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+        /* the USB DAC is a hard input and cannot be preempted */
+        if (usb_audio_get_active())
+        {
+            splash(HZ * 2, str(LANG_USB_DAC_ACTIVE));
+            return;
+        }
+#endif
+        /* Entering this screen takes the output from the other network
+         * source (DLNA); local playback is stopped below. */
+#ifdef HAVE_BT_INPUT
+        /* The bluetooth receive path is a hard input: refuse, never
+         * force-stop it (that would touch its PCM channel). */
+        if (bt_input_active())
         {
             splash(HZ * 2, str(LANG_NETFM_CONFLICT));
             return;
         }
+#endif
+#ifdef HAVE_DLNA
+        dlna_stream_stop();
+#endif
         if (audio_status() & (AUDIO_STATUS_PLAY | AUDIO_STATUS_PAUSE))
         {
             audio_stop();

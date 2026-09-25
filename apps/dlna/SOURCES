@@ -1,0 +1,17 @@
+dlna.c
+dlna_stream.c
+dlna_output.c
+dlna_playback.c
+gmr/logging.c
+gmr/output.c
+gmr/song-meta-data.c
+gmr/upnp.c
+gmr/upnp_connmgr.c
+gmr/upnp_control.c
+gmr/upnp_device.c
+gmr/upnp_renderer.c
+gmr/upnp_transport.c
+gmr/variable-container.c
+gmr/webserver.c
+gmr/xmldoc.c
+gmr/xmlescape.c

@@ -46,6 +46,15 @@
 #include "bt_audio.h"
 #include "bt_input.h"
 #include "bluetooth.h"
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+#include "usb.h"
+#endif
+#ifdef HAVE_NETFM
+#include "netfm_stream.h"
+#endif
+#ifdef HAVE_DLNA
+#include "dlna/dlna_stream.h"
+#endif
 
 /* str() yields const unsigned char *; keep the string call sites simple. */
 static char *bt_str(int id)
@@ -285,6 +294,30 @@ static int bt_output_menu(void)
         splash(HZ * 2, bt_str(LANG_BT_RX_ACTIVE));
         return 0;
     }
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+    /* the USB DAC is a hard input and cannot be preempted */
+    if (usb_audio_get_active())
+    {
+        splash(HZ * 2, bt_str(LANG_USB_DAC_ACTIVE));
+        return 0;
+    }
+#endif
+    /* Bluetooth output is a route of local playback: like local playback,
+     * refuse while a network source owns the output. */
+#ifdef HAVE_NETFM
+    if (netfm_stream_is_active())
+    {
+        splash(HZ * 2, bt_str(LANG_NETFM_CONFLICT));
+        return 0;
+    }
+#endif
+#ifdef HAVE_DLNA
+    if (dlna_stream_is_active())
+    {
+        splash(HZ * 2, bt_str(LANG_NETFM_CONFLICT));
+        return 0;
+    }
+#endif
 
     while (true)
     {
@@ -442,6 +475,25 @@ static void bt_rx_screen(void)
         splash(HZ * 2, bt_str(LANG_BT_BUSY_OUTPUT));
         return;
     }
+
+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
+    /* the USB DAC is a hard input and cannot be preempted */
+    if (!bt_input_active() && usb_audio_get_active())
+    {
+        splash(HZ * 2, bt_str(LANG_USB_DAC_ACTIVE));
+        return;
+    }
+#endif
+    /* The network sources are soft: the bluetooth receiver takes the
+     * output over and stops them (local playback is stopped just below). */
+#ifdef HAVE_NETFM
+    if (!bt_input_active() && netfm_stream_is_active())
+        netfm_stream_stop();
+#endif
+#ifdef HAVE_DLNA
+    if (!bt_input_active() && dlna_stream_is_active())
+        dlna_stream_stop();
+#endif
 
     /* The receive path owns the output, like USB DAC mode: stop any
      * running playback first. */

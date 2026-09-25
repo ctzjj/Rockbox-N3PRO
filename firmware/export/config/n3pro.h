@@ -79,6 +79,11 @@
  * WebSocket server; pages are shipped under .rockbox/web/control/.
  */
 #define HAVE_WEB_CONTROL
+/* DLNA renderer (UPnP MediaRenderer): apps/dlna/ (GMediaRender-derived
+ * LGPL-2.1 control plane, netfm audio backend) on top of the vendored
+ * Portable SDK for UPnP devices in lib/pupnp/.  Entry in the WiFi menu;
+ * audio goes through the netfm pipeline and thus the DSP chain. */
+#define HAVE_DLNA
 /* Draw bluetooth/wireless glyphs in the classic statusbar while the
  * radios are powered; the state queries are implemented in the n3pro
  * target directory (statusbar_rf.h). */

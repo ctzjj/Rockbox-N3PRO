@@ -62,6 +62,9 @@
 #ifdef HAVE_NETFM
 #include "netfm_stream.h"
 #endif
+#ifdef HAVE_DLNA
+#include "dlna/dlna_stream.h"
+#endif
 #if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
 #include "usb.h"
 #endif
@@ -695,18 +698,23 @@ static void web_ws_broadcast(const char *payload, size_t len)
 static bool web_local_playback(void)
 {
     /* Positive check: the web remote drives the local file player only.
-     * Refuse when the device is not playing local files: USB DAC input,
-     * bluetooth receive (A2DP sink) and network radio.  Bluetooth audio
-     * output is merely an output route of local playback, so it stays
-     * allowed.  Uses the same generic HAL queries as the other shared
-     * consumers. */
+     * Refuse when a hard input owns the device: USB DAC input and
+     * bluetooth receive (A2DP sink).  The network radio and the DLNA
+     * renderer are soft sources - the remote takes the output over and
+     * stops them.  Bluetooth audio output is merely an output route of
+     * local playback, so it stays allowed.  Uses the same generic HAL
+     * queries as the other shared consumers. */
 #ifdef HAVE_BT_INPUT
     if (bt_input_active())
         return false;
 #endif
 #ifdef HAVE_NETFM
     if (netfm_stream_is_active())
-        return false;
+        netfm_stream_stop();
+#endif
+#ifdef HAVE_DLNA
+    if (dlna_stream_is_active())
+        dlna_stream_stop();
 #endif
 #if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
     if (usb_audio_get_active())

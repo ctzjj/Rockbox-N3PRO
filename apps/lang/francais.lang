@@ -17054,3 +17054,116 @@
 </phrase>
 
 
+<phrase>
+  id: LANG_DLNA
+  desc: DLNA renderer menu
+  user: core
+  <source>
+    *: "DLNA"
+  </source>
+  <dest>
+    *: "DLNA"
+  </dest>
+  <voice>
+    *: "DLNA"
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_DLNA_STATUS
+  desc: DLNA renderer status row
+  user: core
+  <source>
+    *: "Status"
+  </source>
+  <dest>
+    *: "Status"
+  </dest>
+  <voice>
+    *: "Status"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_TRACK
+  desc: DLNA renderer track row
+  user: core
+  <source>
+    *: "Track"
+  </source>
+  <dest>
+    *: "Track"
+  </dest>
+  <voice>
+    *: "Track"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_FORMAT
+  desc: DLNA renderer format row
+  user: core
+  <source>
+    *: "Format"
+  </source>
+  <dest>
+    *: "Format"
+  </dest>
+  <voice>
+    *: "Format"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_BITRATE
+  desc: DLNA renderer bitrate row
+  user: core
+  <source>
+    *: "Bitrate"
+  </source>
+  <dest>
+    *: "Bitrate"
+  </dest>
+  <voice>
+    *: "Bitrate"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_BUFFER
+  desc: DLNA renderer buffer row
+  user: core
+  <source>
+    *: "Buffer"
+  </source>
+  <dest>
+    *: "Buffer"
+  </dest>
+  <voice>
+    *: "Buffer"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_EXIT
+  desc: DLNA renderer exit row
+  user: core
+  <source>
+    *: "Exit"
+  </source>
+  <dest>
+    *: "Exit"
+  </dest>
+  <voice>
+    *: "Exit"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_IDLE
+  desc: DLNA renderer idle state
+  user: core
+  <source>
+    *: "Waiting for push"
+  </source>
+  <dest>
+    *: "Waiting for push"
+  </dest>
+  <voice>
+    *: "Waiting for push"
+  </voice>
+</phrase>

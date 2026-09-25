@@ -37,6 +37,9 @@
 #include "netfm.h"
 #include "netfm_stream.h"
 #endif
+#ifdef HAVE_DLNA
+#include "dlna/dlna.h"
+#endif
 
 #define WIFI_MAX_NETS  32
 #define WIFI_PICK_CANCEL (-1)
@@ -437,7 +440,7 @@ static const char *wifi_menu_name_cb(int selected, void *data,
                                char *buffer, size_t buffer_len)
 {
     bool on = (bool)(intptr_t)data;
-    int ids[7] = { on ? LANG_WIFI_OFF : LANG_WIFI_ON,
+    int ids[8] = { on ? LANG_WIFI_OFF : LANG_WIFI_ON,
                    LANG_WIFI_SCAN, LANG_WIFI_SAVED, LANG_WIFI_STATUS,
                    LANG_WIFI_RESET };
     int count = 5;
@@ -446,6 +449,9 @@ static const char *wifi_menu_name_cb(int selected, void *data,
 #endif
 #ifdef HAVE_WEB_CONTROL
     ids[count++] = LANG_WEB_CONTROL;
+#endif
+#ifdef HAVE_DLNA
+    ids[count++] = LANG_DLNA;
 #endif
     if (selected < 0 || selected >= count)
         return (char *)"";
@@ -463,6 +469,9 @@ int wifi_menu(void)
         count++;
 #endif
 #ifdef HAVE_WEB_CONTROL
+        count++;
+#endif
+#ifdef HAVE_DLNA
         count++;
 #endif
 
@@ -489,6 +498,9 @@ int wifi_menu(void)
 #ifdef HAVE_NETFM
                     netfm_stream_stop();
 #endif
+#ifdef HAVE_DLNA
+                    dlna_renderer_stop();
+#endif
                     wifi_hal_power_off();
                 }
                 else
@@ -510,24 +522,42 @@ int wifi_menu(void)
 #ifdef HAVE_NETFM
                 netfm_stream_stop();
 #endif
+#ifdef HAVE_DLNA
+                dlna_renderer_stop();
+#endif
                 wifi_flow_reset();
                 break;
+            default:
+            {
+                /* optional entries beyond the fixed five; the chain
+                 * mirrors the order the name callback builds them in */
+                int idx = 5;
 #ifdef HAVE_NETFM
-            case 5:
-                netfm_menu();
-                break;
+                if (info.selection == idx)
+                {
+                    netfm_menu();
+                    break;
+                }
+                idx++;
+#endif
 #ifdef HAVE_WEB_CONTROL
-            case 6:
-                web_control_screen();
+                if (info.selection == idx)
+                {
+                    web_control_screen();
+                    break;
+                }
+                idx++;
+#endif
+#ifdef HAVE_DLNA
+                if (info.selection == idx)
+                {
+                    dlna_menu();
+                    break;
+                }
+                idx++;
+#endif
                 break;
-#endif
-#else
-#ifdef HAVE_WEB_CONTROL
-            case 5:
-                web_control_screen();
-                break;
-#endif
-#endif
+            }
         }
     }
     return 0;

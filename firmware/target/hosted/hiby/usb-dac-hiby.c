@@ -44,6 +44,7 @@
 
 #include "config.h"
 #include "kernel.h"
+#include "audio.h"
 #include "pcm_mixer.h"
 #include "pcm_sampr.h"
 #include "system.h"
@@ -220,6 +221,23 @@ static int dac_kmsg_rate(int max_records)
  * This is a raw pthread, not a Rockbox thread, so it must use usleep()
  * rather than the cooperative sleep() (which only the scheduler's own
  * threads may call). */
+#if defined(CAYIN_N3PRO)
+/* True while a network source (radio / DLNA) is streaming and therefore
+ * owns the shared CODEC_IDX_AUDIO DSP chain. */
+static bool dac_stream_active(void)
+{
+#ifdef HAVE_NETFM
+    if (mixer_channel_status(PCM_MIXER_CHAN_NETFM) != CHANNEL_STOPPED)
+        return true;
+#endif
+#ifdef HAVE_DLNA
+    if (mixer_channel_status(PCM_MIXER_CHAN_DLNA) != CHANNEL_STOPPED)
+        return true;
+#endif
+    return false;
+}
+#endif
+
 static void *dac_pump_thread(void *arg)
 {
     int32_t rbuf[DAC_READ_BYTES / sizeof(int32_t)];
@@ -230,6 +248,17 @@ static void *dac_pump_thread(void *arg)
      * blocks until the host actually streams, so the caller must never
      * touch the device. */
     const unsigned int gen = dac_gen;
+
+    /* The shared CODEC_IDX_AUDIO DSP chain must be idle before this thread
+     * resets/configures it.  While the radio or the DLNA renderer streams,
+     * it owns the chain: usb_audio_get_active() is already true here
+     * (dac_running was set by usb_dac_start), so those sources wind down on
+     * their own monitors -- wait for their mixer channels to stop. */
+    while (dac_running && gen == dac_gen && dac_stream_active())
+        usleep(5000);
+    if (!dac_running || gen != dac_gen)
+        return NULL;
+
     int fd = open(UAC_SA_DEV, O_RDWR | O_NONBLOCK);
     if (fd < 0)
     {
@@ -430,19 +459,22 @@ bool usb_dac_start(void)
     if (dac_running)
         return true;
 
-    /* While local playback runs the output device and its rate belong to
-     * it (and the core refuses to start it while the DAC runs, see
-     * apps/playback.c). Don't start the host-PCM pump until it stops:
-     * usb_detect() retries every tick, so the DAC comes up by itself
-     * once playback is over. */
+    /* Only one owner may use the output and the shared DSP chain.  The
+     * DAC is a plug-in event that preempts the others: stop local playback
+     * and the bluetooth receive here (both stops are asynchronous, so
+     * usb_detect() starts the pump on a later tick).  The network sources
+     * (radio / DLNA) stop themselves once usb_audio_get_active() turns
+     * true. */
     if (mixer_channel_status(PCM_MIXER_CHAN_PLAYBACK) != CHANNEL_STOPPED)
+    {
+        audio_stop();
         return false;
-
-    /* The Bluetooth receive path owns the output and the DSP the same
-     * way; the two inputs are mutually exclusive and usb_detect()
-     * retries, so the DAC still comes up once receiving stops. */
+    }
     if (bt_input_active())
+    {
+        bt_input_stop();
         return false;
+    }
 
     /* The vendor driver's open()/read() block until the host streams, so
      * ALL device I/O is done by the pump thread; this function only sets

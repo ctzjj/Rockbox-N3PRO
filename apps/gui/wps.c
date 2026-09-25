@@ -37,6 +37,12 @@
 #ifdef HAVE_BT_INPUT
 #include "bt_input.h"
 #endif
+#ifdef HAVE_DLNA
+#include "dlna/dlna_stream.h"
+#endif
+#ifdef HAVE_NETFM
+#include "netfm_stream.h"
+#endif
 #include "status.h"
 #include "storage.h"
 #include "screens.h"

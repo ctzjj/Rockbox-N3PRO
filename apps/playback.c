@@ -48,6 +48,9 @@
 #ifdef HAVE_NETFM
 #include "netfm_stream.h"
 #endif
+#ifdef HAVE_DLNA
+#include "dlna/dlna_stream.h"
+#endif
 #include "audiohw.h"
 #include "general.h"
 #include "iap-usb.h"
@@ -3022,12 +3025,15 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
     }
 #endif
 #ifdef HAVE_NETFM
-    /* The network radio is a background source like the external inputs:
-     * it yields the output to local playback (its decoder thread and its
-     * mixer channel stop) instead of refusing to play.  The stop is
-     * asynchronous: this runs on the audio thread. */
+    /* The radio is a soft source: stop it and take over the output (the
+     * stop is asynchronous - this runs on the audio thread). */
     if (netfm_stream_is_active())
         netfm_stream_stop_async();
+#endif
+#ifdef HAVE_DLNA
+    /* The DLNA renderer is a soft source too: take the output over. */
+    if (dlna_stream_is_active())
+        dlna_stream_stop_async();
 #endif
     static struct audio_resume_info resume = { 0, 0 };
     enum play_status old_status = play_status;

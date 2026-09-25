@@ -12753,3 +12753,116 @@
 </phrase>
 
 
+<phrase>
+  id: LANG_DLNA
+  desc: DLNA renderer menu
+  user: core
+  <source>
+    *: "DLNA"
+  </source>
+  <dest>
+    *: "DLNA"
+  </dest>
+  <voice>
+    *: "DLNA"
+  </voice>
+</phrase>
+
+<phrase>
+  id: LANG_DLNA_STATUS
+  desc: DLNA renderer status row
+  user: core
+  <source>
+    *: "狀態"
+  </source>
+  <dest>
+    *: "狀態"
+  </dest>
+  <voice>
+    *: "狀態"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_TRACK
+  desc: DLNA renderer track row
+  user: core
+  <source>
+    *: "曲目"
+  </source>
+  <dest>
+    *: "曲目"
+  </dest>
+  <voice>
+    *: "曲目"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_FORMAT
+  desc: DLNA renderer format row
+  user: core
+  <source>
+    *: "格式"
+  </source>
+  <dest>
+    *: "格式"
+  </dest>
+  <voice>
+    *: "格式"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_BITRATE
+  desc: DLNA renderer bitrate row
+  user: core
+  <source>
+    *: "位元率"
+  </source>
+  <dest>
+    *: "位元率"
+  </dest>
+  <voice>
+    *: "位元率"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_BUFFER
+  desc: DLNA renderer buffer row
+  user: core
+  <source>
+    *: "緩衝"
+  </source>
+  <dest>
+    *: "緩衝"
+  </dest>
+  <voice>
+    *: "緩衝"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_EXIT
+  desc: DLNA renderer exit row
+  user: core
+  <source>
+    *: "退出"
+  </source>
+  <dest>
+    *: "退出"
+  </dest>
+  <voice>
+    *: "退出"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DLNA_IDLE
+  desc: DLNA renderer idle state
+  user: core
+  <source>
+    *: "等待推送"
+  </source>
+  <dest>
+    *: "等待推送"
+  </dest>
+  <voice>
+    *: "等待推送"
+  </voice>
+</phrase>

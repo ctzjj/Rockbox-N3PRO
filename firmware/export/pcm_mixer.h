@@ -82,6 +82,10 @@ enum pcm_mixer_channel
     /* Network radio streaming; see apps/netfm_playback.c */
     PCM_MIXER_CHAN_NETFM,
 #endif
+#ifdef HAVE_DLNA
+    /* DLNA renderer streaming; see apps/dlna/dlna_playback.c */
+    PCM_MIXER_CHAN_DLNA,
+#endif
     PCM_MIXER_CHAN_VOICE,
 #ifndef HAVE_HARDWARE_BEEP
     PCM_MIXER_CHAN_BEEP,
