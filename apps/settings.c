@@ -1086,6 +1086,18 @@ void settings_apply(bool read_disk)
                            global_settings.space80_gain,
                            global_settings.space80_mix);
 
+    dsp_set_swd_enable(global_settings.swd);
+    dsp_set_swd_params(global_settings.swd_3d,
+                         global_settings.swd_center,
+                         global_settings.swd_focus,
+                         global_settings.swd_definition,
+                         global_settings.swd_bass);
+    dsp_set_swd_mode(global_settings.swd_mode);
+    dsp_set_swd_tbeq(global_settings.swd_tbeq);
+    dsp_set_swd_gains(global_settings.swd_ingain,
+                        global_settings.swd_outgain);
+    dsp_set_swd_limiter(global_settings.swd_limiter);
+
     /* Configure software equalizer, hardware eq is handled in audio_init() */
     dsp_eq_enable(global_settings.eq_enabled);
     dsp_set_eq_precut(global_settings.eq_precut);

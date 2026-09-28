@@ -657,6 +657,114 @@ static void space80_set(int val)
                           global_settings.space80_mix);
 }
 
+static void swd_set(int val)
+{
+   (void)val;
+   dsp_set_swd_params(global_settings.swd_3d,
+                        global_settings.swd_center,
+                        global_settings.swd_focus,
+                        global_settings.swd_definition,
+                        global_settings.swd_bass);
+}
+
+/* SWD panel presets: [Bass, Definition, 3D, Focus, Center] */
+static const char * const swd_preset_names[21] =
+{
+    "Default", "Normal", "SWDJazz", "SWDClassical", "SWDRock", "SWDPop",
+    "SWDDance", "SWDFolk", "SWDMetal", "SWDHipHop", "SWDPiano", "SWDLatin",
+    "SWDBass", "SWDTreble", "SWDSymphony", "SWDSpokenWord", "SWDTheater",
+    "SWDVoice", "Bass Reducer", "Treble Reducer", "Flat",
+};
+static const unsigned char swd_presets[21][5] =
+{
+    { 60, 40,  80, 50, 40 }, { 70, 40,  70, 50, 40 }, { 50, 40,  90, 50, 60 },
+    { 60, 40,  90, 60, 50 }, { 50, 40, 100, 50, 60 }, { 70, 70,  70, 70, 70 },
+    { 70, 40,  40, 50, 50 }, { 50, 40, 100, 50, 40 }, { 80, 40,  90, 60, 40 },
+    {100, 30,  80, 30, 30 }, { 80, 30,  90, 50, 30 }, { 50, 30,  80, 60, 40 },
+    { 90,  0,   0, 30,  0 }, { 10, 70,  70, 80, 50 }, { 50, 30, 100, 60, 40 },
+    { 40, 50,  50, 60, 50 }, { 30, 50, 100, 50, 60 }, { 60, 60,  50, 60, 50 },
+    {  0, 40,  80, 50, 40 }, { 70,  0,  70, 40,  0 }, {  0,  0,   0, 50,  0 },
+};
+
+static void swd_preset_set(int val)
+{
+    if (val < 0 || val > 20)
+        return;
+    global_settings.swd_bass    = swd_presets[val][0];
+    global_settings.swd_definition = swd_presets[val][1];
+    global_settings.swd_3d         = swd_presets[val][2];
+    global_settings.swd_focus      = swd_presets[val][3];
+    global_settings.swd_center     = swd_presets[val][4];
+    dsp_set_swd_params(global_settings.swd_3d,
+                         global_settings.swd_center,
+                         global_settings.swd_focus,
+                         global_settings.swd_definition,
+                         global_settings.swd_bass);
+}
+
+static void swd_gain_set(int val)
+{
+    (void)val;
+    dsp_set_swd_gains(global_settings.swd_ingain,
+                        global_settings.swd_outgain);
+}
+
+static const char *swd_tbeq_format(char *dest, size_t length, int val,
+                                     const char *unit)
+{
+    static const int hz[8] = { 40, 60, 100, 150, 200, 250, 300, 400 };
+    (void)unit;
+    if (val < 0) val = 0;
+    if (val > 7) val = 7;
+    snprintf(dest, length, "%d Hz", hz[val]);
+    return dest;
+}
+
+static const char *swd_gain_format(char *dest, size_t length, int val,
+                                     const char *unit)
+{
+    (void)unit;
+    snprintf(dest, length, "%d dB", -val);
+    return dest;
+}
+
+static const char *swd_mode_format(char *dest, size_t length, int val,
+                                     const char *unit)
+{
+    (void)unit;
+    snprintf(dest, length, "%s", val ? str(LANG_SWD_MODE_SPEAKER)
+                                     : str(LANG_SWD_MODE_HEADPHONES));
+    return dest;
+}
+
+static const char *swd_limiter_format(char *dest, size_t length, int val,
+                                        const char *unit)
+{
+    (void)unit;
+    if (val < 0) val = 0;
+    if (val > 2) val = 2;
+    /* 0 = off, 1 = on (the low-frequency "pounding" workpoint),
+     * 2 = on plus the AGC floor. */
+    if (val == 0)
+        snprintf(dest, length, "%s", str(LANG_SWD_LIM_OFF));
+    else if (val == 1)
+        snprintf(dest, length, "%s", str(LANG_ON));
+    else
+        snprintf(dest, length, "%s + %s", str(LANG_ON),
+                 str(LANG_SWD_LIMITER));
+    return dest;
+}
+
+static const char *swd_preset_format(char *dest, size_t length, int val,
+                                       const char *unit)
+{
+    (void)unit;
+    if (val < 0) val = 0;
+    if (val > 20) val = 20;
+    snprintf(dest, length, "%s", swd_preset_names[val]);
+    return dest;
+}
+
 static void surround_set_factor(int val)
 {
     (void)val;
@@ -2013,6 +2121,54 @@ const struct settings_list settings[] = {
                        LANG_SPACE80_MIX, 40,
                        "space80 mix", UNIT_PERCENT, 100, 0,
                        -5, NULL, NULL, space80_set),
+
+    /* SWD SWD */
+    OFFON_SETTING(F_SOUNDSETTING, swd, LANG_SWD, false,
+                  "swd enabled", dsp_set_swd_enable),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_3d,
+                       LANG_SWD_3D, 30,
+                       "swd 3d", UNIT_PERCENT, 100, 0,
+                       -10, NULL, NULL, swd_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_center,
+                       LANG_SWD_CENTER, 30,
+                       "swd center", UNIT_PERCENT, 100, 0,
+                       -10, NULL, NULL, swd_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_focus,
+                       LANG_SWD_FOCUS, 40,
+                       "swd focus", UNIT_PERCENT, 100, 0,
+                       -10, NULL, NULL, swd_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_definition,
+                       LANG_SWD_DEFINITION, 20,
+                       "swd definition", UNIT_PERCENT, 100, 0,
+                       -10, NULL, NULL, swd_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_bass,
+                       LANG_SWD_BASS, 80,
+                       "swd bass", UNIT_PERCENT, 100, 0,
+                       -10, NULL, NULL, swd_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_preset,
+                       LANG_SWD_PRESET, 0,
+                       "swd preset", UNIT_INT, 0, 20, 1,
+                       swd_preset_format, NULL, swd_preset_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_mode,
+                       LANG_SWD_MODE, 0,
+                       "swd mode", UNIT_INT, 0, 1, 1,
+                       swd_mode_format, NULL, dsp_set_swd_mode),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_tbeq,
+                       LANG_SWD_TBEQ, 1,
+                       "swd tbeq", UNIT_INT, 0, 7, 1,
+                       swd_tbeq_format, NULL, dsp_set_swd_tbeq),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_ingain,
+                       LANG_SWD_INPUT_GAIN, 1,
+                       "swd input gain", UNIT_INT, 0, 12, 1,
+                       swd_gain_format, NULL, swd_gain_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_outgain,
+                       LANG_SWD_OUTPUT_GAIN, 1,
+                       "swd output gain", UNIT_INT, 0, 12, 1,
+                       swd_gain_format, NULL, swd_gain_set),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_limiter,
+                       LANG_SWD_LIMITER, 0,
+                       "swd limiter", UNIT_INT, 0, 2, 1,
+                       swd_limiter_format, NULL, dsp_set_swd_limiter),
 
     /* equalizer */
     OFFON_SETTING(F_EQSETTING, eq_enabled, LANG_EQUALIZER_ENABLED, false,

@@ -173,6 +173,34 @@ MENUITEM_SETTING(power_mode, &global_settings.power_mode, NULL);
     MAKE_MENU(space80_menu,ID2P(LANG_SPACE80), NULL, Icon_NOICON,
               &space80, &space80_decay, &space80_freq, &space80_gain, &space80_mix);
 
+    MENUITEM_SETTING(swd, &global_settings.swd, lowlatency_callback);
+    MENUITEM_SETTING(swd_3d,
+                     &global_settings.swd_3d, lowlatency_callback);
+    MENUITEM_SETTING(swd_center,
+                     &global_settings.swd_center, lowlatency_callback);
+    MENUITEM_SETTING(swd_focus,
+                     &global_settings.swd_focus, lowlatency_callback);
+    MENUITEM_SETTING(swd_definition,
+                     &global_settings.swd_definition, lowlatency_callback);
+    MENUITEM_SETTING(swd_bass,
+                     &global_settings.swd_bass, lowlatency_callback);
+    MENUITEM_SETTING(swd_tbeq,
+                     &global_settings.swd_tbeq, lowlatency_callback);
+    MENUITEM_SETTING(swd_mode,
+                     &global_settings.swd_mode, lowlatency_callback);
+    MENUITEM_SETTING(swd_ingain,
+                     &global_settings.swd_ingain, lowlatency_callback);
+    MENUITEM_SETTING(swd_outgain,
+                     &global_settings.swd_outgain, lowlatency_callback);
+    MENUITEM_SETTING(swd_limiter,
+                     &global_settings.swd_limiter, lowlatency_callback);
+    MENUITEM_SETTING(swd_preset,
+                     &global_settings.swd_preset, lowlatency_callback);
+    MAKE_MENU(swd_menu, ID2P(LANG_SWD), NULL, Icon_NOICON,
+              &swd, &swd_preset, &swd_3d, &swd_center, &swd_focus,
+              &swd_definition, &swd_bass, &swd_tbeq, &swd_mode,
+              &swd_ingain, &swd_outgain, &swd_limiter);
+
 #ifdef HAVE_PITCHCONTROL
 static int timestretch_callback(int action,
                                 const struct menu_item_ex *this_item,
@@ -282,7 +310,7 @@ MAKE_MENU(sound_settings, ID2P(LANG_SOUND_SETTINGS), NULL, Icon_Audio,
 #ifdef AUDIOHW_HAVE_POWER_MODE
           ,&power_mode
 #endif
-          ,&crossfeed_menu, &space80_menu, &equalizer_menu, &dithering_enabled
+          ,&crossfeed_menu, &space80_menu, &swd_menu, &equalizer_menu, &dithering_enabled
           ,&surround_menu, &pbe_menu, &afr_enabled
 #ifdef HAVE_PITCHCONTROL
           ,&timestretch_enabled

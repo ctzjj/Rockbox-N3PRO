@@ -25,6 +25,7 @@
 #include "compressor.h"
 #include "crossfeed.h"
 #include "emu10k_space80.h"
+#include "swd.h"
 #include "dsp_misc.h"
 #include "eq.h"
 #include "pga.h"

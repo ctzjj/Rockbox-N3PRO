@@ -12866,3 +12866,242 @@
     *: "等待推送"
   </voice>
 </phrase>
+
+<phrase>
+  id: LANG_SWD
+  desc: in sound settings
+  user: core
+  <source>
+    *: "SWD 音效"
+  </source>
+  <dest>
+    *: "SWD 音效"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_3D
+  desc: in sound settings
+  user: core
+  <source>
+    *: "3D Width"
+  </source>
+  <dest>
+    *: "3D 寬度"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_CENTER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Center"
+  </source>
+  <dest>
+    *: "中置"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_FOCUS
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Focus"
+  </source>
+  <dest>
+    *: "聚焦"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_DEFINITION
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Definition"
+  </source>
+  <dest>
+    *: "清晰度"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_BASS
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Bass"
+  </source>
+  <dest>
+    *: "低音"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_PRESET
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Preset"
+  </source>
+  <dest>
+    *: "預設"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_MODE
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Output Mode"
+  </source>
+  <dest>
+    *: "輸出模式"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_MODE_HEADPHONES
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Headphones"
+  </source>
+  <dest>
+    *: "耳機"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_MODE_SPEAKER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Speaker"
+  </source>
+  <dest>
+    *: "揚聲器"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_TBEQ
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Bass EQ"
+  </source>
+  <dest>
+    *: "低音均衡"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_INPUT_GAIN
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Input Gain"
+  </source>
+  <dest>
+    *: "輸入增益"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_OUTPUT_GAIN
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Output Gain"
+  </source>
+  <dest>
+    *: "輸出增益"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_LIMITER
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Limiter"
+  </source>
+  <dest>
+    *: "限幅器"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_LIM_OFF
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Off"
+  </source>
+  <dest>
+    *: "關"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_LIM_TRANSPARENT
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Transparent"
+  </source>
+  <dest>
+    *: "透明"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SWD_LIM_STANDARD
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Standard"
+  </source>
+  <dest>
+    *: "標準"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>

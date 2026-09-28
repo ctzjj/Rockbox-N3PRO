@@ -408,6 +408,20 @@ struct user_settings
     unsigned int space80_gain;
     unsigned int space80_mix;
 
+    /* SWD SWD */
+    bool swd;
+    unsigned int swd_3d;
+    unsigned int swd_center;
+    unsigned int swd_focus;
+    unsigned int swd_definition;
+    unsigned int swd_bass;
+    int swd_mode;
+    int swd_tbeq;
+    int swd_ingain;
+    int swd_outgain;
+    int swd_limiter;
+    int swd_preset;
+
     /* EQ */
     bool eq_enabled;            /* Enable equalizer */
     unsigned int eq_precut;     /* dB */
