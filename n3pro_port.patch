@@ -10400,7 +10400,7 @@ index 0000000000..22693ef5f8
 +    return button_context_standard;
 +}
 diff --git a/apps/lang/arabic.lang b/apps/lang/arabic.lang
-index 53313bf624..7f9b6bdabe 100644
+index 53313bf624..3156619d46 100644
 --- a/apps/lang/arabic.lang
 +++ b/apps/lang/arabic.lang
 @@ -6835,3 +6835,443 @@
@@ -10614,10 +10614,10 @@ index 53313bf624..7f9b6bdabe 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -10848,7 +10848,7 @@ index 53313bf624..7f9b6bdabe 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/basque.lang b/apps/lang/basque.lang
-index 8b8acc7cb8..dce9bb160d 100644
+index 8b8acc7cb8..c7eef74b16 100644
 --- a/apps/lang/basque.lang
 +++ b/apps/lang/basque.lang
 @@ -12634,3 +12634,443 @@
@@ -11062,10 +11062,10 @@ index 8b8acc7cb8..dce9bb160d 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -11296,7 +11296,7 @@ index 8b8acc7cb8..dce9bb160d 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/bulgarian.lang b/apps/lang/bulgarian.lang
-index 5f711a6eb9..897dabb8a4 100644
+index 5f711a6eb9..56cc96ecf0 100644
 --- a/apps/lang/bulgarian.lang
 +++ b/apps/lang/bulgarian.lang
 @@ -17163,3 +17163,443 @@
@@ -11510,10 +11510,10 @@ index 5f711a6eb9..897dabb8a4 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -11744,7 +11744,7 @@ index 5f711a6eb9..897dabb8a4 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/catala.lang b/apps/lang/catala.lang
-index 3d046e9351..ebf010e69c 100644
+index 3d046e9351..f226abbd7e 100644
 --- a/apps/lang/catala.lang
 +++ b/apps/lang/catala.lang
 @@ -12766,3 +12766,443 @@
@@ -11958,10 +11958,10 @@ index 3d046e9351..ebf010e69c 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -12192,7 +12192,7 @@ index 3d046e9351..ebf010e69c 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..f30329cac6 100644
+index 3c8be16c72..7ef04ec4d5 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
 @@ -17168,3 +17168,1870 @@
@@ -13833,7 +13833,7 @@ index 3c8be16c72..f30329cac6 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
 +    *: "SWD 音效"
@@ -14067,7 +14067,7 @@ index 3c8be16c72..f30329cac6 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-trad.lang b/apps/lang/chinese-trad.lang
-index 2ffee1e338..8810b54abb 100644
+index 2ffee1e338..4f0562b9f1 100644
 --- a/apps/lang/chinese-trad.lang
 +++ b/apps/lang/chinese-trad.lang
 @@ -11238,3 +11238,1870 @@
@@ -15708,7 +15708,7 @@ index 2ffee1e338..8810b54abb 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
 +    *: "SWD 音效"
@@ -15942,7 +15942,7 @@ index 2ffee1e338..8810b54abb 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/czech.lang b/apps/lang/czech.lang
-index 170b57de93..d21b092f35 100644
+index 170b57de93..ed17c43025 100644
 --- a/apps/lang/czech.lang
 +++ b/apps/lang/czech.lang
 @@ -14467,3 +14467,443 @@
@@ -16156,10 +16156,10 @@ index 170b57de93..d21b092f35 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -16390,7 +16390,7 @@ index 170b57de93..d21b092f35 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/dansk.lang b/apps/lang/dansk.lang
-index cac98f22db..242a9ef35a 100644
+index cac98f22db..5304e2560a 100644
 --- a/apps/lang/dansk.lang
 +++ b/apps/lang/dansk.lang
 @@ -12662,3 +12662,443 @@
@@ -16604,10 +16604,10 @@ index cac98f22db..242a9ef35a 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -16838,7 +16838,7 @@ index cac98f22db..242a9ef35a 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/deutsch.lang b/apps/lang/deutsch.lang
-index 6f3db1d509..986a56a21c 100644
+index 6f3db1d509..6d8d65e49f 100644
 --- a/apps/lang/deutsch.lang
 +++ b/apps/lang/deutsch.lang
 @@ -17180,3 +17180,443 @@
@@ -17052,10 +17052,10 @@ index 6f3db1d509..986a56a21c 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -17286,7 +17286,7 @@ index 6f3db1d509..986a56a21c 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/eesti.lang b/apps/lang/eesti.lang
-index f1eb655849..921fd8a147 100644
+index f1eb655849..26dabb6d68 100644
 --- a/apps/lang/eesti.lang
 +++ b/apps/lang/eesti.lang
 @@ -7887,3 +7887,443 @@
@@ -17500,10 +17500,10 @@ index f1eb655849..921fd8a147 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -17734,7 +17734,7 @@ index f1eb655849..921fd8a147 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english-us.lang b/apps/lang/english-us.lang
-index 55028062cd..7e03beaaa1 100644
+index 55028062cd..d37625122d 100644
 --- a/apps/lang/english-us.lang
 +++ b/apps/lang/english-us.lang
 @@ -17158,3 +17158,443 @@
@@ -17948,10 +17948,10 @@ index 55028062cd..7e03beaaa1 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -18182,7 +18182,7 @@ index 55028062cd..7e03beaaa1 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..5ee93e1135 100644
+index 4c2f0d58b0..7331eded4e 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -19830,10 +19830,10 @@ index 4c2f0d58b0..5ee93e1135 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -20064,7 +20064,7 @@ index 4c2f0d58b0..5ee93e1135 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/espanol.lang b/apps/lang/espanol.lang
-index 6dffa08c33..4fc07335aa 100644
+index 6dffa08c33..0b820c86eb 100644
 --- a/apps/lang/espanol.lang
 +++ b/apps/lang/espanol.lang
 @@ -16995,3 +16995,443 @@
@@ -20278,10 +20278,10 @@ index 6dffa08c33..4fc07335aa 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -20512,7 +20512,7 @@ index 6dffa08c33..4fc07335aa 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/esperanto.lang b/apps/lang/esperanto.lang
-index 521edc62f9..e43a5a3f38 100644
+index 521edc62f9..3c806cb7a9 100644
 --- a/apps/lang/esperanto.lang
 +++ b/apps/lang/esperanto.lang
 @@ -7486,3 +7486,443 @@
@@ -20726,10 +20726,10 @@ index 521edc62f9..e43a5a3f38 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -20960,7 +20960,7 @@ index 521edc62f9..e43a5a3f38 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/finnish.lang b/apps/lang/finnish.lang
-index 9e709b570f..cfce87c023 100644
+index 9e709b570f..cf6cae0ad2 100644
 --- a/apps/lang/finnish.lang
 +++ b/apps/lang/finnish.lang
 @@ -12636,3 +12636,443 @@
@@ -21174,10 +21174,10 @@ index 9e709b570f..cfce87c023 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -21408,7 +21408,7 @@ index 9e709b570f..cfce87c023 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/francais.lang b/apps/lang/francais.lang
-index 2b16347de9..255ca49750 100644
+index 2b16347de9..b87845dcfd 100644
 --- a/apps/lang/francais.lang
 +++ b/apps/lang/francais.lang
 @@ -16966,3 +16966,443 @@
@@ -21622,10 +21622,10 @@ index 2b16347de9..255ca49750 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -21856,7 +21856,7 @@ index 2b16347de9..255ca49750 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/galego.lang b/apps/lang/galego.lang
-index cfff98cd5d..f0bee12b28 100644
+index cfff98cd5d..2806a09ed5 100644
 --- a/apps/lang/galego.lang
 +++ b/apps/lang/galego.lang
 @@ -12518,3 +12518,443 @@
@@ -22070,10 +22070,10 @@ index cfff98cd5d..f0bee12b28 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -22304,7 +22304,7 @@ index cfff98cd5d..f0bee12b28 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/greek.lang b/apps/lang/greek.lang
-index 8b22e8174a..0ac990422a 100644
+index 8b22e8174a..ccf0114a30 100644
 --- a/apps/lang/greek.lang
 +++ b/apps/lang/greek.lang
 @@ -15577,3 +15577,443 @@
@@ -22518,10 +22518,10 @@ index 8b22e8174a..0ac990422a 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -22752,7 +22752,7 @@ index 8b22e8174a..0ac990422a 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/hebrew.lang b/apps/lang/hebrew.lang
-index c8be3cf297..a02ad3d0ff 100644
+index c8be3cf297..6ffc341999 100644
 --- a/apps/lang/hebrew.lang
 +++ b/apps/lang/hebrew.lang
 @@ -12243,3 +12243,443 @@
@@ -22966,10 +22966,10 @@ index c8be3cf297..a02ad3d0ff 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -23200,7 +23200,7 @@ index c8be3cf297..a02ad3d0ff 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/hindi.lang b/apps/lang/hindi.lang
-index 6c4e38d397..03b913c8b4 100644
+index 6c4e38d397..e1c5123d80 100644
 --- a/apps/lang/hindi.lang
 +++ b/apps/lang/hindi.lang
 @@ -4702,3 +4702,443 @@
@@ -23414,10 +23414,10 @@ index 6c4e38d397..03b913c8b4 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -23648,7 +23648,7 @@ index 6c4e38d397..03b913c8b4 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/hrvatski.lang b/apps/lang/hrvatski.lang
-index 83c466561b..1c2d10803f 100644
+index 83c466561b..58927789ad 100644
 --- a/apps/lang/hrvatski.lang
 +++ b/apps/lang/hrvatski.lang
 @@ -12484,3 +12484,443 @@
@@ -23862,10 +23862,10 @@ index 83c466561b..1c2d10803f 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -24096,7 +24096,7 @@ index 83c466561b..1c2d10803f 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/islenska.lang b/apps/lang/islenska.lang
-index 83a1478254..5f19a44597 100644
+index 83a1478254..09c115ce56 100644
 --- a/apps/lang/islenska.lang
 +++ b/apps/lang/islenska.lang
 @@ -6329,3 +6329,443 @@
@@ -24310,10 +24310,10 @@ index 83a1478254..5f19a44597 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -24544,7 +24544,7 @@ index 83a1478254..5f19a44597 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/italiano.lang b/apps/lang/italiano.lang
-index 8dd4d21165..c4bfe0fb0f 100644
+index 8dd4d21165..41f40a6098 100644
 --- a/apps/lang/italiano.lang
 +++ b/apps/lang/italiano.lang
 @@ -17161,3 +17161,443 @@
@@ -24758,10 +24758,10 @@ index 8dd4d21165..c4bfe0fb0f 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -24992,7 +24992,7 @@ index 8dd4d21165..c4bfe0fb0f 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/japanese.lang b/apps/lang/japanese.lang
-index b080759121..2775db0ae8 100644
+index b080759121..7120eeb9f7 100644
 --- a/apps/lang/japanese.lang
 +++ b/apps/lang/japanese.lang
 @@ -16527,3 +16527,443 @@
@@ -25206,10 +25206,10 @@ index b080759121..2775db0ae8 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -25440,7 +25440,7 @@ index b080759121..2775db0ae8 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/korean.lang b/apps/lang/korean.lang
-index 8b11ae3e34..f0d61ca80c 100644
+index 8b11ae3e34..5a779de0c7 100644
 --- a/apps/lang/korean.lang
 +++ b/apps/lang/korean.lang
 @@ -17113,3 +17113,443 @@
@@ -25654,10 +25654,10 @@ index 8b11ae3e34..f0d61ca80c 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -25888,7 +25888,7 @@ index 8b11ae3e34..f0d61ca80c 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/latviesu.lang b/apps/lang/latviesu.lang
-index ab4c8dccd8..b32a6185f9 100644
+index ab4c8dccd8..7279ff28de 100644
 --- a/apps/lang/latviesu.lang
 +++ b/apps/lang/latviesu.lang
 @@ -17098,3 +17098,443 @@
@@ -26102,10 +26102,10 @@ index ab4c8dccd8..b32a6185f9 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -26336,7 +26336,7 @@ index ab4c8dccd8..b32a6185f9 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/lietuviu.lang b/apps/lang/lietuviu.lang
-index d96f0305c3..d805e64947 100644
+index d96f0305c3..a8a0543334 100644
 --- a/apps/lang/lietuviu.lang
 +++ b/apps/lang/lietuviu.lang
 @@ -11011,3 +11011,443 @@
@@ -26550,10 +26550,10 @@ index d96f0305c3..d805e64947 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -26784,7 +26784,7 @@ index d96f0305c3..d805e64947 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/magyar.lang b/apps/lang/magyar.lang
-index 31a324c04b..4c87c4fdaa 100644
+index 31a324c04b..1d940fb768 100644
 --- a/apps/lang/magyar.lang
 +++ b/apps/lang/magyar.lang
 @@ -17129,3 +17129,443 @@
@@ -26998,10 +26998,10 @@ index 31a324c04b..4c87c4fdaa 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -27232,7 +27232,7 @@ index 31a324c04b..4c87c4fdaa 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/moldoveneste.lang b/apps/lang/moldoveneste.lang
-index 41d2163218..7bd5338f4e 100644
+index 41d2163218..3298b2ef28 100644
 --- a/apps/lang/moldoveneste.lang
 +++ b/apps/lang/moldoveneste.lang
 @@ -17132,3 +17132,443 @@
@@ -27446,10 +27446,10 @@ index 41d2163218..7bd5338f4e 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -27680,7 +27680,7 @@ index 41d2163218..7bd5338f4e 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/nederlands.lang b/apps/lang/nederlands.lang
-index 398e62d26f..a47b68bca8 100644
+index 398e62d26f..35c9aba934 100644
 --- a/apps/lang/nederlands.lang
 +++ b/apps/lang/nederlands.lang
 @@ -17135,3 +17135,443 @@
@@ -27894,10 +27894,10 @@ index 398e62d26f..a47b68bca8 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -28128,7 +28128,7 @@ index 398e62d26f..a47b68bca8 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/norsk-nynorsk.lang b/apps/lang/norsk-nynorsk.lang
-index be6540c498..c512637166 100644
+index be6540c498..616df94446 100644
 --- a/apps/lang/norsk-nynorsk.lang
 +++ b/apps/lang/norsk-nynorsk.lang
 @@ -16991,3 +16991,443 @@
@@ -28342,10 +28342,10 @@ index be6540c498..c512637166 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -28576,7 +28576,7 @@ index be6540c498..c512637166 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/norsk.lang b/apps/lang/norsk.lang
-index c5e6503fcf..7bcf387b83 100644
+index c5e6503fcf..fcf217c49f 100644
 --- a/apps/lang/norsk.lang
 +++ b/apps/lang/norsk.lang
 @@ -15581,3 +15581,443 @@
@@ -28790,10 +28790,10 @@ index c5e6503fcf..7bcf387b83 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -29024,7 +29024,7 @@ index c5e6503fcf..7bcf387b83 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/polski.lang b/apps/lang/polski.lang
-index 19320cbe5c..72ca0ec5e2 100644
+index 19320cbe5c..4977030231 100644
 --- a/apps/lang/polski.lang
 +++ b/apps/lang/polski.lang
 @@ -17168,3 +17168,443 @@
@@ -29238,10 +29238,10 @@ index 19320cbe5c..72ca0ec5e2 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -29472,7 +29472,7 @@ index 19320cbe5c..72ca0ec5e2 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/portugues-brasileiro.lang b/apps/lang/portugues-brasileiro.lang
-index 42ba9cbbe3..7afe47a694 100644
+index 42ba9cbbe3..c061d70c7b 100644
 --- a/apps/lang/portugues-brasileiro.lang
 +++ b/apps/lang/portugues-brasileiro.lang
 @@ -16996,3 +16996,443 @@
@@ -29686,10 +29686,10 @@ index 42ba9cbbe3..7afe47a694 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -29920,7 +29920,7 @@ index 42ba9cbbe3..7afe47a694 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/portugues.lang b/apps/lang/portugues.lang
-index c76da1116e..55de18efd6 100644
+index c76da1116e..93cd0e8753 100644
 --- a/apps/lang/portugues.lang
 +++ b/apps/lang/portugues.lang
 @@ -12944,3 +12944,443 @@
@@ -30134,10 +30134,10 @@ index c76da1116e..55de18efd6 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -30368,7 +30368,7 @@ index c76da1116e..55de18efd6 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/romaneste.lang b/apps/lang/romaneste.lang
-index 5daddd66bc..0c0dc96b25 100644
+index 5daddd66bc..024f4acd7c 100644
 --- a/apps/lang/romaneste.lang
 +++ b/apps/lang/romaneste.lang
 @@ -17132,3 +17132,443 @@
@@ -30582,10 +30582,10 @@ index 5daddd66bc..0c0dc96b25 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -30816,7 +30816,7 @@ index 5daddd66bc..0c0dc96b25 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/russian.lang b/apps/lang/russian.lang
-index c8da55dc91..1605e8cbb3 100644
+index c8da55dc91..dcb1d0cf11 100644
 --- a/apps/lang/russian.lang
 +++ b/apps/lang/russian.lang
 @@ -17143,3 +17143,443 @@
@@ -31030,10 +31030,10 @@ index c8da55dc91..1605e8cbb3 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -31264,7 +31264,7 @@ index c8da55dc91..1605e8cbb3 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/slovak.lang b/apps/lang/slovak.lang
-index 7f459d8ba5..55c62a43fb 100644
+index 7f459d8ba5..0b530b3f28 100644
 --- a/apps/lang/slovak.lang
 +++ b/apps/lang/slovak.lang
 @@ -17161,3 +17161,443 @@
@@ -31478,10 +31478,10 @@ index 7f459d8ba5..55c62a43fb 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -31712,7 +31712,7 @@ index 7f459d8ba5..55c62a43fb 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/slovenscina.lang b/apps/lang/slovenscina.lang
-index c624687ec1..2775a17a4e 100644
+index c624687ec1..a83fe779ab 100644
 --- a/apps/lang/slovenscina.lang
 +++ b/apps/lang/slovenscina.lang
 @@ -12558,3 +12558,443 @@
@@ -31926,10 +31926,10 @@ index c624687ec1..2775a17a4e 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -32160,7 +32160,7 @@ index c624687ec1..2775a17a4e 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/srpski.lang b/apps/lang/srpski.lang
-index 96ff7347a6..cac976668c 100644
+index 96ff7347a6..ade923fcbc 100644
 --- a/apps/lang/srpski.lang
 +++ b/apps/lang/srpski.lang
 @@ -17097,3 +17097,443 @@
@@ -32374,10 +32374,10 @@ index 96ff7347a6..cac976668c 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -32608,7 +32608,7 @@ index 96ff7347a6..cac976668c 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/svenska.lang b/apps/lang/svenska.lang
-index dc68d41792..5e5f8ce57e 100644
+index dc68d41792..a4a855cf84 100644
 --- a/apps/lang/svenska.lang
 +++ b/apps/lang/svenska.lang
 @@ -17106,3 +17106,443 @@
@@ -32822,10 +32822,10 @@ index dc68d41792..5e5f8ce57e 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -33056,7 +33056,7 @@ index dc68d41792..5e5f8ce57e 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/tagalog.lang b/apps/lang/tagalog.lang
-index 9b098636e0..581f7239c1 100644
+index 9b098636e0..326a98ddc1 100644
 --- a/apps/lang/tagalog.lang
 +++ b/apps/lang/tagalog.lang
 @@ -12241,3 +12241,443 @@
@@ -33270,10 +33270,10 @@ index 9b098636e0..581f7239c1 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -33504,7 +33504,7 @@ index 9b098636e0..581f7239c1 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/thai.lang b/apps/lang/thai.lang
-index e7f5f137d8..78f00590a1 100644
+index e7f5f137d8..245220b3c5 100644
 --- a/apps/lang/thai.lang
 +++ b/apps/lang/thai.lang
 @@ -12195,3 +12195,443 @@
@@ -33718,10 +33718,10 @@ index e7f5f137d8..78f00590a1 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -33952,7 +33952,7 @@ index e7f5f137d8..78f00590a1 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/turkce.lang b/apps/lang/turkce.lang
-index 6daad2e8cb..1f57ce3a23 100644
+index 6daad2e8cb..ab64d96c75 100644
 --- a/apps/lang/turkce.lang
 +++ b/apps/lang/turkce.lang
 @@ -16988,3 +16988,443 @@
@@ -34166,10 +34166,10 @@ index 6daad2e8cb..1f57ce3a23 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -34400,7 +34400,7 @@ index 6daad2e8cb..1f57ce3a23 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/ukrainian.lang b/apps/lang/ukrainian.lang
-index c4db36cd31..84198dac37 100644
+index c4db36cd31..2fab2db549 100644
 --- a/apps/lang/ukrainian.lang
 +++ b/apps/lang/ukrainian.lang
 @@ -16958,3 +16958,443 @@
@@ -34614,10 +34614,10 @@ index c4db36cd31..84198dac37 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -34848,7 +34848,7 @@ index c4db36cd31..84198dac37 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/vietnamese.lang b/apps/lang/vietnamese.lang
-index 2bc418cdcc..dcca3a14ba 100644
+index 2bc418cdcc..10423d44a4 100644
 --- a/apps/lang/vietnamese.lang
 +++ b/apps/lang/vietnamese.lang
 @@ -17125,3 +17125,443 @@
@@ -35062,10 +35062,10 @@ index 2bc418cdcc..dcca3a14ba 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -35296,7 +35296,7 @@ index 2bc418cdcc..dcca3a14ba 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/vlaams.lang b/apps/lang/vlaams.lang
-index 1f19cddf6f..1dbfcce570 100644
+index 1f19cddf6f..85beb86713 100644
 --- a/apps/lang/vlaams.lang
 +++ b/apps/lang/vlaams.lang
 @@ -13262,3 +13262,443 @@
@@ -35510,10 +35510,10 @@ index 1f19cddf6f..1dbfcce570 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -35744,7 +35744,7 @@ index 1f19cddf6f..1dbfcce570 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/walon.lang b/apps/lang/walon.lang
-index 231f45ad22..ed9421a70a 100644
+index 231f45ad22..932a44a746 100644
 --- a/apps/lang/walon.lang
 +++ b/apps/lang/walon.lang
 @@ -11754,3 +11754,443 @@
@@ -35958,10 +35958,10 @@ index 231f45ad22..ed9421a70a 100644
 +  desc: in sound settings
 +  user: core
 +  <source>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </source>
 +  <dest>
-+    *: "SWD 音效"
++    *: "SWD Effect"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -46401,7 +46401,7 @@ index 5a0f4f83e3..ce4a86c3aa 100644
  #ifdef HAVE_PERCEPTUAL_VOLUME
      int volume_adjust_mode;
 diff --git a/apps/settings_list.c b/apps/settings_list.c
-index 24edac9bb7..648dcaa957 100644
+index 24edac9bb7..abe64990ad 100644
 --- a/apps/settings_list.c
 +++ b/apps/settings_list.c
 @@ -645,7 +645,124 @@ static void crossfeed_cross_set(int val)
@@ -46598,7 +46598,7 @@ index 24edac9bb7..648dcaa957 100644
 +                       "space80 mix", UNIT_PERCENT, 100, 0,
 +                       -5, NULL, NULL, space80_set),
 +
-+    /* SWD SWD */
++    /* SWD */
 +    OFFON_SETTING(F_SOUNDSETTING, swd, LANG_SWD, false,
 +                  "swd enabled", dsp_set_swd_enable),
 +    INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_3d,

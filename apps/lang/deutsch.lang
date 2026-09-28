@@ -17387,10 +17387,10 @@
   desc: in sound settings
   user: core
   <source>
-    *: "SWD 音效"
+    *: "SWD Effect"
   </source>
   <dest>
-    *: "SWD 音效"
+    *: "SWD Effect"
   </dest>
   <voice>
     *: ""

@@ -2122,7 +2122,7 @@ const struct settings_list settings[] = {
                        "space80 mix", UNIT_PERCENT, 100, 0,
                        -5, NULL, NULL, space80_set),
 
-    /* SWD SWD */
+    /* SWD */
     OFFON_SETTING(F_SOUNDSETTING, swd, LANG_SWD, false,
                   "swd enabled", dsp_set_swd_enable),
     INT_SETTING_NOWRAP(F_SOUNDSETTING, swd_3d,
