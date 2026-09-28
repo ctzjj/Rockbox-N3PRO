@@ -107490,17 +107490,21 @@ index 7f3628b540..ff30867d37 100755
  
    if [ "$tinyalsa" = "yes" ]; then
 diff --git a/tools/root.make b/tools/root.make
-index 878ecd1c36..b025931db3 100644
+index 878ecd1c36..4f8301b4e9 100644
 --- a/tools/root.make
 +++ b/tools/root.make
-@@ -79,6 +79,11 @@ ifeq (,$(findstring checkwps,$(APP_TYPE)))
+@@ -79,6 +79,15 @@ ifeq (,$(findstring checkwps,$(APP_TYPE)))
              include $(ROOTDIR)/lib/mipsunwinder/mipsunwinder.make
            endif
        endif
 +      ifeq (-DCAYIN_N3PRO,$(TARGET))
-+        # DLNA renderer (UPnP MediaRenderer, lib/pupnp + apps/dlna)
-+        include $(ROOTDIR)/lib/pupnp/pupnp.make
-+        include $(ROOTDIR)/apps/dlna/dlna.make
++        # DLNA renderer (UPnP MediaRenderer, lib/pupnp + apps/dlna).
++        # Application build only: the bootloader does not generate the
++        # apps headers these sources include.
++        ifeq (,$(findstring bootloader,$(APPSDIR)))
++          include $(ROOTDIR)/lib/pupnp/pupnp.make
++          include $(ROOTDIR)/apps/dlna/dlna.make
++        endif
 +      endif
        ifeq (,$(findstring bootloader,$(APPSDIR)))
          include $(ROOTDIR)/lib/skin_parser/skin_parser.make

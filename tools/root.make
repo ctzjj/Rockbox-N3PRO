@@ -80,9 +80,13 @@ ifeq (,$(findstring checkwps,$(APP_TYPE)))
           endif
       endif
       ifeq (-DCAYIN_N3PRO,$(TARGET))
-        # DLNA renderer (UPnP MediaRenderer, lib/pupnp + apps/dlna)
-        include $(ROOTDIR)/lib/pupnp/pupnp.make
-        include $(ROOTDIR)/apps/dlna/dlna.make
+        # DLNA renderer (UPnP MediaRenderer, lib/pupnp + apps/dlna).
+        # Application build only: the bootloader does not generate the
+        # apps headers these sources include.
+        ifeq (,$(findstring bootloader,$(APPSDIR)))
+          include $(ROOTDIR)/lib/pupnp/pupnp.make
+          include $(ROOTDIR)/apps/dlna/dlna.make
+        endif
       endif
       ifeq (,$(findstring bootloader,$(APPSDIR)))
         include $(ROOTDIR)/lib/skin_parser/skin_parser.make
