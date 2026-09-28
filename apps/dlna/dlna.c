@@ -24,6 +24,8 @@
 #include "lang.h"
 #include "misc.h"
 #include "splash.h"
+#include "lcd.h"
+#include "button.h"
 #include "wifi_hal.h"
 #ifdef HAVE_NETFM
 #include "netfm_stream.h"
@@ -187,14 +189,99 @@ static const char *dlna_row_cb(int selected, void *data,
                      status->bitrate);
             break;
         case 4:
-            snprintf(buffer, size, "%s: %d%%", str(LANG_DLNA_BUFFER),
-                     status->buffer_percent);
+        {
+            unsigned int ms = (unsigned int)status->position_ms;
+            unsigned int dur = (unsigned int)dlna_output_get_duration_ms();
+
+            if (dur > 0)
+                snprintf(buffer, size, "%u:%02u / %u:%02u",
+                         ms / 60000, (ms / 1000) % 60,
+                         dur / 60000, (dur / 1000) % 60);
+            else
+                snprintf(buffer, size, "%u:%02u", ms / 60000,
+                         (ms / 1000) % 60);
             break;
+        }
         default:
             snprintf(buffer, size, "%s", str(LANG_DLNA_EXIT));
             break;
     }
     return buffer;
+}
+
+/* A simple now-playing screen: the pushed track, the elapsed/total time
+ * and a real progress bar, refreshed about ten times a second (the DLNA
+ * status list only redraws every couple of seconds).  Any button returns
+ * to the list; the stream keeps playing. */
+static void dlna_nowplaying_screen(void)
+{
+    struct dlna_stream_status st;
+    char line[64];
+
+    button_clear_queue();
+
+    while (true)
+    {
+        int dur;
+        unsigned int ms;
+
+        dlna_stream_get_status(&st);
+        if (!dlna_stream_is_active() ||
+            st.state == DLNA_STREAM_IDLE ||
+            st.state == DLNA_STREAM_FINISHED ||
+            st.state == DLNA_STREAM_ERROR ||
+            st.state == DLNA_STREAM_DISCONNECTED)
+            break;
+
+        ms = (unsigned int)st.position_ms;
+        dur = dlna_output_get_duration_ms();
+
+        lcd_clear_display();
+        lcd_puts(0, 0, st.name);
+        snprintf(line, sizeof(line), "%s  %d kbps", st.format, st.bitrate);
+        lcd_puts(0, 1, line);
+        if (dur > 0)
+        {
+            unsigned int d = (unsigned int)dur;
+
+            snprintf(line, sizeof(line), "%u:%02u / %u:%02u",
+                     ms / 60000, (ms / 1000) % 60,
+                     d / 60000, (d / 1000) % 60);
+        }
+        else
+            snprintf(line, sizeof(line), "%u:%02u",
+                     ms / 60000, (ms / 1000) % 60);
+        lcd_puts(0, 2, line);
+
+        /* progress bar */
+        {
+            int y = LCD_HEIGHT - 12;
+            int w = LCD_WIDTH - 8;
+
+            lcd_drawrect(4, y, w, 8);
+            if (dur > 0)
+            {
+                int fill = (int)((long long)(w - 2) * (int)ms / dur);
+
+                if (fill < 0)
+                    fill = 0;
+                if (fill > w - 2)
+                    fill = w - 2;
+                if (fill > 0)
+                    lcd_fillrect(5, y + 1, fill, 6);
+            }
+        }
+        lcd_update();
+
+        {
+            int btn = button_get_w_tmo(HZ / 10);
+
+            /* any button returns to the list (the stream keeps playing) */
+            if (btn != BUTTON_NONE)
+                break;
+        }
+    }
+    button_clear_queue();
 }
 
 static int dlna_action_cb(int action, struct gui_synclist *lists)
@@ -225,7 +312,9 @@ static int dlna_action_cb(int action, struct gui_synclist *lists)
          * the list exits, so the teardown cannot fight the redraw */
         if (gui_synclist_get_sel_pos(lists) == DLNA_ROWS - 1)
             return ACTION_STD_CANCEL;
-        return ACTION_NONE;
+        /* any other row opens the now-playing screen */
+        dlna_nowplaying_screen();
+        return ACTION_REDRAW;
     }
     if (action != ACTION_NONE || !status)
         return action;

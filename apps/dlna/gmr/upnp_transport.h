@@ -33,6 +33,8 @@ struct service *upnp_transport_get_service(void);
 
 /* <dc:title> of the last SetAVTransportURI the controller pushed */
 const char *upnp_transport_last_title(void);
+/* duration (ms) announced in the last pushed meta data, 0 if unknown */
+int upnp_transport_last_duration_ms(void);
 void upnp_transport_init(struct upnp_device *);
 /* detach the transport event collector from the (destroyed) device */
 void upnp_transport_deinit(void);

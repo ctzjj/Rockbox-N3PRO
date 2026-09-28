@@ -215,11 +215,21 @@ static int dlna_output_init(void)
 static void dlna_output_set_uri(const char *uri,
                                 output_update_meta_cb_t meta_cb)
 {
+    bool changed;
+
     (void)meta_cb;      /* stream metadata is not parsed in v1 */
     if (!uri)
         uri = "";
+    changed = (strncmp(cur_uri, uri, URI_LEN - 1) != 0);
     strncpy(cur_uri, uri, URI_LEN - 1);
     cur_uri[URI_LEN - 1] = '\0';
+
+    /* A controller often replaces the URI while we are already PLAYING and
+     * then sends Play, which the transport drops as a no-op (the state is
+     * already PLAYING).  Restart on the new URI ourselves, otherwise the
+     * old track keeps playing until the user pauses and plays again. */
+    if (changed && dlna_stream_is_active())
+        pending_play = true;
 }
 
 static void dlna_output_set_next_uri(const char *uri)
@@ -291,16 +301,38 @@ static int dlna_output_pause(void)
 
 static int dlna_output_seek(gint64 position_nanos)
 {
-    (void)position_nanos;
-    return -1;
+    /* gmr speaks nanoseconds */
+    if (position_nanos < 0)
+        return -1;
+    return dlna_stream_seek((int)(position_nanos / 1000000)) ? 0 : -1;
 }
 
 static int dlna_output_get_position(gint64 *track_duration,
                                     gint64 *track_position)
 {
-    (void)track_duration;
-    (void)track_position;
-    return -1;
+    int dur_ms = upnp_transport_last_duration_ms();
+    int pos_ms = 0;
+
+    if (dur_ms <= 0)
+        return -1;              /* duration unknown: report nothing */
+
+    if (track_duration)
+        *track_duration = (gint64)dur_ms * 1000000;     /* nanoseconds */
+    if (track_position)
+    {
+        struct dlna_stream_status st;
+
+        dlna_stream_get_status(&st);
+        pos_ms = st.position_ms;
+        *track_position = (gint64)pos_ms * 1000000;
+    }
+    return 0;
+}
+
+/* duration (ms) of the last pushed item, for the UI (0 = unknown) */
+int dlna_output_get_duration_ms(void)
+{
+    return upnp_transport_last_duration_ms();
 }
 
 static int dlna_output_get_volume(float *value)

@@ -138,9 +138,15 @@ must obey the rules below.
    `firmware/target/hosted/cayin/n3pro/` and exclude the shared file for
    `CAYIN_N3PRO` in `firmware/SOURCES` — `lcd-n3pro.c` and `usb-n3pro.c` are
    the templates; the shared `lcd-linuxfb.c` / `usb-hiby.c` stay
-   byte-identical to upstream.  `usb-dac-hiby.c` is also compiled for
+   byte-identical to upstream.     `usb-dac-hiby.c` is also compiled for
    R1/R3ProII/AP80Max, so breaking its `#else` path is the easiest way to
    regress other players.
+   The device runtime is **old**: never call a libm/glibc entry point that
+   binds to a newer symbol version than the one shipped.  `powf@GLIBC_2.27`
+   (and other 2.27 float libm versions) is **not** on the device; using it
+   makes `exec` fail and the launcher turns that into a reboot loop.  Use the
+   double `exp`/`log` (old symbols) and check any new math with
+   `mipsel-rockbox-linux-gnu-readelf --dyn-syms -W build-n3pro/rockbox.n3pro | grep GLIBC_2.2`.
    The plugin set is enabled for this target by adding `CAYIN_N3PRO` to the
    existing keypad exception in `apps/plugins/SOURCES.app_build` and
    `SUBDIRS.app_build` (next to R1 / R3ProII / AP80Max), which builds the full

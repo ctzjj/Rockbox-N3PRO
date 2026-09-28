@@ -75,5 +75,10 @@ bool dlna_pb_idle(void);
  * "as loud as the current master volume"; the master volume stays the
  * ceiling.  Safe to call from a Rockbox thread. */
 void dlna_pb_set_amplitude(float value);
+/* AVTransport Seek: ask the running codec to jump to <ms> (the source op
+ * seeks inside the retained ring window; out-of-window targets fail). */
+void dlna_pb_seek(int ms);
+/* ms of audio fed to the mixer since the track started (0 when idle) */
+unsigned long dlna_pb_get_elapsed_ms(void);
 
 #endif /* DLNA_PLAYBACK_H */

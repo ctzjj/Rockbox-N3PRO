@@ -573,11 +573,16 @@ static const char *get_var(transport_variable_t varnum) {
 static char last_push_title_[200];
 const char *upnp_transport_last_title(void) { return last_push_title_; }
 
+/* Duration the controller announced in <res duration="0:04:12.000">. */
+static int last_push_duration_ms;
+int upnp_transport_last_duration_ms(void) { return last_push_duration_ms; }
+
 static int replace_transport_uri_and_meta(const char *uri, const char *meta) {
 	/* Keep the human readable <dc:title> the controller pushed: the
 	 * Rockbox output uses it as the track name (the URI usually ends in
 	 * an opaque hash). */
 	last_push_title_[0] = '\0';
+	last_push_duration_ms = 0;
 	if (meta != NULL) {
 		const char *t = strstr(meta, "<dc:title>");
 		if (t != NULL) {
@@ -591,6 +596,16 @@ static int replace_transport_uri_and_meta(const char *uri, const char *meta) {
 				memcpy(last_push_title_, t, n);
 				last_push_title_[n] = '\0';
 			}
+		}
+		/* <res ... duration="H:MM:SS.mmm"> */
+		t = strstr(meta, "duration=\"");
+		if (t != NULL) {
+			int h = 0, m = 0, s = 0;
+			t += 10;
+			if (sscanf(t, "%d:%d:%d", &h, &m, &s) == 3 &&
+			    h >= 0 && m >= 0 && s >= 0)
+				last_push_duration_ms =
+					((h * 60 + m) * 60 + s) * 1000;
 		}
 	}
 	replace_var(TRANSPORT_VAR_AV_URI, uri);

@@ -42,6 +42,8 @@ struct dlna_stream_status
     int sample_rate;
     int bitrate;
     int buffer_percent;
+    int position_ms;                /* audio played since the track start */
+    int duration_ms;                /* 0 when the push carries no duration */
 };
 
 bool dlna_stream_start(const char *name, const char *url);
@@ -50,6 +52,8 @@ void dlna_stream_stop(void);
 void dlna_stream_stop_async(void);
 bool dlna_stream_get_status(struct dlna_stream_status *status);
 bool dlna_stream_is_active(void);
+/* seek the running stream to <ms> (works inside the retained ring window) */
+bool dlna_stream_seek(int ms);
 /* false when another source owns the audio path: bluetooth receive,
  * USB DAC, or a running network-radio stream */
 bool dlna_stream_can_start(void);

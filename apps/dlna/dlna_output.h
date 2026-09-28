@@ -16,4 +16,7 @@ extern struct output_module dlna_stream_output;
  * no worker survives the DLNA screen */
 void dlna_output_shutdown(void);
 
+/* duration (ms) of the last item the controller pushed (0 = unknown) */
+int dlna_output_get_duration_ms(void);
+
 #endif /* DLNA_OUTPUT_H */

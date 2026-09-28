@@ -738,10 +738,10 @@ index 0000000000..26fa33de89
 +gmr/xmlescape.c
 diff --git a/apps/dlna/dlna.c b/apps/dlna/dlna.c
 new file mode 100644
-index 0000000000..0fa3860d4b
+index 0000000000..d5de380b93
 --- /dev/null
 +++ b/apps/dlna/dlna.c
-@@ -0,0 +1,323 @@
+@@ -0,0 +1,412 @@
 +/* DLNA screen - UPnP MediaRenderer front-end (GMediaRender + pupnp).
 + *
 + * UI modelled after apps/netfm.c: entering the screen brings the
@@ -768,6 +768,8 @@ index 0000000000..0fa3860d4b
 +#include "lang.h"
 +#include "misc.h"
 +#include "splash.h"
++#include "lcd.h"
++#include "button.h"
 +#include "wifi_hal.h"
 +#ifdef HAVE_NETFM
 +#include "netfm_stream.h"
@@ -931,14 +933,99 @@ index 0000000000..0fa3860d4b
 +                     status->bitrate);
 +            break;
 +        case 4:
-+            snprintf(buffer, size, "%s: %d%%", str(LANG_DLNA_BUFFER),
-+                     status->buffer_percent);
++        {
++            unsigned int ms = (unsigned int)status->position_ms;
++            unsigned int dur = (unsigned int)dlna_output_get_duration_ms();
++
++            if (dur > 0)
++                snprintf(buffer, size, "%u:%02u / %u:%02u",
++                         ms / 60000, (ms / 1000) % 60,
++                         dur / 60000, (dur / 1000) % 60);
++            else
++                snprintf(buffer, size, "%u:%02u", ms / 60000,
++                         (ms / 1000) % 60);
 +            break;
++        }
 +        default:
 +            snprintf(buffer, size, "%s", str(LANG_DLNA_EXIT));
 +            break;
 +    }
 +    return buffer;
++}
++
++/* A simple now-playing screen: the pushed track, the elapsed/total time
++ * and a real progress bar, refreshed about ten times a second (the DLNA
++ * status list only redraws every couple of seconds).  Any button returns
++ * to the list; the stream keeps playing. */
++static void dlna_nowplaying_screen(void)
++{
++    struct dlna_stream_status st;
++    char line[64];
++
++    button_clear_queue();
++
++    while (true)
++    {
++        int dur;
++        unsigned int ms;
++
++        dlna_stream_get_status(&st);
++        if (!dlna_stream_is_active() ||
++            st.state == DLNA_STREAM_IDLE ||
++            st.state == DLNA_STREAM_FINISHED ||
++            st.state == DLNA_STREAM_ERROR ||
++            st.state == DLNA_STREAM_DISCONNECTED)
++            break;
++
++        ms = (unsigned int)st.position_ms;
++        dur = dlna_output_get_duration_ms();
++
++        lcd_clear_display();
++        lcd_puts(0, 0, st.name);
++        snprintf(line, sizeof(line), "%s  %d kbps", st.format, st.bitrate);
++        lcd_puts(0, 1, line);
++        if (dur > 0)
++        {
++            unsigned int d = (unsigned int)dur;
++
++            snprintf(line, sizeof(line), "%u:%02u / %u:%02u",
++                     ms / 60000, (ms / 1000) % 60,
++                     d / 60000, (d / 1000) % 60);
++        }
++        else
++            snprintf(line, sizeof(line), "%u:%02u",
++                     ms / 60000, (ms / 1000) % 60);
++        lcd_puts(0, 2, line);
++
++        /* progress bar */
++        {
++            int y = LCD_HEIGHT - 12;
++            int w = LCD_WIDTH - 8;
++
++            lcd_drawrect(4, y, w, 8);
++            if (dur > 0)
++            {
++                int fill = (int)((long long)(w - 2) * (int)ms / dur);
++
++                if (fill < 0)
++                    fill = 0;
++                if (fill > w - 2)
++                    fill = w - 2;
++                if (fill > 0)
++                    lcd_fillrect(5, y + 1, fill, 6);
++            }
++        }
++        lcd_update();
++
++        {
++            int btn = button_get_w_tmo(HZ / 10);
++
++            /* any button returns to the list (the stream keeps playing) */
++            if (btn != BUTTON_NONE)
++                break;
++        }
++    }
++    button_clear_queue();
 +}
 +
 +static int dlna_action_cb(int action, struct gui_synclist *lists)
@@ -969,7 +1056,9 @@ index 0000000000..0fa3860d4b
 +         * the list exits, so the teardown cannot fight the redraw */
 +        if (gui_synclist_get_sel_pos(lists) == DLNA_ROWS - 1)
 +            return ACTION_STD_CANCEL;
-+        return ACTION_NONE;
++        /* any other row opens the now-playing screen */
++        dlna_nowplaying_screen();
++        return ACTION_REDRAW;
 +    }
 +    if (action != ACTION_NONE || !status)
 +        return action;
@@ -1145,10 +1234,10 @@ index 0000000000..792dd57098
 +		$(CC) $(CFLAGS) $(DLNAFLAGS) -c $< -o $@
 diff --git a/apps/dlna/dlna_output.c b/apps/dlna/dlna_output.c
 new file mode 100644
-index 0000000000..60aed08845
+index 0000000000..3281bc6435
 --- /dev/null
 +++ b/apps/dlna/dlna_output.c
-@@ -0,0 +1,469 @@
+@@ -0,0 +1,501 @@
 +/* dlna_output.c - GMediaRender output-module backend for Rockbox.
 + *
 + * Layering (all DLNA files, no netfm code is touched):
@@ -1366,11 +1455,21 @@ index 0000000000..60aed08845
 +static void dlna_output_set_uri(const char *uri,
 +                                output_update_meta_cb_t meta_cb)
 +{
++    bool changed;
++
 +    (void)meta_cb;      /* stream metadata is not parsed in v1 */
 +    if (!uri)
 +        uri = "";
++    changed = (strncmp(cur_uri, uri, URI_LEN - 1) != 0);
 +    strncpy(cur_uri, uri, URI_LEN - 1);
 +    cur_uri[URI_LEN - 1] = '\0';
++
++    /* A controller often replaces the URI while we are already PLAYING and
++     * then sends Play, which the transport drops as a no-op (the state is
++     * already PLAYING).  Restart on the new URI ourselves, otherwise the
++     * old track keeps playing until the user pauses and plays again. */
++    if (changed && dlna_stream_is_active())
++        pending_play = true;
 +}
 +
 +static void dlna_output_set_next_uri(const char *uri)
@@ -1442,16 +1541,38 @@ index 0000000000..60aed08845
 +
 +static int dlna_output_seek(gint64 position_nanos)
 +{
-+    (void)position_nanos;
-+    return -1;
++    /* gmr speaks nanoseconds */
++    if (position_nanos < 0)
++        return -1;
++    return dlna_stream_seek((int)(position_nanos / 1000000)) ? 0 : -1;
 +}
 +
 +static int dlna_output_get_position(gint64 *track_duration,
 +                                    gint64 *track_position)
 +{
-+    (void)track_duration;
-+    (void)track_position;
-+    return -1;
++    int dur_ms = upnp_transport_last_duration_ms();
++    int pos_ms = 0;
++
++    if (dur_ms <= 0)
++        return -1;              /* duration unknown: report nothing */
++
++    if (track_duration)
++        *track_duration = (gint64)dur_ms * 1000000;     /* nanoseconds */
++    if (track_position)
++    {
++        struct dlna_stream_status st;
++
++        dlna_stream_get_status(&st);
++        pos_ms = st.position_ms;
++        *track_position = (gint64)pos_ms * 1000000;
++    }
++    return 0;
++}
++
++/* duration (ms) of the last pushed item, for the UI (0 = unknown) */
++int dlna_output_get_duration_ms(void)
++{
++    return upnp_transport_last_duration_ms();
 +}
 +
 +static int dlna_output_get_volume(float *value)
@@ -1620,10 +1741,10 @@ index 0000000000..60aed08845
 +#endif /* HAVE_DLNA */
 diff --git a/apps/dlna/dlna_output.h b/apps/dlna/dlna_output.h
 new file mode 100644
-index 0000000000..406e4e0902
+index 0000000000..0173c663bb
 --- /dev/null
 +++ b/apps/dlna/dlna_output.h
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,22 @@
 +/* dlna_output.h - GMediaRender output-module backend for Rockbox.
 + *
 + * This is the glue between the unmodified upstream GMediaRender core
@@ -1642,13 +1763,16 @@ index 0000000000..406e4e0902
 + * no worker survives the DLNA screen */
 +void dlna_output_shutdown(void);
 +
++/* duration (ms) of the last item the controller pushed (0 = unknown) */
++int dlna_output_get_duration_ms(void);
++
 +#endif /* DLNA_OUTPUT_H */
 diff --git a/apps/dlna/dlna_playback.c b/apps/dlna/dlna_playback.c
 new file mode 100644
-index 0000000000..77343f86d9
+index 0000000000..2131a05118
 --- /dev/null
 +++ b/apps/dlna/dlna_playback.c
-@@ -0,0 +1,489 @@
+@@ -0,0 +1,529 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -1721,6 +1845,8 @@ index 0000000000..77343f86d9
 +static struct dsp_config *dp_dsp;
 +static int dp_rate;
 +static int dp_depth;
++static volatile unsigned long dp_played;   /* post-DSP frames fed out */
++static volatile int dp_seek_ms = -1;       /* pending AVTransport seek (ms) */
 +static int dp_stereo_mode;
 +static unsigned int dp_amp = MIX_AMP_UNITY;  /* DLNA stream gain, 16.16 */
 +
@@ -1780,6 +1906,7 @@ index 0000000000..77343f86d9
 +    if (rate == dp_rate)
 +        return;
 +    dp_rate = rate;
++    dp_played = 0;                  /* new rate: restart the position */
 +
 +    dp_tail = dp_head;              /* drop audio from the old rate */
 +
@@ -1876,8 +2003,31 @@ index 0000000000..77343f86d9
 +
 +static long dp_get_command(intptr_t *param)
 +{
-+    (void)param;
-+    return dp_stop_req ? CODEC_ACTION_HALT : CODEC_ACTION_NULL;
++    if (dp_stop_req)
++        return CODEC_ACTION_HALT;
++
++    /* AVTransport Seek: hand the requested time to the codec, which does the
++     * byte-level seek through ci->seek_buffer(); our source op maps it into
++     * the retained ring window. */
++    if (dp_seek_ms >= 0)
++    {
++        *param = dp_seek_ms;
++        dp_seek_ms = -1;
++        return CODEC_ACTION_SEEK_TIME;
++    }
++    return CODEC_ACTION_NULL;
++}
++
++void dlna_pb_seek(int ms)
++{
++    if (ms < 0)
++        ms = 0;
++
++    /* keep the reported position in step with the jump */
++    if (dp_rate > 0)
++        dp_played = (unsigned long)ms * (unsigned long)dp_rate / 1000;
++
++    dp_seek_ms = ms;
 +}
 +
 +/* The decoder runs on a raw pthread, not a Rockbox scheduler thread, so
@@ -1965,6 +2115,7 @@ index 0000000000..77343f86d9
 +            dp_ring[2 * idx + 1] = dbuf[2 * i + 1];
 +        }
 +        dp_head += out;
++        dp_played += out;
 +        done += frames;
 +    }
 +}
@@ -2067,6 +2218,7 @@ index 0000000000..77343f86d9
 +
 +    dp_head = dp_tail = 0;
 +    dp_rate = 0;
++    dp_played = 0;
 +    dp_depth = 16;
 +    dp_stereo_mode = STEREO_NONINTERLEAVED;
 +    dp_stop_req = false;
@@ -2122,6 +2274,18 @@ index 0000000000..77343f86d9
 +    return dp_thread_exited;
 +}
 +
++/* Milliseconds of audio actually fed to the mixer since the track
++ * started; drives GetPositionInfo / the progress bar. */
++unsigned long dlna_pb_get_elapsed_ms(void)
++{
++    int rate = dp_rate;
++
++    if (rate <= 0)
++        return 0;
++    return (unsigned long)((unsigned long long)dp_played * 1000
++                           / (unsigned int)rate);
++}
++
 +/* The AVTransport volume control acts on the DLNA channel's own gain, so
 + * the master volume (the wheel / WPS) stays untouched and remains the
 + * ceiling: at 1.0 the stream plays at the current master volume, at 0.0
@@ -2140,10 +2304,10 @@ index 0000000000..77343f86d9
 +#endif /* HAVE_DLNA */
 diff --git a/apps/dlna/dlna_playback.h b/apps/dlna/dlna_playback.h
 new file mode 100644
-index 0000000000..f821f9df9e
+index 0000000000..9814293fa8
 --- /dev/null
 +++ b/apps/dlna/dlna_playback.h
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,84 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -2221,14 +2385,19 @@ index 0000000000..f821f9df9e
 + * "as loud as the current master volume"; the master volume stays the
 + * ceiling.  Safe to call from a Rockbox thread. */
 +void dlna_pb_set_amplitude(float value);
++/* AVTransport Seek: ask the running codec to jump to <ms> (the source op
++ * seeks inside the retained ring window; out-of-window targets fail). */
++void dlna_pb_seek(int ms);
++/* ms of audio fed to the mixer since the track started (0 when idle) */
++unsigned long dlna_pb_get_elapsed_ms(void);
 +
 +#endif /* DLNA_PLAYBACK_H */
 diff --git a/apps/dlna/dlna_stream.c b/apps/dlna/dlna_stream.c
 new file mode 100644
-index 0000000000..59f3d96c02
+index 0000000000..8d4052bdca
 --- /dev/null
 +++ b/apps/dlna/dlna_stream.c
-@@ -0,0 +1,1272 @@
+@@ -0,0 +1,1357 @@
 +/* dlna_stream.c - standalone stream engine for the DLNA renderer.
 + *
 + * Kept entirely on the DLNA side, sharing no code or state with the
@@ -2291,6 +2460,7 @@ index 0000000000..59f3d96c02
 +#endif
 +
 +#include "dlna_stream.h"
++#include "upnp_transport.h"     /* upnp_transport_last_duration_ms() */
 +
 +#define DLNA_RING_SIZE      (4 * 1024 * 1024)
 +#define DLNA_HEADER_SIZE    4096
@@ -2588,6 +2758,8 @@ index 0000000000..59f3d96c02
 +    unsigned long long produced;/* total bytes written to the ring (abs) */
 +    unsigned long long base_abs;/* abs position of the oldest retained byte */
 +    unsigned long long read_abs;/* abs decoder read position */
++    volatile long seek_req;     /* pending HTTP Range re-request (body byte
++                                 * offset), -1 when none */
 +    long content_length;        /* HTTP Content-Length, or -1 */
 +    unsigned long bytes_mark;   /* accounting for the bitrate estimate */
 +    long tick_mark;
@@ -2676,7 +2848,10 @@ index 0000000000..59f3d96c02
 +        return false;
 +
 +    pthread_mutex_lock(&source.lock);
-+    while (free_locked() < size && source.running)
++    /* Also bail out when a seek is pending: the decoder is waiting for it
++     * and will not drain the ring, so blocking here would deadlock the
++     * worker until the seek times out. */
++    while (free_locked() < size && source.running && source.seek_req < 0)
 +    {
 +        if (source.read_abs > source.base_abs)
 +        {
@@ -2689,7 +2864,7 @@ index 0000000000..59f3d96c02
 +        }
 +        pthread_cond_wait(&source.ready, &source.lock);
 +    }
-+    if (!source.running)
++    if (!source.running || source.seek_req >= 0)
 +    {
 +        pthread_mutex_unlock(&source.lock);
 +        return false;
@@ -2816,6 +2991,14 @@ index 0000000000..59f3d96c02
 +        unsigned char body[8192];
 +        size_t hlen = 0;
 +        int rlen, rc;
++        long range_off = source.seek_req >= 0 ? source.seek_req : 0;
++        char range_hdr[40];
++
++        if (range_off > 0)
++            snprintf(range_hdr, sizeof(range_hdr), "Range: bytes=%ld-\r\n",
++                     range_off);
++        else
++            range_hdr[0] = '\0';
 +
 +        set_state(DLNA_STREAM_CONNECTING);
 +        rc = dlna_conn_open(source.url, host, sizeof(host), path,
@@ -2831,7 +3014,7 @@ index 0000000000..59f3d96c02
 +        rlen = snprintf(request, sizeof(request),
 +                        "GET %.511s HTTP/1.0\r\nHost: %.255s\r\n"
 +                        "User-Agent: Mozilla/5.0\r\nAccept: */*\r\n"
-+                        "Connection: close\r\n\r\n", path, host);
++                        "%sConnection: close\r\n\r\n", path, host, range_hdr);
 +        if (rlen < 0 || rlen >= (int)sizeof(request) ||
 +            dlna_conn_write(&c, request, (size_t)rlen) <= 0)
 +        {
@@ -2883,6 +3066,17 @@ index 0000000000..59f3d96c02
 +        pthread_mutex_lock(&source.lock);
 +        source.finite = total > 0;
 +        source.content_length = total;
++        if (range_off > 0)
++        {
++            /* The seek asked for a byte offset.  When the server honoured
++             * it (206) the ring counters restart there, so absolute
++             * positions keep matching the file; a 200 means the Range was
++             * ignored and the body restarts at 0 - leave the counters. */
++            if (strstr(headers, " 206 "))
++                source.produced = source.base_abs = source.read_abs =
++                    (unsigned long long)range_off;
++            source.seek_req = -1;       /* resolved (or refused) */
++        }
 +        pthread_mutex_unlock(&source.lock);
 +
 +        set_state(DLNA_STREAM_BUFFERING);
@@ -2896,6 +3090,11 @@ index 0000000000..59f3d96c02
 +            /* a finite push is complete once Content-Length bytes arrived */
 +            if (source.finite && source.content_length > 0 &&
 +                received >= source.content_length)
++                break;
++
++            /* a new seek arrived: drop this connection and reconnect with
++             * a Range request (handled at the top of the outer loop) */
++            if (source.seek_req >= 0)
 +                break;
 +
 +            ssize_t n = dlna_conn_read(&c, body, sizeof(body));
@@ -2913,8 +3112,10 @@ index 0000000000..59f3d96c02
 +            if (n == 0)
 +                break;              /* the server closed the connection */
 +            received += n;
-+            if (!sniffed)
++            if (!sniffed && range_off == 0)
 +            {
++                /* only the real start of the file carries the container
++                 * header; a Range chunk must not be re-sniffed */
 +                sniff_codec(body, (size_t)n);
 +                sniffed = true;
 +            }
@@ -2931,6 +3132,9 @@ index 0000000000..59f3d96c02
 +        dlna_conn_close(&c);
 +        if (!source.running)
 +            break;
++
++        if (source.seek_req >= 0)
++            continue;               /* reconnect with a Range request */
 +
 +        if (source.finite)
 +        {
@@ -3087,35 +3291,55 @@ index 0000000000..59f3d96c02
 +static bool seek_source(void *context, size_t position)
 +{
 +    struct dlna_source *s = context;
++    unsigned long long pos = (unsigned long long)position;
 +
-+    /* accept any position still retained in the ring.  The header/moov at
-+     * the start stays resident until the buffer actually fills up, and
-+     * positions not yet downloaded are waited for. */
++    pthread_mutex_lock(&s->lock);
++    /* inside the retained ring: just move the decoder cursor */
++    if (s->running && pos >= s->base_abs && pos <= s->produced)
 +    {
-+        bool ok = false;
-+        for (;;)
-+        {
-+            unsigned long long pos = (unsigned long long)position;
-+            bool ahead, running;
-+
-+            pthread_mutex_lock(&s->lock);
-+            if (pos >= s->base_abs && pos <= s->produced)
-+            {
-+                s->read_abs = pos;
-+                pthread_cond_broadcast(&s->ready);
-+                pthread_mutex_unlock(&s->lock);
-+                ok = true;
-+                break;
-+            }
-+            ahead = pos > s->produced;
-+            running = s->running;
-+            pthread_mutex_unlock(&s->lock);
-+            if (!ahead || !running)
-+                break;                      /* discarded, or stopped */
-+            usleep(20000);                  /* wait for the download */
-+        }
-+        return ok;
++        s->read_abs = pos;
++        pthread_cond_broadcast(&s->ready);
++        pthread_mutex_unlock(&s->lock);
++        return true;
 +    }
++    if (!s->running)
++    {
++        pthread_mutex_unlock(&s->lock);
++        return false;
++    }
++    /* Outside the window (a long drag): ask the worker to drop the
++     * connection and re-request the file from this byte offset with an
++     * HTTP Range header.  It resets produced/base_abs/read_abs to the new
++     * offset so absolute positions keep matching the file. */
++    s->seek_req = (long)pos;
++    /* wake the worker: it may be parked in ring_write()'s cond_wait with
++     * a full ring (the decoder is blocked on this very seek, so nothing
++     * else will consume and broadcast) */
++    pthread_cond_broadcast(&s->ready);
++    pthread_mutex_unlock(&s->lock);
++
++    for (int tries = 0; tries < 250; tries++)       /* ~5 s */
++    {
++        bool ready;
++
++        usleep(20000);
++        pthread_mutex_lock(&s->lock);
++        ready = s->running && s->seek_req < 0 && pos >= s->base_abs &&
++                pos <= s->produced;
++        if (ready)
++            s->read_abs = pos;
++        pthread_mutex_unlock(&s->lock);
++        if (ready)
++        {
++            pthread_cond_broadcast(&s->ready);
++            return true;
++        }
++    }
++
++    pthread_mutex_lock(&s->lock);
++    s->seek_req = -1;               /* give up */
++    pthread_mutex_unlock(&s->lock);
++    return false;
 +}
 +
 +static void seek_done(void *context) { (void)context; }
@@ -3204,6 +3428,24 @@ index 0000000000..59f3d96c02
 +        dlna_src_ops.filesize = (off_t)source.content_length;
 +    else
 +        dlna_src_ops.filesize = -1;
++
++    /* The pushed DIDL carries the real duration; together with the
++     * announced file length that gives the true average bitrate.  A codec
++     * converts a seek TIME into a byte offset through id3->bitrate, so
++     * feeding it the real values is what makes an AVTransport seek land
++     * where it should (the 128 kbps placeholder sent every drag to a
++     * bogus offset -> silence). */
++    {
++        int dur = upnp_transport_last_duration_ms();
++
++        if (dur > 0)
++        {
++            source.id3.length = dur;
++            if (source.content_length > 0)
++                source.id3.bitrate =
++                    (int)((long long)source.content_length * 8 / dur);
++        }
++    }
 +
 +    ok = dlna_pb_start(codec, &source.id3, &dlna_src_ops);
 +    pthread_mutex_lock(&source.lock);
@@ -3304,6 +3546,7 @@ index 0000000000..59f3d96c02
 +    source.produced = 0;
 +    source.base_abs = 0;
 +    source.read_abs = 0;
++    source.seek_req = -1;
 +    source.content_length = -1;
 +    source.tick_mark = current_tick;
 +    source.codec_ready = false;
@@ -3425,6 +3668,7 @@ index 0000000000..59f3d96c02
 +        source.bytes_mark = source.bytes_total;
 +        source.tick_mark = now;
 +    }
++    source.status.position_ms = (int)dlna_pb_get_elapsed_ms();
 +    *status = last = source.status;
 +    pthread_mutex_unlock(&source.lock);
 +    return true;
@@ -3434,6 +3678,16 @@ index 0000000000..59f3d96c02
 +{
 +    /* lock-free: called from UI/audio threads */
 +    return source.active;
++}
++
++bool dlna_stream_seek(int ms)
++{
++    if (!source.active)
++        return false;
++
++    /* forward to the decode host, which turns it into a codec seek */
++    dlna_pb_seek(ms);
++    return true;
 +}
 +
 +/* ---------------------------------------------------------------- */
@@ -3503,10 +3757,10 @@ index 0000000000..59f3d96c02
 +#endif /* HAVE_DLNA */
 diff --git a/apps/dlna/dlna_stream.h b/apps/dlna/dlna_stream.h
 new file mode 100644
-index 0000000000..bd7bce65c0
+index 0000000000..73e2e711e1
 --- /dev/null
 +++ b/apps/dlna/dlna_stream.h
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,65 @@
 +/* dlna_stream.h - standalone stream engine for the DLNA renderer.
 + *
 + * Modelled one-to-one on apps/netfm_stream.h (the network radio): a
@@ -3551,6 +3805,8 @@ index 0000000000..bd7bce65c0
 +    int sample_rate;
 +    int bitrate;
 +    int buffer_percent;
++    int position_ms;                /* audio played since the track start */
++    int duration_ms;                /* 0 when the push carries no duration */
 +};
 +
 +bool dlna_stream_start(const char *name, const char *url);
@@ -3559,6 +3815,8 @@ index 0000000000..bd7bce65c0
 +void dlna_stream_stop_async(void);
 +bool dlna_stream_get_status(struct dlna_stream_status *status);
 +bool dlna_stream_is_active(void);
++/* seek the running stream to <ms> (works inside the retained ring window) */
++bool dlna_stream_seek(int ms);
 +/* false when another source owns the audio path: bluetooth receive,
 + * USB DAC, or a running network-radio stream */
 +bool dlna_stream_can_start(void);
@@ -7272,10 +7530,10 @@ index 0000000000..2461121440
 +#endif /* _UPNP_RENDERER_H */
 diff --git a/apps/dlna/gmr/upnp_transport.c b/apps/dlna/gmr/upnp_transport.c
 new file mode 100644
-index 0000000000..f55c8d1c16
+index 0000000000..c26a686bff
 --- /dev/null
 +++ b/apps/dlna/gmr/upnp_transport.c
-@@ -0,0 +1,1114 @@
+@@ -0,0 +1,1129 @@
 +/* upnp_transport.c - UPnP AVTransport routines
 + *
 + * Copyright (C) 2005-2007   Ivo Clarysse
@@ -7851,11 +8109,16 @@ index 0000000000..f55c8d1c16
 +static char last_push_title_[200];
 +const char *upnp_transport_last_title(void) { return last_push_title_; }
 +
++/* Duration the controller announced in <res duration="0:04:12.000">. */
++static int last_push_duration_ms;
++int upnp_transport_last_duration_ms(void) { return last_push_duration_ms; }
++
 +static int replace_transport_uri_and_meta(const char *uri, const char *meta) {
 +	/* Keep the human readable <dc:title> the controller pushed: the
 +	 * Rockbox output uses it as the track name (the URI usually ends in
 +	 * an opaque hash). */
 +	last_push_title_[0] = '\0';
++	last_push_duration_ms = 0;
 +	if (meta != NULL) {
 +		const char *t = strstr(meta, "<dc:title>");
 +		if (t != NULL) {
@@ -7869,6 +8132,16 @@ index 0000000000..f55c8d1c16
 +				memcpy(last_push_title_, t, n);
 +				last_push_title_[n] = '\0';
 +			}
++		}
++		/* <res ... duration="H:MM:SS.mmm"> */
++		t = strstr(meta, "duration=\"");
++		if (t != NULL) {
++			int h = 0, m = 0, s = 0;
++			t += 10;
++			if (sscanf(t, "%d:%d:%d", &h, &m, &s) == 3 &&
++			    h >= 0 && m >= 0 && s >= 0)
++				last_push_duration_ms =
++					((h * 60 + m) * 60 + s) * 1000;
 +		}
 +	}
 +	replace_var(TRANSPORT_VAR_AV_URI, uri);
@@ -8392,10 +8665,10 @@ index 0000000000..f55c8d1c16
 +};
 diff --git a/apps/dlna/gmr/upnp_transport.h b/apps/dlna/gmr/upnp_transport.h
 new file mode 100644
-index 0000000000..cb569fd026
+index 0000000000..c3cd531a8f
 --- /dev/null
 +++ b/apps/dlna/gmr/upnp_transport.h
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,47 @@
 +/* upnp_transport.h - UPnP AVTransport definitions
 + *
 + * Copyright (C) 2005   Ivo Clarysse
@@ -8431,6 +8704,8 @@ index 0000000000..cb569fd026
 +
 +/* <dc:title> of the last SetAVTransportURI the controller pushed */
 +const char *upnp_transport_last_title(void);
++/* duration (ms) announced in the last pushed meta data, 0 if unknown */
++int upnp_transport_last_duration_ms(void);
 +void upnp_transport_init(struct upnp_device *);
 +/* detach the transport event collector from the (destroyed) device */
 +void upnp_transport_deinit(void);

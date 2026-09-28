@@ -60,6 +60,7 @@
 #endif
 
 #include "dlna_stream.h"
+#include "upnp_transport.h"     /* upnp_transport_last_duration_ms() */
 
 #define DLNA_RING_SIZE      (4 * 1024 * 1024)
 #define DLNA_HEADER_SIZE    4096
@@ -357,6 +358,8 @@ struct dlna_source
     unsigned long long produced;/* total bytes written to the ring (abs) */
     unsigned long long base_abs;/* abs position of the oldest retained byte */
     unsigned long long read_abs;/* abs decoder read position */
+    volatile long seek_req;     /* pending HTTP Range re-request (body byte
+                                 * offset), -1 when none */
     long content_length;        /* HTTP Content-Length, or -1 */
     unsigned long bytes_mark;   /* accounting for the bitrate estimate */
     long tick_mark;
@@ -445,7 +448,10 @@ static bool ring_write(const unsigned char *data, size_t size)
         return false;
 
     pthread_mutex_lock(&source.lock);
-    while (free_locked() < size && source.running)
+    /* Also bail out when a seek is pending: the decoder is waiting for it
+     * and will not drain the ring, so blocking here would deadlock the
+     * worker until the seek times out. */
+    while (free_locked() < size && source.running && source.seek_req < 0)
     {
         if (source.read_abs > source.base_abs)
         {
@@ -458,7 +464,7 @@ static bool ring_write(const unsigned char *data, size_t size)
         }
         pthread_cond_wait(&source.ready, &source.lock);
     }
-    if (!source.running)
+    if (!source.running || source.seek_req >= 0)
     {
         pthread_mutex_unlock(&source.lock);
         return false;
@@ -585,6 +591,14 @@ static void *download_thread(void *unused)
         unsigned char body[8192];
         size_t hlen = 0;
         int rlen, rc;
+        long range_off = source.seek_req >= 0 ? source.seek_req : 0;
+        char range_hdr[40];
+
+        if (range_off > 0)
+            snprintf(range_hdr, sizeof(range_hdr), "Range: bytes=%ld-\r\n",
+                     range_off);
+        else
+            range_hdr[0] = '\0';
 
         set_state(DLNA_STREAM_CONNECTING);
         rc = dlna_conn_open(source.url, host, sizeof(host), path,
@@ -600,7 +614,7 @@ static void *download_thread(void *unused)
         rlen = snprintf(request, sizeof(request),
                         "GET %.511s HTTP/1.0\r\nHost: %.255s\r\n"
                         "User-Agent: Mozilla/5.0\r\nAccept: */*\r\n"
-                        "Connection: close\r\n\r\n", path, host);
+                        "%sConnection: close\r\n\r\n", path, host, range_hdr);
         if (rlen < 0 || rlen >= (int)sizeof(request) ||
             dlna_conn_write(&c, request, (size_t)rlen) <= 0)
         {
@@ -652,6 +666,17 @@ static void *download_thread(void *unused)
         pthread_mutex_lock(&source.lock);
         source.finite = total > 0;
         source.content_length = total;
+        if (range_off > 0)
+        {
+            /* The seek asked for a byte offset.  When the server honoured
+             * it (206) the ring counters restart there, so absolute
+             * positions keep matching the file; a 200 means the Range was
+             * ignored and the body restarts at 0 - leave the counters. */
+            if (strstr(headers, " 206 "))
+                source.produced = source.base_abs = source.read_abs =
+                    (unsigned long long)range_off;
+            source.seek_req = -1;       /* resolved (or refused) */
+        }
         pthread_mutex_unlock(&source.lock);
 
         set_state(DLNA_STREAM_BUFFERING);
@@ -665,6 +690,11 @@ static void *download_thread(void *unused)
             /* a finite push is complete once Content-Length bytes arrived */
             if (source.finite && source.content_length > 0 &&
                 received >= source.content_length)
+                break;
+
+            /* a new seek arrived: drop this connection and reconnect with
+             * a Range request (handled at the top of the outer loop) */
+            if (source.seek_req >= 0)
                 break;
 
             ssize_t n = dlna_conn_read(&c, body, sizeof(body));
@@ -682,8 +712,10 @@ static void *download_thread(void *unused)
             if (n == 0)
                 break;              /* the server closed the connection */
             received += n;
-            if (!sniffed)
+            if (!sniffed && range_off == 0)
             {
+                /* only the real start of the file carries the container
+                 * header; a Range chunk must not be re-sniffed */
                 sniff_codec(body, (size_t)n);
                 sniffed = true;
             }
@@ -700,6 +732,9 @@ static void *download_thread(void *unused)
         dlna_conn_close(&c);
         if (!source.running)
             break;
+
+        if (source.seek_req >= 0)
+            continue;               /* reconnect with a Range request */
 
         if (source.finite)
         {
@@ -856,35 +891,55 @@ static void advance_source(void *context, size_t amount)
 static bool seek_source(void *context, size_t position)
 {
     struct dlna_source *s = context;
+    unsigned long long pos = (unsigned long long)position;
 
-    /* accept any position still retained in the ring.  The header/moov at
-     * the start stays resident until the buffer actually fills up, and
-     * positions not yet downloaded are waited for. */
+    pthread_mutex_lock(&s->lock);
+    /* inside the retained ring: just move the decoder cursor */
+    if (s->running && pos >= s->base_abs && pos <= s->produced)
     {
-        bool ok = false;
-        for (;;)
-        {
-            unsigned long long pos = (unsigned long long)position;
-            bool ahead, running;
-
-            pthread_mutex_lock(&s->lock);
-            if (pos >= s->base_abs && pos <= s->produced)
-            {
-                s->read_abs = pos;
-                pthread_cond_broadcast(&s->ready);
-                pthread_mutex_unlock(&s->lock);
-                ok = true;
-                break;
-            }
-            ahead = pos > s->produced;
-            running = s->running;
-            pthread_mutex_unlock(&s->lock);
-            if (!ahead || !running)
-                break;                      /* discarded, or stopped */
-            usleep(20000);                  /* wait for the download */
-        }
-        return ok;
+        s->read_abs = pos;
+        pthread_cond_broadcast(&s->ready);
+        pthread_mutex_unlock(&s->lock);
+        return true;
     }
+    if (!s->running)
+    {
+        pthread_mutex_unlock(&s->lock);
+        return false;
+    }
+    /* Outside the window (a long drag): ask the worker to drop the
+     * connection and re-request the file from this byte offset with an
+     * HTTP Range header.  It resets produced/base_abs/read_abs to the new
+     * offset so absolute positions keep matching the file. */
+    s->seek_req = (long)pos;
+    /* wake the worker: it may be parked in ring_write()'s cond_wait with
+     * a full ring (the decoder is blocked on this very seek, so nothing
+     * else will consume and broadcast) */
+    pthread_cond_broadcast(&s->ready);
+    pthread_mutex_unlock(&s->lock);
+
+    for (int tries = 0; tries < 250; tries++)       /* ~5 s */
+    {
+        bool ready;
+
+        usleep(20000);
+        pthread_mutex_lock(&s->lock);
+        ready = s->running && s->seek_req < 0 && pos >= s->base_abs &&
+                pos <= s->produced;
+        if (ready)
+            s->read_abs = pos;
+        pthread_mutex_unlock(&s->lock);
+        if (ready)
+        {
+            pthread_cond_broadcast(&s->ready);
+            return true;
+        }
+    }
+
+    pthread_mutex_lock(&s->lock);
+    s->seek_req = -1;               /* give up */
+    pthread_mutex_unlock(&s->lock);
+    return false;
 }
 
 static void seek_done(void *context) { (void)context; }
@@ -973,6 +1028,24 @@ bool dlna_stream_codec_start_now(void)
         dlna_src_ops.filesize = (off_t)source.content_length;
     else
         dlna_src_ops.filesize = -1;
+
+    /* The pushed DIDL carries the real duration; together with the
+     * announced file length that gives the true average bitrate.  A codec
+     * converts a seek TIME into a byte offset through id3->bitrate, so
+     * feeding it the real values is what makes an AVTransport seek land
+     * where it should (the 128 kbps placeholder sent every drag to a
+     * bogus offset -> silence). */
+    {
+        int dur = upnp_transport_last_duration_ms();
+
+        if (dur > 0)
+        {
+            source.id3.length = dur;
+            if (source.content_length > 0)
+                source.id3.bitrate =
+                    (int)((long long)source.content_length * 8 / dur);
+        }
+    }
 
     ok = dlna_pb_start(codec, &source.id3, &dlna_src_ops);
     pthread_mutex_lock(&source.lock);
@@ -1073,6 +1146,7 @@ bool dlna_stream_start(const char *name, const char *url)
     source.produced = 0;
     source.base_abs = 0;
     source.read_abs = 0;
+    source.seek_req = -1;
     source.content_length = -1;
     source.tick_mark = current_tick;
     source.codec_ready = false;
@@ -1194,6 +1268,7 @@ bool dlna_stream_get_status(struct dlna_stream_status *status)
         source.bytes_mark = source.bytes_total;
         source.tick_mark = now;
     }
+    source.status.position_ms = (int)dlna_pb_get_elapsed_ms();
     *status = last = source.status;
     pthread_mutex_unlock(&source.lock);
     return true;
@@ -1203,6 +1278,16 @@ bool dlna_stream_is_active(void)
 {
     /* lock-free: called from UI/audio threads */
     return source.active;
+}
+
+bool dlna_stream_seek(int ms)
+{
+    if (!source.active)
+        return false;
+
+    /* forward to the decode host, which turns it into a codec seek */
+    dlna_pb_seek(ms);
+    return true;
 }
 
 /* ---------------------------------------------------------------- */

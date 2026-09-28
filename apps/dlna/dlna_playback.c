@@ -70,6 +70,8 @@ static volatile unsigned int dp_tail;
 static struct dsp_config *dp_dsp;
 static int dp_rate;
 static int dp_depth;
+static volatile unsigned long dp_played;   /* post-DSP frames fed out */
+static volatile int dp_seek_ms = -1;       /* pending AVTransport seek (ms) */
 static int dp_stereo_mode;
 static unsigned int dp_amp = MIX_AMP_UNITY;  /* DLNA stream gain, 16.16 */
 
@@ -129,6 +131,7 @@ static void dp_apply_rate(int rate)
     if (rate == dp_rate)
         return;
     dp_rate = rate;
+    dp_played = 0;                  /* new rate: restart the position */
 
     dp_tail = dp_head;              /* drop audio from the old rate */
 
@@ -225,8 +228,31 @@ static void dp_configure(int setting, intptr_t value)
 
 static long dp_get_command(intptr_t *param)
 {
-    (void)param;
-    return dp_stop_req ? CODEC_ACTION_HALT : CODEC_ACTION_NULL;
+    if (dp_stop_req)
+        return CODEC_ACTION_HALT;
+
+    /* AVTransport Seek: hand the requested time to the codec, which does the
+     * byte-level seek through ci->seek_buffer(); our source op maps it into
+     * the retained ring window. */
+    if (dp_seek_ms >= 0)
+    {
+        *param = dp_seek_ms;
+        dp_seek_ms = -1;
+        return CODEC_ACTION_SEEK_TIME;
+    }
+    return CODEC_ACTION_NULL;
+}
+
+void dlna_pb_seek(int ms)
+{
+    if (ms < 0)
+        ms = 0;
+
+    /* keep the reported position in step with the jump */
+    if (dp_rate > 0)
+        dp_played = (unsigned long)ms * (unsigned long)dp_rate / 1000;
+
+    dp_seek_ms = ms;
 }
 
 /* The decoder runs on a raw pthread, not a Rockbox scheduler thread, so
@@ -314,6 +340,7 @@ static void dp_pcm_insert(const void *channel1, const void *channel2, int count)
             dp_ring[2 * idx + 1] = dbuf[2 * i + 1];
         }
         dp_head += out;
+        dp_played += out;
         done += frames;
     }
 }
@@ -416,6 +443,7 @@ bool dlna_pb_start(const char *codec, struct mp3entry *id3,
 
     dp_head = dp_tail = 0;
     dp_rate = 0;
+    dp_played = 0;
     dp_depth = 16;
     dp_stereo_mode = STEREO_NONINTERLEAVED;
     dp_stop_req = false;
@@ -469,6 +497,18 @@ bool dlna_pb_active(void)
 bool dlna_pb_idle(void)
 {
     return dp_thread_exited;
+}
+
+/* Milliseconds of audio actually fed to the mixer since the track
+ * started; drives GetPositionInfo / the progress bar. */
+unsigned long dlna_pb_get_elapsed_ms(void)
+{
+    int rate = dp_rate;
+
+    if (rate <= 0)
+        return 0;
+    return (unsigned long)((unsigned long long)dp_played * 1000
+                           / (unsigned int)rate);
 }
 
 /* The AVTransport volume control acts on the DLNA channel's own gain, so
