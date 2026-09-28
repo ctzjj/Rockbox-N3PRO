@@ -27,7 +27,6 @@
 
 #include "upnp_control.h"
 
-#define _GNU_SOURCE         /* See feature_test_macros(7) */
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

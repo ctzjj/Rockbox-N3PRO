@@ -19,7 +19,6 @@
  *    with the stock Rockbox codecs; it plays once and ends FINISHED;
  *  - a live stream (no length) keeps the forward-only ring path.
  */
-#define _GNU_SOURCE             /* strcasestr for the header scan */
 
 #include "config.h"
 
@@ -406,12 +405,6 @@ static void set_state(enum dlna_stream_state state)
     pthread_mutex_unlock(&source.lock);
 }
 
-static void set_format(const char *fmt)
-{
-    pthread_mutex_lock(&source.lock);
-    snprintf(source.status.format, sizeof(source.status.format), "%s", fmt);
-    pthread_mutex_unlock(&source.lock);
-}
 
 /* Free the retired push buffer, but only once no decode thread is reading
  * it (the source callbacks share the engine's global buffer). */

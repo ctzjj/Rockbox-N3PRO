@@ -7,8 +7,17 @@
 #ifndef PUPNP_AUTOCONFIG_H
 #define PUPNP_AUTOCONFIG_H
 
+#if defined(CAYIN_N3PRO)
+#undef PACKAGE_NAME
+#endif
 #define PACKAGE_NAME "libupnp"
+#if defined(CAYIN_N3PRO)
+#undef PACKAGE_STRING
+#endif
 #define PACKAGE_STRING "libupnp 1.6.21"
+#if defined(CAYIN_N3PRO)
+#undef PACKAGE_VERSION
+#endif
 #define PACKAGE_VERSION "1.6.21"
 
 /* libc availability (glibc) */

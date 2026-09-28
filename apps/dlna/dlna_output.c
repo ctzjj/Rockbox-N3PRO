@@ -21,7 +21,6 @@
  */
 
 /* _GNU_SOURCE comes from the gmr sources; keep consistent */
-#define _GNU_SOURCE
 
 #include "config.h"
 

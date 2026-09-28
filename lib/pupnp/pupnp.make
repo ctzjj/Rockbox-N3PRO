@@ -23,7 +23,9 @@ PUPNPFLAGS = -I$(PUPNPLIB_DIR) \
              -I$(PUPNPLIB_DIR)/ixml/src/inc \
              -I$(PUPNPLIB_DIR)/threadutil/inc \
              -I$(PUPNPLIB_DIR)/threadutil/src/inc \
-             -O2 -DNDEBUG -DNO_DEBUG
+             -O2 -DNDEBUG -DNO_DEBUG \
+             -Wno-undef -Wno-missing-field-initializers \
+             -Wno-strict-prototypes -Wno-stringop-overflow
 
 OTHER_SRC += $(PUPNPLIB_SRC)
 CORE_LIBS += $(PUPNPLIB)

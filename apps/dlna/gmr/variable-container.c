@@ -22,7 +22,6 @@
 
 #include "variable-container.h"
 
-#define _GNU_SOURCE
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>

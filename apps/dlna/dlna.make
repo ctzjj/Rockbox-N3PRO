@@ -29,6 +29,11 @@ DLNAFLAGS = -I$(DLNALIB_DIR) \
             -DPACKAGE_STRING='"GMediaRender 0.0.8"' \
             -DPKG_DATADIR='"/.rockbox/dlna"'
 
+# Third-party sources (GMediaRender) only: keep Rockbox's own
+# warnings visible.
+DLNAWARN = -Wno-missing-field-initializers -Wno-unused-parameter -Wno-undef \
+           -Wno-strict-prototypes
+
 OTHER_SRC += $(DLNALIB_SRC)
 CORE_LIBS := $(DLNALIB) $(CORE_LIBS)
 
@@ -46,4 +51,4 @@ $(DLNALIB): $(DLNALIB_OBJ)
 $(BUILDDIR)/apps/dlna/%.o: $(ROOTDIR)/apps/dlna/%.c
 	$(SILENT)mkdir -p $(dir $@)
 	$(call PRINTS,CC $(subst $(ROOTDIR)/,,$<)) \
-		$(CC) $(CFLAGS) -c $< -o $@
+		$(CC) $(CFLAGS) $(DLNAWARN) -c $< -o $@

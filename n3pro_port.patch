@@ -1186,10 +1186,10 @@ index 0000000000..e2ddb3c185
 +#endif
 diff --git a/apps/dlna/dlna.make b/apps/dlna/dlna.make
 new file mode 100644
-index 0000000000..69bc0fcb98
+index 0000000000..f3ae2556e6
 --- /dev/null
 +++ b/apps/dlna/dlna.make
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,54 @@
 +#             __________               __   ___.
 +#   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
 +#   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
@@ -1221,6 +1221,11 @@ index 0000000000..69bc0fcb98
 +            -DPACKAGE_STRING='"GMediaRender 0.0.8"' \
 +            -DPKG_DATADIR='"/.rockbox/dlna"'
 +
++# Third-party sources (GMediaRender) only: keep Rockbox's own
++# warnings visible.
++DLNAWARN = -Wno-missing-field-initializers -Wno-unused-parameter -Wno-undef \
++           -Wno-strict-prototypes
++
 +OTHER_SRC += $(DLNALIB_SRC)
 +CORE_LIBS := $(DLNALIB) $(CORE_LIBS)
 +
@@ -1238,13 +1243,13 @@ index 0000000000..69bc0fcb98
 +$(BUILDDIR)/apps/dlna/%.o: $(ROOTDIR)/apps/dlna/%.c
 +	$(SILENT)mkdir -p $(dir $@)
 +	$(call PRINTS,CC $(subst $(ROOTDIR)/,,$<)) \
-+		$(CC) $(CFLAGS) -c $< -o $@
++		$(CC) $(CFLAGS) $(DLNAWARN) -c $< -o $@
 diff --git a/apps/dlna/dlna_output.c b/apps/dlna/dlna_output.c
 new file mode 100644
-index 0000000000..3281bc6435
+index 0000000000..74c66b03aa
 --- /dev/null
 +++ b/apps/dlna/dlna_output.c
-@@ -0,0 +1,501 @@
+@@ -0,0 +1,500 @@
 +/* dlna_output.c - GMediaRender output-module backend for Rockbox.
 + *
 + * Layering (all DLNA files, no netfm code is touched):
@@ -1268,7 +1273,6 @@ index 0000000000..3281bc6435
 + */
 +
 +/* _GNU_SOURCE comes from the gmr sources; keep consistent */
-+#define _GNU_SOURCE
 +
 +#include "config.h"
 +
@@ -2401,10 +2405,10 @@ index 0000000000..9814293fa8
 +#endif /* DLNA_PLAYBACK_H */
 diff --git a/apps/dlna/dlna_stream.c b/apps/dlna/dlna_stream.c
 new file mode 100644
-index 0000000000..8d4052bdca
+index 0000000000..135ddce913
 --- /dev/null
 +++ b/apps/dlna/dlna_stream.c
-@@ -0,0 +1,1357 @@
+@@ -0,0 +1,1350 @@
 +/* dlna_stream.c - standalone stream engine for the DLNA renderer.
 + *
 + * Kept entirely on the DLNA side, sharing no code or state with the
@@ -2426,7 +2430,6 @@ index 0000000000..8d4052bdca
 + *    with the stock Rockbox codecs; it plays once and ends FINISHED;
 + *  - a live stream (no length) keeps the forward-only ring path.
 + */
-+#define _GNU_SOURCE             /* strcasestr for the header scan */
 +
 +#include "config.h"
 +
@@ -2813,12 +2816,6 @@ index 0000000000..8d4052bdca
 +    pthread_mutex_unlock(&source.lock);
 +}
 +
-+static void set_format(const char *fmt)
-+{
-+    pthread_mutex_lock(&source.lock);
-+    snprintf(source.status.format, sizeof(source.status.format), "%s", fmt);
-+    pthread_mutex_unlock(&source.lock);
-+}
 +
 +/* Free the retired push buffer, but only once no decode thread is reading
 + * it (the source callbacks share the engine's global buffer). */
@@ -3926,10 +3923,10 @@ index 0000000000..665cd6681e
 +#endif /* _GLIB_LITE_H */
 diff --git a/apps/dlna/gmr/logging.c b/apps/dlna/gmr/logging.c
 new file mode 100644
-index 0000000000..2d0147732d
+index 0000000000..46da73291d
 --- /dev/null
 +++ b/apps/dlna/gmr/logging.c
-@@ -0,0 +1,123 @@
+@@ -0,0 +1,122 @@
 +/* logging.c - Logging facility
 + *
 + * Copyright (C) 2013 Henner Zeller
@@ -3953,7 +3950,6 @@ index 0000000000..2d0147732d
 + *
 + */
 +
-+#define _GNU_SOURCE
 +
 +#include <fcntl.h>
 +#include <stdarg.h>
@@ -4104,10 +4100,10 @@ index 0000000000..6e4cd19f95
 +#endif /* _LOGGING_H */
 diff --git a/apps/dlna/gmr/output.c b/apps/dlna/gmr/output.c
 new file mode 100644
-index 0000000000..c9a80f58e6
+index 0000000000..22a33188b5
 --- /dev/null
 +++ b/apps/dlna/gmr/output.c
-@@ -0,0 +1,225 @@
+@@ -0,0 +1,224 @@
 +/* output.c - Output module frontend
 + *
 + * Copyright (C) 2007 Ivo Clarysse,  (C) 2012 Henner Zeller
@@ -4135,7 +4131,6 @@ index 0000000000..c9a80f58e6
 +#include "config.h"
 +#endif
 +
-+#define _GNU_SOURCE
 +#include <stdio.h>
 +#include <string.h>
 +#include <stdlib.h>
@@ -4462,10 +4457,10 @@ index 0000000000..d4250ef879
 +
 diff --git a/apps/dlna/gmr/song-meta-data.c b/apps/dlna/gmr/song-meta-data.c
 new file mode 100644
-index 0000000000..0e43263444
+index 0000000000..5d41c6d7c8
 --- /dev/null
 +++ b/apps/dlna/gmr/song-meta-data.c
-@@ -0,0 +1,204 @@
+@@ -0,0 +1,203 @@
 +/* song-meta-data - Object holding meta data for a song.
 + *
 + * Copyright (C) 2012 Henner Zeller
@@ -4494,7 +4489,6 @@ index 0000000000..0e43263444
 +
 +#include "song-meta-data.h"
 +
-+#define _GNU_SOURCE
 +#include <string.h>
 +#include <stdlib.h>
 +#include <stdio.h>
@@ -5692,10 +5686,10 @@ index 0000000000..b7ac13e1b9
 +#endif /* _UPNP_CONNMGR_H */
 diff --git a/apps/dlna/gmr/upnp_control.c b/apps/dlna/gmr/upnp_control.c
 new file mode 100644
-index 0000000000..043008c669
+index 0000000000..381bad69b1
 --- /dev/null
 +++ b/apps/dlna/gmr/upnp_control.c
-@@ -0,0 +1,850 @@
+@@ -0,0 +1,849 @@
 +/* upnp_control.c - UPnP RenderingControl routines
 + *
 + * Copyright (C) 2005-2007   Ivo Clarysse
@@ -5725,7 +5719,6 @@ index 0000000000..043008c669
 +
 +#include "upnp_control.h"
 +
-+#define _GNU_SOURCE         /* See feature_test_macros(7) */
 +#include <assert.h>
 +#include <stdio.h>
 +#include <stdlib.h>
@@ -7346,10 +7339,10 @@ index 0000000000..3e635e172a
 +#endif /* _UPNP_DEVICE_H */
 diff --git a/apps/dlna/gmr/upnp_renderer.c b/apps/dlna/gmr/upnp_renderer.c
 new file mode 100644
-index 0000000000..ef2fb3c8cf
+index 0000000000..e02013c249
 --- /dev/null
 +++ b/apps/dlna/gmr/upnp_renderer.c
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,142 @@
 +/* upnp_renderer.c - UPnP renderer routines
 + *
 + * Copyright (C) 2005-2007   Ivo Clarysse
@@ -7377,7 +7370,6 @@ index 0000000000..ef2fb3c8cf
 +#include "config.h"
 +#endif
 +
-+#define _GNU_SOURCE
 +
 +#include <stdio.h>
 +#include <stdlib.h>
@@ -7537,10 +7529,10 @@ index 0000000000..2461121440
 +#endif /* _UPNP_RENDERER_H */
 diff --git a/apps/dlna/gmr/upnp_transport.c b/apps/dlna/gmr/upnp_transport.c
 new file mode 100644
-index 0000000000..c26a686bff
+index 0000000000..404fb9d5ab
 --- /dev/null
 +++ b/apps/dlna/gmr/upnp_transport.c
-@@ -0,0 +1,1129 @@
+@@ -0,0 +1,1128 @@
 +/* upnp_transport.c - UPnP AVTransport routines
 + *
 + * Copyright (C) 2005-2007   Ivo Clarysse
@@ -7570,7 +7562,6 @@ index 0000000000..c26a686bff
 +
 +#include "upnp_transport.h"
 +
-+#define _GNU_SOURCE
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <unistd.h>
@@ -8725,10 +8716,10 @@ index 0000000000..c3cd531a8f
 +#endif /* _UPNP_TRANSPORT_H */
 diff --git a/apps/dlna/gmr/variable-container.c b/apps/dlna/gmr/variable-container.c
 new file mode 100644
-index 0000000000..0849801a80
+index 0000000000..f298ba13f9
 --- /dev/null
 +++ b/apps/dlna/gmr/variable-container.c
-@@ -0,0 +1,335 @@
+@@ -0,0 +1,334 @@
 +/*
 + * Copyright (C) 2013 Henner Zeller
 + *
@@ -8753,7 +8744,6 @@ index 0000000000..0849801a80
 +
 +#include "variable-container.h"
 +
-+#define _GNU_SOURCE
 +#include <assert.h>
 +#include <stdlib.h>
 +#include <string.h>
@@ -9558,10 +9548,10 @@ index 0000000000..f94ef086ff
 +#endif /* _WEBSERVER_H */
 diff --git a/apps/dlna/gmr/xmldoc.c b/apps/dlna/gmr/xmldoc.c
 new file mode 100644
-index 0000000000..2dea5dbe07
+index 0000000000..2421262c64
 --- /dev/null
 +++ b/apps/dlna/gmr/xmldoc.c
-@@ -0,0 +1,217 @@
+@@ -0,0 +1,216 @@
 +/* xmldoc.h - XML builder abstraction
 + *
 + * Copyright (C) 2007   Ivo Clarysse
@@ -9589,7 +9579,6 @@ index 0000000000..2dea5dbe07
 +#include "config.h"
 +#endif
 +
-+#define _GNU_SOURCE
 +
 +#include <stdio.h>
 +#include <stdlib.h>
@@ -56844,10 +56833,10 @@ index 0000000000..0cf7031aa7
 +upnp/src/uuid/uuid.c
 diff --git a/lib/pupnp/autoconfig.h b/lib/pupnp/autoconfig.h
 new file mode 100644
-index 0000000000..1f2f2a8def
+index 0000000000..7ddc291912
 --- /dev/null
 +++ b/lib/pupnp/autoconfig.h
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,41 @@
 +/* autoconfig.h -- hand-written replacement for the autoconf-generated
 + * configuration header of pupnp 1.6.21, targeting the Rockbox N3Pro
 + * hosted build (mipsel, glibc, Linux).
@@ -56857,8 +56846,17 @@ index 0000000000..1f2f2a8def
 +#ifndef PUPNP_AUTOCONFIG_H
 +#define PUPNP_AUTOCONFIG_H
 +
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_NAME
++#endif
 +#define PACKAGE_NAME "libupnp"
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_STRING
++#endif
 +#define PACKAGE_STRING "libupnp 1.6.21"
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_VERSION
++#endif
 +#define PACKAGE_VERSION "1.6.21"
 +
 +/* libc availability (glibc) */
@@ -65888,10 +65886,10 @@ index 0000000000..2dd505228d
 +
 diff --git a/lib/pupnp/pupnp.make b/lib/pupnp/pupnp.make
 new file mode 100644
-index 0000000000..0e80523abc
+index 0000000000..0545663360
 --- /dev/null
 +++ b/lib/pupnp/pupnp.make
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,60 @@
 +#             __________               __   ___.
 +#   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
 +#   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
@@ -65917,7 +65915,9 @@ index 0000000000..0e80523abc
 +             -I$(PUPNPLIB_DIR)/ixml/src/inc \
 +             -I$(PUPNPLIB_DIR)/threadutil/inc \
 +             -I$(PUPNPLIB_DIR)/threadutil/src/inc \
-+             -O2 -DNDEBUG -DNO_DEBUG
++             -O2 -DNDEBUG -DNO_DEBUG \
++             -Wno-undef -Wno-missing-field-initializers \
++             -Wno-strict-prototypes -Wno-stringop-overflow
 +
 +OTHER_SRC += $(PUPNPLIB_SRC)
 +CORE_LIBS += $(PUPNPLIB)
@@ -83499,10 +83499,10 @@ index 0000000000..7cd1209d40
 +#endif /* EXCLUDE_MINISERVER */
 diff --git a/lib/pupnp/upnp/src/genlib/net/http/httpparser.c b/lib/pupnp/upnp/src/genlib/net/http/httpparser.c
 new file mode 100644
-index 0000000000..f68b44e350
+index 0000000000..aa62dd465f
 --- /dev/null
 +++ b/lib/pupnp/upnp/src/genlib/net/http/httpparser.c
-@@ -0,0 +1,2229 @@
+@@ -0,0 +1,2228 @@
 +/*******************************************************************************
 + *
 + * Copyright (c) 2000-2003 Intel Corporation 
@@ -83542,7 +83542,6 @@ index 0000000000..f68b44e350
 + */
 +
 +#ifndef _GNU_SOURCE
-+#define _GNU_SOURCE	/* For strcasestr() in string.h */
 +#endif
 +
 +#include "config.h"
@@ -105177,31 +105176,84 @@ index 23904ba681..43ff7b2156 100644
  }
  
  /* this is the codec entry point */
+diff --git a/lib/rbcodec/codecs/libfaad/faad_config.h b/lib/rbcodec/codecs/libfaad/faad_config.h
+index 163b55669e..7408d1a162 100644
+--- a/lib/rbcodec/codecs/libfaad/faad_config.h
++++ b/lib/rbcodec/codecs/libfaad/faad_config.h
+@@ -81,18 +81,33 @@
+ #define PACKAGE "faad2"
+ 
+ /* Define to the address where bug reports for this package should be sent. */
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_BUGREPORT
++#endif
+ #define PACKAGE_BUGREPORT ""
+ 
+ /* Define to the full name of this package. */
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_NAME
++#endif
+ #define PACKAGE_NAME ""
+ 
+ /* Define to the full name and version of this package. */
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_STRING
++#endif
+ #define PACKAGE_STRING ""
+ 
+ /* Define to the one symbol short name of this package. */
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_TARNAME
++#endif
+ #define PACKAGE_TARNAME ""
+ 
+ /* Define to the version of this package. */
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_VERSION
++#endif
+ #define PACKAGE_VERSION ""
+ 
+ /* Define to 1 if you have the ANSI C header files. */
 diff --git a/lib/rbcodec/codecs/libspeex/config-speex.h b/lib/rbcodec/codecs/libspeex/config-speex.h
-index a7b0c1855a..abbc13a3fa 100644
+index a7b0c1855a..7c93d22ba6 100644
 --- a/lib/rbcodec/codecs/libspeex/config-speex.h
 +++ b/lib/rbcodec/codecs/libspeex/config-speex.h
-@@ -108,18 +108,23 @@
+@@ -108,18 +108,38 @@
  #define HAVE_UNISTD_H 1
  
  /* Define to the address where bug reports for this package should be sent. */
 +#undef PACKAGE_BUGREPORT
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_BUGREPORT
++#endif
  #define PACKAGE_BUGREPORT ""
  
  /* Define to the full name of this package. */
 +#undef PACKAGE_NAME
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_NAME
++#endif
  #define PACKAGE_NAME ""
  
  /* Define to the full name and version of this package. */
 +#undef PACKAGE_STRING
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_STRING
++#endif
  #define PACKAGE_STRING ""
  
  /* Define to the one symbol short name of this package. */
 +#undef PACKAGE_TARNAME
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_TARNAME
++#endif
  #define PACKAGE_TARNAME ""
  
  /* Define to the version of this package. */
 +#undef PACKAGE_VERSION
++#if defined(CAYIN_N3PRO)
++#undef PACKAGE_VERSION
++#endif
  #define PACKAGE_VERSION ""
  
  /* Reduce precision to 16 bits (EXPERIMENTAL) */
