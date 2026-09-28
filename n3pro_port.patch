@@ -65886,10 +65886,10 @@ index 0000000000..2dd505228d
 +
 diff --git a/lib/pupnp/pupnp.make b/lib/pupnp/pupnp.make
 new file mode 100644
-index 0000000000..671c947aa8
+index 0000000000..0e80523abc
 --- /dev/null
 +++ b/lib/pupnp/pupnp.make
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,58 @@
 +#             __________               __   ___.
 +#   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
 +#   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
@@ -65928,6 +65928,26 @@ index 0000000000..671c947aa8
 +	$(SILENT)mkdir -p $(dir $@)
 +	$(call PRINTS,CC $(subst $(ROOTDIR)/,,$<)) \
 +		$(CC) $(PUPNPFLAGS) -c $< -o $@
++
++# The ixml sources include ixmlparser.h / ixmlmembuf.h by bare name; the
++# build dependency machinery maps such headers into $(BUILDDIR), so provide
++# them there (the real files live in ixml/src/inc).
++$(BUILDDIR)/ixmlparser.h: $(PUPNPLIB_DIR)/ixml/src/inc/ixmlparser.h
++	$(SILENT)cp $< $@
++$(BUILDDIR)/ixmlmembuf.h: $(PUPNPLIB_DIR)/ixml/src/inc/ixmlmembuf.h
++	$(SILENT)cp $< $@
++
++# The pupnp sources include their own headers by bare name (ssdplib.h,
++# httpparser.h, ...); the build dependency machinery maps those into
++# $(BUILDDIR), so provide them there from wherever they live in the tree.
++$(BUILDDIR)/%.h: $(PUPNPLIB_DIR)/upnp/src/inc/%.h
++	$(SILENT)cp $< $@
++$(BUILDDIR)/%.h: $(PUPNPLIB_DIR)/ixml/src/inc/%.h
++	$(SILENT)cp $< $@
++$(BUILDDIR)/%.h: $(PUPNPLIB_DIR)/threadutil/src/inc/%.h
++	$(SILENT)cp $< $@
++$(BUILDDIR)/%.h: $(PUPNPLIB_DIR)/%.h
++	$(SILENT)cp $< $@
 diff --git a/lib/pupnp/threadutil/inc/FreeList.h b/lib/pupnp/threadutil/inc/FreeList.h
 new file mode 100644
 index 0000000000..aaf1e0fe96

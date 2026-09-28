@@ -36,3 +36,23 @@ $(BUILDDIR)/lib/pupnp/%.o: $(ROOTDIR)/lib/pupnp/%.c
 	$(SILENT)mkdir -p $(dir $@)
 	$(call PRINTS,CC $(subst $(ROOTDIR)/,,$<)) \
 		$(CC) $(PUPNPFLAGS) -c $< -o $@
+
+# The ixml sources include ixmlparser.h / ixmlmembuf.h by bare name; the
+# build dependency machinery maps such headers into $(BUILDDIR), so provide
+# them there (the real files live in ixml/src/inc).
+$(BUILDDIR)/ixmlparser.h: $(PUPNPLIB_DIR)/ixml/src/inc/ixmlparser.h
+	$(SILENT)cp $< $@
+$(BUILDDIR)/ixmlmembuf.h: $(PUPNPLIB_DIR)/ixml/src/inc/ixmlmembuf.h
+	$(SILENT)cp $< $@
+
+# The pupnp sources include their own headers by bare name (ssdplib.h,
+# httpparser.h, ...); the build dependency machinery maps those into
+# $(BUILDDIR), so provide them there from wherever they live in the tree.
+$(BUILDDIR)/%.h: $(PUPNPLIB_DIR)/upnp/src/inc/%.h
+	$(SILENT)cp $< $@
+$(BUILDDIR)/%.h: $(PUPNPLIB_DIR)/ixml/src/inc/%.h
+	$(SILENT)cp $< $@
+$(BUILDDIR)/%.h: $(PUPNPLIB_DIR)/threadutil/src/inc/%.h
+	$(SILENT)cp $< $@
+$(BUILDDIR)/%.h: $(PUPNPLIB_DIR)/%.h
+	$(SILENT)cp $< $@
