@@ -32,6 +32,11 @@ DLNAFLAGS = -I$(DLNALIB_DIR) \
 OTHER_SRC += $(DLNALIB_SRC)
 CORE_LIBS := $(DLNALIB) $(CORE_LIBS)
 
+# The include paths and -DHAVE_DLNA_OUTPUT must reach these sources no matter
+# which object rule make ends up picking for them (the dedicated pattern rule
+# below is not always preferred over the generic $(BUILDDIR)/%.o one).
+CFLAGS += $(DLNAFLAGS)
+
 $(DLNALIB): $(DLNALIB_OBJ)
 	$(SILENT)$(shell rm -f $@)
 	$(call PRINTS,AR $(@F))$(AR) rcs $@ $^ >/dev/null
@@ -39,4 +44,4 @@ $(DLNALIB): $(DLNALIB_OBJ)
 $(BUILDDIR)/apps/dlna/%.o: $(ROOTDIR)/apps/dlna/%.c
 	$(SILENT)mkdir -p $(dir $@)
 	$(call PRINTS,CC $(subst $(ROOTDIR)/,,$<)) \
-		$(CC) $(CFLAGS) $(DLNAFLAGS) -c $< -o $@
+		$(CC) $(CFLAGS) -c $< -o $@
