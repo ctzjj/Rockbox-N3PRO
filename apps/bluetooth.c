@@ -287,37 +287,17 @@ static int bt_output_menu(void)
 {
     int action = -1;
 
-    /* Output and receive are mutually exclusive: while the receive
-     * path owns the radio and the wired output, refuse to route. */
+    /* Bluetooth output is a ROUTE, not a source: it is just the ALSA
+     * playback device the shared PCM driver writes to, so every input
+     * source (local playback, the network radio, the DLNA renderer, the
+     * USB-DAC input) may use it.  The only exception is the Bluetooth
+     * receive path itself: the vendor stack cannot run the earphone
+     * output PCM and the receive PCM at the same time. */
     if (bt_input_active())
     {
         splash(HZ * 2, bt_str(LANG_BT_RX_ACTIVE));
         return 0;
     }
-#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
-    /* the USB DAC is a hard input and cannot be preempted */
-    if (usb_audio_get_active())
-    {
-        splash(HZ * 2, bt_str(LANG_USB_DAC_ACTIVE));
-        return 0;
-    }
-#endif
-    /* Bluetooth output is a route of local playback: like local playback,
-     * refuse while a network source owns the output. */
-#ifdef HAVE_NETFM
-    if (netfm_stream_is_active())
-    {
-        splash(HZ * 2, bt_str(LANG_NETFM_CONFLICT));
-        return 0;
-    }
-#endif
-#ifdef HAVE_DLNA
-    if (dlna_stream_is_active())
-    {
-        splash(HZ * 2, bt_str(LANG_NETFM_CONFLICT));
-        return 0;
-    }
-#endif
 
     while (true)
     {

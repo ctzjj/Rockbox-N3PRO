@@ -60,10 +60,10 @@ index 9812851388..1411aca776 100644
  toolsicon.130x130x16.bmp
 diff --git a/apps/bluetooth.c b/apps/bluetooth.c
 new file mode 100644
-index 0000000000..8c27e5bda7
+index 0000000000..e76facc80c
 --- /dev/null
 +++ b/apps/bluetooth.c
-@@ -0,0 +1,617 @@
+@@ -0,0 +1,597 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -353,37 +353,17 @@ index 0000000000..8c27e5bda7
 +{
 +    int action = -1;
 +
-+    /* Output and receive are mutually exclusive: while the receive
-+     * path owns the radio and the wired output, refuse to route. */
++    /* Bluetooth output is a ROUTE, not a source: it is just the ALSA
++     * playback device the shared PCM driver writes to, so every input
++     * source (local playback, the network radio, the DLNA renderer, the
++     * USB-DAC input) may use it.  The only exception is the Bluetooth
++     * receive path itself: the vendor stack cannot run the earphone
++     * output PCM and the receive PCM at the same time. */
 +    if (bt_input_active())
 +    {
 +        splash(HZ * 2, bt_str(LANG_BT_RX_ACTIVE));
 +        return 0;
 +    }
-+#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
-+    /* the USB DAC is a hard input and cannot be preempted */
-+    if (usb_audio_get_active())
-+    {
-+        splash(HZ * 2, bt_str(LANG_USB_DAC_ACTIVE));
-+        return 0;
-+    }
-+#endif
-+    /* Bluetooth output is a route of local playback: like local playback,
-+     * refuse while a network source owns the output. */
-+#ifdef HAVE_NETFM
-+    if (netfm_stream_is_active())
-+    {
-+        splash(HZ * 2, bt_str(LANG_NETFM_CONFLICT));
-+        return 0;
-+    }
-+#endif
-+#ifdef HAVE_DLNA
-+    if (dlna_stream_is_active())
-+    {
-+        splash(HZ * 2, bt_str(LANG_NETFM_CONFLICT));
-+        return 0;
-+    }
-+#endif
 +
 +    while (true)
 +    {
@@ -10120,7 +10100,7 @@ index e503365546..a0d815adbe 100644
  };
  
 diff --git a/apps/gui/wps.c b/apps/gui/wps.c
-index 12fda68824..dab88e9bcd 100644
+index 12fda68824..85dc23d761 100644
 --- a/apps/gui/wps.c
 +++ b/apps/gui/wps.c
 @@ -34,6 +34,15 @@
@@ -10139,7 +10119,7 @@ index 12fda68824..dab88e9bcd 100644
  #include "status.h"
  #include "storage.h"
  #include "screens.h"
-@@ -721,6 +730,12 @@ long gui_wps_show(void)
+@@ -721,6 +730,18 @@ long gui_wps_show(void)
      {
          splash(HZ*2, ID2P(LANG_USB_DAC_ACTIVE));
      }
@@ -10148,6 +10128,12 @@ index 12fda68824..dab88e9bcd 100644
 +    if (bt_input_active())
 +    {
 +        splash(HZ*2, ID2P(LANG_BT_RX_ACTIVE));
++    }
++#endif
++#ifdef HAVE_DLNA
++    if (dlna_stream_is_active())
++    {
++        splash(HZ*2, ID2P(LANG_NETFM_CONFLICT));
 +    }
  #endif
      long button = 0;
@@ -38988,7 +38974,7 @@ index 0000000000..14d91904d0
 +
 +#endif
 diff --git a/apps/playback.c b/apps/playback.c
-index 29f06dcb69..45269801d1 100644
+index 29f06dcb69..fc292790d5 100644
 --- a/apps/playback.c
 +++ b/apps/playback.c
 @@ -45,6 +45,12 @@
@@ -39014,7 +39000,7 @@ index 29f06dcb69..45269801d1 100644
  #include "splash.h"
  #include "lang.h"
  #endif
-@@ -3005,6 +3014,26 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
+@@ -3005,6 +3014,31 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
          queue_reply(&audio_queue, 0);
          return;
      }
@@ -39035,9 +39021,14 @@ index 29f06dcb69..45269801d1 100644
 +        netfm_stream_stop_async();
 +#endif
 +#ifdef HAVE_DLNA
-+    /* The DLNA renderer is a soft source too: take the output over. */
++    /* The DLNA renderer owns the output while it plays: refuse local
++     * playback (see the gui_wps_show splash), like the BT receive pump.
++     * Only the radio below is preempted by local playback. */
 +    if (dlna_stream_is_active())
-+        dlna_stream_stop_async();
++    {
++        queue_reply(&audio_queue, 0);
++        return;
++    }
  #endif
      static struct audio_resume_info resume = { 0, 0 };
      enum play_status old_status = play_status;
@@ -46647,7 +46638,7 @@ index 24edac9bb7..abe64990ad 100644
                    "eq enabled", eq_enabled_option_callback),
 diff --git a/apps/web_control.c b/apps/web_control.c
 new file mode 100644
-index 0000000000..27750c035e
+index 0000000000..b473be280a
 --- /dev/null
 +++ b/apps/web_control.c
 @@ -0,0 +1,2259 @@
@@ -47367,7 +47358,7 @@ index 0000000000..27750c035e
 +#endif
 +#ifdef HAVE_DLNA
 +    if (dlna_stream_is_active())
-+        dlna_stream_stop();
++        return false;               /* the renderer owns the output */
 +#endif
 +#if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
 +    if (usb_audio_get_active())

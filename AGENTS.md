@@ -212,7 +212,7 @@ Sources that cannot be stopped safely are refused instead of preempted.
 
 | start \ running | local | radio | DLNA | BT-in | USB-DAC |
 |---|---|---|---|---|---|
-| **local / web**  | — | stop radio | stop DLNA | refuse | refuse |
+| **local / web**  | — | stop radio | refuse | refuse | refuse |
 | **radio**        | stop local | — | stop DLNA | refuse | refuse |
 | **DLNA**         | stop local | stop radio | — | refuse | refuse |
 | **BT-in**        | stop local | stop radio | stop DLNA | — | refuse |
@@ -229,8 +229,9 @@ Notes:
   in **stops** local / radio / DLNA / BT receive.
 - **BT receive** is refused by the others (stopping it means tearing down the
   A2DP sink), but *entering* BT receive stops the soft sources.
-- Local playback / web remote preempts radio & DLNA but **refuses** the hard
-  inputs (BT receive / USB-DAC).
+- Local playback / web remote preempts the radio but **refuses** DLNA (the
+  renderer owns the output while it plays) and the hard inputs
+  (BT receive / USB-DAC).
 
 ### Bluetooth input vs output (unchanged)
 
@@ -243,15 +244,19 @@ work above does not touch this.
 ### Where it lives
 
 - `apps/playback.c` `audio_start_playback` — local playback **stops** the
-  radio (`netfm_stream_stop_async()`) and DLNA (`dlna_stream_stop_async()`);
-  **refuses** BT / USB.
-- `apps/web_control.c` `web_local_playback` — same: stops radio / DLNA,
-  **refuses** BT / USB.
+  radio (`netfm_stream_stop_async()`); **refuses** DLNA / BT / USB (the DLNA
+  refusal is mirrored by the `apps/gui/wps.c` `gui_wps_show` splash).
+- `apps/web_control.c` `web_local_playback` — stops the radio;
+  **refuses** DLNA / BT / USB.
 - `apps/netfm.c` `netfm_play_screen` — stops DLNA + local; **refuses** BT/USB.
 - `apps/dlna/dlna.c` `dlna_menu` — stops radio + local (on *every* entry, even
   when the renderer is already up); **refuses** BT/USB.
 - `apps/bluetooth.c` `bt_rx_screen` — stops radio + DLNA + local; **refuses**
-  USB.  `bt_output_menu` **refuses** radio / DLNA / USB.
+  USB.  `bt_output_menu` **refuses** only `bt_input_active()` (the vendor stack
+  cannot run the receive PCM and the earphone-output PCM at once): Bluetooth
+  output is a *route*, so any source — local playback, the radio, DLNA, the
+  USB DAC — may connect its audio to the earphones; disconnecting falls back
+  to wired `plughw:0,0`.
 - USB-DAC driver (`firmware/target/hosted/hiby/usb-dac-hiby.c` and the N3Pro
   gadget path) — on plug-in stops local / radio / DLNA / BT.
 - Backstop: the netfm and DLNA monitors yield to `bt_input_active()` /

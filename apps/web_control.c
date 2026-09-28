@@ -714,7 +714,7 @@ static bool web_local_playback(void)
 #endif
 #ifdef HAVE_DLNA
     if (dlna_stream_is_active())
-        dlna_stream_stop();
+        return false;               /* the renderer owns the output */
 #endif
 #if defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO)
     if (usb_audio_get_active())

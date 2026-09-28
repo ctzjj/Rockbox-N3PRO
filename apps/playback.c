@@ -3031,9 +3031,14 @@ static void audio_start_playback(const struct audio_resume_info *resume_info,
         netfm_stream_stop_async();
 #endif
 #ifdef HAVE_DLNA
-    /* The DLNA renderer is a soft source too: take the output over. */
+    /* The DLNA renderer owns the output while it plays: refuse local
+     * playback (see the gui_wps_show splash), like the BT receive pump.
+     * Only the radio below is preempted by local playback. */
     if (dlna_stream_is_active())
-        dlna_stream_stop_async();
+    {
+        queue_reply(&audio_queue, 0);
+        return;
+    }
 #endif
     static struct audio_resume_info resume = { 0, 0 };
     enum play_status old_status = play_status;

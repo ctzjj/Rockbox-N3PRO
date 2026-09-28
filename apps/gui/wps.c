@@ -737,6 +737,12 @@ long gui_wps_show(void)
         splash(HZ*2, ID2P(LANG_BT_RX_ACTIVE));
     }
 #endif
+#ifdef HAVE_DLNA
+    if (dlna_stream_is_active())
+    {
+        splash(HZ*2, ID2P(LANG_NETFM_CONFLICT));
+    }
+#endif
     long button = 0;
     bool restore = true;
     bool exit = false;
