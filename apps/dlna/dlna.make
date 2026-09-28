@@ -34,7 +34,9 @@ CORE_LIBS := $(DLNALIB) $(CORE_LIBS)
 
 # The include paths and -DHAVE_DLNA_OUTPUT must reach these sources no matter
 # which object rule make ends up picking for them (the dedicated pattern rule
-# below is not always preferred over the generic $(BUILDDIR)/%.o one).
+# below is not always preferred over the generic $(BUILDDIR)/%.o one).  Use a
+# target-specific variable so the GMediaRender PACKAGE_* defines stay out of
+# the global CFLAGS (they clash with libspeex's config-speex.h).
 CFLAGS += $(DLNAFLAGS)
 
 $(DLNALIB): $(DLNALIB_OBJ)

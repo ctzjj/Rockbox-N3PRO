@@ -1186,10 +1186,10 @@ index 0000000000..e2ddb3c185
 +#endif
 diff --git a/apps/dlna/dlna.make b/apps/dlna/dlna.make
 new file mode 100644
-index 0000000000..be8fbf07d8
+index 0000000000..69bc0fcb98
 --- /dev/null
 +++ b/apps/dlna/dlna.make
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,49 @@
 +#             __________               __   ___.
 +#   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
 +#   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
@@ -1226,7 +1226,9 @@ index 0000000000..be8fbf07d8
 +
 +# The include paths and -DHAVE_DLNA_OUTPUT must reach these sources no matter
 +# which object rule make ends up picking for them (the dedicated pattern rule
-+# below is not always preferred over the generic $(BUILDDIR)/%.o one).
++# below is not always preferred over the generic $(BUILDDIR)/%.o one).  Use a
++# target-specific variable so the GMediaRender PACKAGE_* defines stay out of
++# the global CFLAGS (they clash with libspeex's config-speex.h).
 +CFLAGS += $(DLNAFLAGS)
 +
 +$(DLNALIB): $(DLNALIB_OBJ)
@@ -105175,6 +105177,34 @@ index 23904ba681..43ff7b2156 100644
  }
  
  /* this is the codec entry point */
+diff --git a/lib/rbcodec/codecs/libspeex/config-speex.h b/lib/rbcodec/codecs/libspeex/config-speex.h
+index a7b0c1855a..abbc13a3fa 100644
+--- a/lib/rbcodec/codecs/libspeex/config-speex.h
++++ b/lib/rbcodec/codecs/libspeex/config-speex.h
+@@ -108,18 +108,23 @@
+ #define HAVE_UNISTD_H 1
+ 
+ /* Define to the address where bug reports for this package should be sent. */
++#undef PACKAGE_BUGREPORT
+ #define PACKAGE_BUGREPORT ""
+ 
+ /* Define to the full name of this package. */
++#undef PACKAGE_NAME
+ #define PACKAGE_NAME ""
+ 
+ /* Define to the full name and version of this package. */
++#undef PACKAGE_STRING
+ #define PACKAGE_STRING ""
+ 
+ /* Define to the one symbol short name of this package. */
++#undef PACKAGE_TARNAME
+ #define PACKAGE_TARNAME ""
+ 
+ /* Define to the version of this package. */
++#undef PACKAGE_VERSION
+ #define PACKAGE_VERSION ""
+ 
+ /* Reduce precision to 16 bits (EXPERIMENTAL) */
 diff --git a/lib/rbcodec/dsp/dsp_proc_database.h b/lib/rbcodec/dsp/dsp_proc_database.h
 index b56fac3b84..5ee08b137e 100644
 --- a/lib/rbcodec/dsp/dsp_proc_database.h
