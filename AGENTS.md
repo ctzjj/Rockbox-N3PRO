@@ -94,9 +94,20 @@ firmware/target/hosted/cayin/n3pro/                 the N3Pro target driver
 apps/keymaps/keymap-n3pro.c                         keymap (scroll wheel + HOME)
 apps/wifi_menu.{c,h}, apps/menus/wifi_menu.c         WiFi menu — generic UI over the
                                                       `firmware/export/wifi_hal.h` HAL contract
+                                                      (incl. the `HAVE_WIFI_SSH` toggle row:
+                                                      label from a per-refresh `pidof sshd`
+                                                      cache, never a popen per row draw)
 apps/web_control.{c,h}                              web control server (HTTP + WebSocket,
                                                       entered from the WiFi menu)
 firmware/target/hosted/cayin/n3pro/n3pro-wifi.c      the n3pro wifi HAL (wpa_cli + vendor scripts)
+                                                      + SSH toggle: sets a precomputed SHA-512
+                                                      hash of "Rockbox" on the locked root
+                                                      account in /etc/shadow, then starts the
+                                                      vendor `/bin/sshd -o PermitRootLogin=yes
+                                                      -o PasswordAuthentication=yes`
+                                                      (ssh-keygen -A first); stop = SIGTERM all
+                                                      sshd pids; sshd is also killed on WiFi
+                                                      off / reset
 web/control/                                        web control frontend; `make zip/fullzip`
                                                       ships it to `.rockbox/web/control`
                                                       (n3pro hook in `tools/buildzip.pl`)
