@@ -224,6 +224,7 @@ target/hosted/cayin/n3pro/cayin-n3pro.c
 target/hosted/cayin/n3pro/led-n3pro.c
 target/hosted/cayin/n3pro/n3pro-bt-input.c
 target/hosted/cayin/n3pro/n3pro-bluetooth.c
+target/hosted/cayin/n3pro/n3pro-usb-out.c
 #ifdef HAVE_WIFI_MENU
 target/hosted/cayin/n3pro/n3pro-wifi.c
 #endif

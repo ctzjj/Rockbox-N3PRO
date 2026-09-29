@@ -46493,7 +46493,7 @@ index f9b170a52d..e999825baa 100644
      dsp_eq_enable(global_settings.eq_enabled);
      dsp_set_eq_precut(global_settings.eq_precut);
 diff --git a/apps/settings.h b/apps/settings.h
-index 5a0f4f83e3..ce4a86c3aa 100644
+index 5a0f4f83e3..ed66440469 100644
 --- a/apps/settings.h
 +++ b/apps/settings.h
 @@ -401,6 +401,27 @@ struct user_settings
@@ -46535,7 +46535,7 @@ index 5a0f4f83e3..ce4a86c3aa 100644
  #ifdef AUDIOHW_HAVE_EQ
      /** Hardware EQ tone controls **/
      struct hw_eq_band
-@@ -907,6 +932,19 @@ struct user_settings
+@@ -907,6 +932,22 @@ struct user_settings
      int play_frequency; /* core audio output frequency selection */
  #endif
      int volume_limit; /* maximum volume limit */
@@ -46544,6 +46544,9 @@ index 5a0f4f83e3..ce4a86c3aa 100644
 +     * output's level is swapped with global_status.volume on route change. */
 +    int bt_volume;
 +    bool bt_volume_set; /* false until derived from the wired volume */
++    /* Separate volume for the USB DAC output (same model). */
++    int usb_volume;
++    bool usb_volume_set; /* false until derived from the wired volume */
 +#endif
 +
 +#ifdef HAVE_WIFI_MENU
@@ -46556,7 +46559,7 @@ index 5a0f4f83e3..ce4a86c3aa 100644
  #ifdef HAVE_PERCEPTUAL_VOLUME
      int volume_adjust_mode;
 diff --git a/apps/settings_list.c b/apps/settings_list.c
-index 24edac9bb7..abe64990ad 100644
+index 24edac9bb7..a9a0018d4b 100644
 --- a/apps/settings_list.c
 +++ b/apps/settings_list.c
 @@ -645,7 +645,124 @@ static void crossfeed_cross_set(int val)
@@ -46685,7 +46688,7 @@ index 24edac9bb7..abe64990ad 100644
  }
  
  static void surround_set_factor(int val)
-@@ -1072,6 +1189,18 @@ static void hp_lo_select_apply(int arg)
+@@ -1072,6 +1189,23 @@ static void hp_lo_select_apply(int arg)
  const struct settings_list settings[] = {
  /* system_status settings .resume.cfg */
      SYSTEM_STATUS_SOUND(F_NO_WRAP, volume, LANG_VOLUME, "volume", SOUND_VOLUME),
@@ -46694,6 +46697,11 @@ index 24edac9bb7..abe64990ad 100644
 +    INT_SETTING_NOWRAP(0, bt_volume, LANG_BLUETOOTH, -300, "bt volume",
 +                       UNIT_INT, -1020, 0, 5, NULL, NULL, NULL),
 +    OFFON_SETTING(0, bt_volume_set, LANG_BLUETOOTH, false, "bt volume set",
++                  NULL),
++    /* Independent USB DAC output volume; same model as bluetooth. */
++    INT_SETTING_NOWRAP(0, usb_volume, LANG_VOLUME, -300, "usb volume",
++                       UNIT_INT, -1020, 0, 5, NULL, NULL, NULL),
++    OFFON_SETTING(0, usb_volume_set, LANG_VOLUME, false, "usb volume set",
 +                  NULL),
 +#endif
 +#ifdef HAVE_WIFI_MENU
@@ -46704,7 +46712,7 @@ index 24edac9bb7..abe64990ad 100644
  #ifdef HAVE_PITCHCONTROL
      SYSTEM_STATUS(F_SOUNDSETTING, resume_pitch, PITCH_SPEED_100, "pitch"),
      SYSTEM_STATUS(F_SOUNDSETTING, resume_speed, PITCH_SPEED_100, "speed"),
-@@ -1199,7 +1328,10 @@ const struct settings_list settings[] = {
+@@ -1199,7 +1333,10 @@ const struct settings_list settings[] = {
  
  #ifdef AUDIOHW_HAVE_FILTER_ROLL_OFF
      CHOICE_SETTING(F_SOUNDSETTING, roll_off, LANG_FILTER_ROLL_OFF, 0,
@@ -46716,7 +46724,7 @@ index 24edac9bb7..abe64990ad 100644
                     "roll_off", "linear fast,linear slow,minimum fast,minimum slow,apodizing 1,apodizing 2,hybrid fast,brick wall", sound_set_filter_roll_off,
                     8, ID2P(LANG_FILTER_LINEAR_FAST), ID2P(LANG_FILTER_LINEAR_SLOW), ID2P(LANG_FILTER_MINIMUM_FAST), ID2P(LANG_FILTER_MINIMUM_SLOW),
                     ID2P(LANG_FILTER_APODIZING_1), ID2P(LANG_FILTER_APODIZING_2), ID2P(LANG_FILTER_HYBRID_FAST), ID2P(LANG_FILTER_BRICK_WALL)),
-@@ -1225,6 +1357,12 @@ const struct settings_list settings[] = {
+@@ -1225,6 +1362,12 @@ const struct settings_list settings[] = {
                     2, ID2P(LANG_DAC_POWER_HIGH), ID2P(LANG_DAC_POWER_LOW)),
  #endif
  
@@ -46729,7 +46737,7 @@ index 24edac9bb7..abe64990ad 100644
      /* playback */
      OFFON_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, playlist_shuffle,
                    LANG_SHUFFLE, false, "shuffle", shuffle_playlist_callback),
-@@ -1964,6 +2102,74 @@ const struct settings_list settings[] = {
+@@ -1964,6 +2107,74 @@ const struct settings_list settings[] = {
                         "crossfeed hf cutoff", UNIT_HERTZ, 500, 2000, 100,
                         NULL, NULL, crossfeed_cross_set),
  
@@ -49812,7 +49820,7 @@ index afe701efe2..eea5791f32 100644
      \group sound
      \conditions (defined(HAVE_PITCHCONTROL))
 diff --git a/firmware/SOURCES b/firmware/SOURCES
-index 02a9d7cd83..ccdad3ae82 100644
+index 02a9d7cd83..be32ea81f8 100644
 --- a/firmware/SOURCES
 +++ b/firmware/SOURCES
 @@ -161,7 +161,9 @@ target/hosted/lc-unix.c
@@ -49825,7 +49833,7 @@ index 02a9d7cd83..ccdad3ae82 100644
  target/hosted/power-linux.c
  #endif
  
-@@ -211,6 +213,25 @@ target/hosted/agptek/rocker_codec.c
+@@ -211,6 +213,26 @@ target/hosted/agptek/rocker_codec.c
  #endif
  #endif
  
@@ -49840,6 +49848,7 @@ index 02a9d7cd83..ccdad3ae82 100644
 +target/hosted/cayin/n3pro/led-n3pro.c
 +target/hosted/cayin/n3pro/n3pro-bt-input.c
 +target/hosted/cayin/n3pro/n3pro-bluetooth.c
++target/hosted/cayin/n3pro/n3pro-usb-out.c
 +#ifdef HAVE_WIFI_MENU
 +target/hosted/cayin/n3pro/n3pro-wifi.c
 +#endif
@@ -49851,7 +49860,7 @@ index 02a9d7cd83..ccdad3ae82 100644
  #if defined(SURFANS_F28) && !defined(SIMULATOR)
  target/hosted/surfans/button-f28.c
  target/hosted/surfans/debug-f28.c
-@@ -233,7 +254,7 @@ target/hosted/xduoo/xduoolinux_codec.c
+@@ -233,7 +255,7 @@ target/hosted/xduoo/xduoolinux_codec.c
  target/hosted/button-devinput.c
  #endif
  
@@ -50971,10 +50980,10 @@ index 20c76cab4b..03b3dbf2bf 100644
  #endif
 diff --git a/firmware/target/hosted/cayin/n3pro/button-n3pro.c b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
 new file mode 100644
-index 0000000000..6a0b04e7fc
+index 0000000000..cb31cbf12e
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/button-n3pro.c
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,140 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -51002,6 +51011,7 @@ index 0000000000..6a0b04e7fc
 +#include "hibylinux_codec.h"
 +#ifndef BOOTLOADER
 +#include "cayin-n3pro.h"
++#include "n3pro-usb-pcm.h"
 +#endif
 +#ifdef HAVE_BACKLIGHT
 +#include "backlight.h"
@@ -51104,6 +51114,12 @@ index 0000000000..6a0b04e7fc
 +        int ps = hiby_get_outputs();
 +        present = (ps != CAYIN_OUTPUT_NONE);
 +        cayin_tube_tick(ps);
++        /* The USB DAC output does not use the analogue jacks: report the
++         * phones as present while that route is active so the core never
++         * fires a plug/unplug event (and thus never pauses) -- the tube
++         * is switched off for this route anyway. */
++        if (pcm_alsa_is_usb_active())
++            present = true;
 +    }
 +    return present;
 +#endif
@@ -51181,10 +51197,10 @@ index 0000000000..961cdf087c
 +#endif /* _BUTTON_TARGET_H_ */
 diff --git a/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c
 new file mode 100644
-index 0000000000..9e92e4c32f
+index 0000000000..f23a48cad8
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/cayin-n3pro.c
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,169 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -51215,6 +51231,7 @@ index 0000000000..9e92e4c32f
 +#include "alsa-controls.h"
 +#include "cayin-n3pro.h"
 +#include "n3pro-bt-pcm.h"
++#include "n3pro-usb-pcm.h"
 +#include "bt_input.h"
 +
 +#define TIMBRE_PATH      CAYIN_N3PRO_SYSFS_BASE "/timbre_select"
@@ -51309,9 +51326,9 @@ index 0000000000..9e92e4c32f
 +        return;
 +    }
 +
-+    /* 2. Bluetooth OUTPUT bypasses the tube entirely: switch it off
-+     *    straight away while audio is routed there. */
-+    if (pcm_alsa_is_bluetooth_active())
++    /* 2. Digital outputs (bluetooth, USB DAC) bypass the tube entirely:
++     *    switch it off straight away while audio is routed there. */
++    if (pcm_alsa_is_bluetooth_active() || pcm_alsa_is_usb_active())
 +    {
 +        tube_off_now();
 +        return;
@@ -51851,10 +51868,10 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..b09d2bfdba
+index 0000000000..1ae305da08
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1667 @@
+@@ -0,0 +1,1676 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -51909,6 +51926,7 @@ index 0000000000..b09d2bfdba
 +#include "sound.h"
 +#include "pcm-alsa.h"
 +#include "n3pro-bt-pcm.h"
++#include "n3pro-usb-pcm.h"
 +#include "bt_audio.h"
 +#include "bt_input.h"
 +#include "button-devinput.h"
@@ -52706,8 +52724,12 @@ index 0000000000..b09d2bfdba
 +        sleep(HZ / 4);
 +    }
 +
-+    pcm_alsa_switch_playback_device(BT_LOCAL_PLAYBACK_DEVICE);
++    pcm_alsa_switch_playback_device(n3pro_usb_wired_device());
 +    bt_vol_enter_local();
++    /* When the wired output resolves to the USB DAC, its independent
++     * volume takes over from the hardware level just restored. */
++    if (pcm_alsa_is_usb_active())
++        n3pro_usb_vol_enter();
 +
 +    if (was_playing)
 +        audio_resume();
@@ -52740,9 +52762,12 @@ index 0000000000..b09d2bfdba
 +        bt_peer_linked(mac))
 +    {
 +        /* Switch to the independent bluetooth volume (the softvol follows
-+         * it); the earpiece volume is left alone. */
++         * it); the earpiece volume is left alone.  Leaving the USB
++         * volume domain first keeps the swap anchored to the hardware
++         * level when bluetooth takes the output from the USB DAC. */
 +        pcm_alsa_bt_link_lost_clear();
 +        bt_watchdog_start();
++        n3pro_usb_vol_leave();
 +        bt_vol_enter_bt();
 +        bt_kick_audio_if_playing();
 +        return true;
@@ -52775,6 +52800,7 @@ index 0000000000..b09d2bfdba
 +            pcm_alsa_bt_link_lost_clear();
 +            bt_watchdog_start();
 +            bt_set_selected_mac(mac);
++            n3pro_usb_vol_leave();
 +            bt_vol_enter_bt();
 +            bt_kick_audio_if_playing();
 +            return true;
@@ -54495,6 +54521,600 @@ index 0000000000..66ea95e0b5
 +bool n3pro_local_playback(void);
 +
 +#endif /* __N3PRO_BT_PCM_H__ */
+diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-usb-out.c b/firmware/target/hosted/cayin/n3pro/n3pro-usb-out.c
+new file mode 100644
+index 0000000000..4c2fec0a1a
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/n3pro-usb-out.c
+@@ -0,0 +1,402 @@
++/***************************************************************************
++ * N3Pro USB DAC output routing engine.
++ *
++ * Two threads cooperate (see n3pro-usb-pcm.h for the routing table):
++ *
++ *   - a raw pthread blocks on the kernel uevent multicast socket and
++ *     only bumps a sequence counter when a sound-device add/remove was
++ *     seen -- it never touches Rockbox APIs;
++ *   - a Rockbox thread sleeps in HZ/4 beats, picks the counter up and
++ *     performs the actual route change (pause -> re-open -> resume),
++ *     mirroring the bluetooth route's watchdog context so the pcm
++ *     switch stays on a non-audio thread, as pcm-alsa requires.
++ *
++ * The route change itself goes through pcm_alsa_switch_playback_device()
++ * exactly like the bluetooth route; the volume domain swap mirrors
++ * bt_vol_swap() in n3pro-bluetooth.c.
++ ****************************************************************************/
++#include "config.h"
++
++#ifdef CAYIN_N3PRO
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <pthread.h>
++#include <sys/socket.h>
++#include <linux/netlink.h>
++
++#include "kernel.h"
++#include "thread.h"
++#include "audio.h"
++#include "button.h"
++#include "splash.h"
++#include "settings.h"
++#include "sound.h"
++#include "pcm-alsa.h"
++#include "logf.h"
++#include "n3pro-usb-pcm.h"
++
++/* ------------------------------------------------------------------ */
++/* card discovery + alsa configuration                                 */
++/* ------------------------------------------------------------------ */
++
++bool n3pro_usb_card_discover(char *id, size_t idsz)
++{
++    FILE *f = fopen("/proc/asound/cards", "r");
++    char line[256];
++
++    if (!f || !id || idsz == 0)
++    {
++        if (f)
++            fclose(f);
++        return false;
++    }
++
++    while (fgets(line, sizeof(line), f))
++    {
++        /* "  3 [YSHIFIF801     ]: USB-Audio - YSHIFI-F801" -- the
++         * bracketed field is fixed width, so the trailing padding has
++         * to be trimmed or the card name never resolves. */
++        char *b = strchr(line, '[');
++        char *e = b ? strchr(b, ']') : NULL;
++        if (b && e && strstr(line, "]: USB-Audio"))
++        {
++            size_t n, s;
++
++            snprintf(id, idsz, "%.*s", (int)(e - b - 1), b + 1);
++
++            /* the bracketed field is fixed width: trim the padding */
++            n = strlen(id);
++            while (n > 0 && id[n - 1] == ' ')
++                id[--n] = '\0';
++            s = 0;
++            while (id[s] == ' ')
++                s++;
++            if (s > 0)
++                memmove(id, id + s, strlen(id + s) + 1);
++
++            fclose(f);
++            return id[0] != '\0';
++        }
++    }
++    fclose(f);
++    return false;
++}
++
++bool n3pro_usb_write_conf(const char *card_id)
++{
++    char buf[512];
++    /* The whole chain is built from plugin TYPES: the handle is opened
++     * against a private config tree that does not carry the standard
++     * pcm.* definitions, so named PCMs like "plughw:CARD=x" would not
++     * resolve.  The hw plugin takes the card id by name.  Volume is NOT
++     * wrapped in a softvol here: the shared 32-bit digital gain in
++     * pcm-alsa carries the USB level (see hibylinux_codec.c). */
++    int len = snprintf(buf, sizeof(buf),
++        "pcm.%s {\n"
++        "    type plug\n"
++        "    slave.pcm {\n"
++        "        type hw\n"
++        "        card %s\n"
++        "    }\n"
++        "}\n", N3PRO_USB_DEVICE, card_id);
++
++    if (len <= 0 || len >= (int)sizeof(buf))
++        return false;
++
++    FILE *f = fopen(N3PRO_USB_CONF, "r");
++    if (f)
++    {
++        char old[512];
++        size_t got = fread(old, 1, sizeof(old) - 1, f);
++        fclose(f);
++        old[got] = '\0';
++        if (strcmp(old, buf) == 0)
++            return true;               /* unchanged */
++    }
++
++    f = fopen(N3PRO_USB_CONF, "w");
++    if (!f)
++        return false;
++    fputs(buf, f);
++    fclose(f);
++    return true;
++}
++
++const char *n3pro_usb_wired_device(void)
++{
++    char id[32];
++    if (n3pro_usb_card_discover(id, sizeof(id)) &&
++        n3pro_usb_write_conf(id))
++        return N3PRO_USB_DEVICE;
++    return N3PRO_INT_DEVICE;
++}
++
++/* ------------------------------------------------------------------ */
++/* volume domain (mirrors bt_vol_swap in n3pro-bluetooth.c)            */
++/* ------------------------------------------------------------------ */
++
++/* ALSA card id the active USB route was opened for ("" = not routed).
++ * keep_hwdev() would keep the old handle alive on a same-name request,
++ * so a card swap must bounce through the internal device once. */
++static char usb_routed_id[32] = "";
++
++static bool usb_vol_on = false;
++
++static void usb_vol_swap(void)
++{
++    int t;
++
++    if (!global_settings.usb_volume_set)
++    {
++        global_settings.usb_volume = global_status.volume;
++        global_settings.usb_volume_set = true;
++    }
++
++    t = global_status.volume;
++    sound_set_volume(global_settings.usb_volume);
++    global_settings.usb_volume = t;
++    settings_save();
++}
++
++static void usb_vol_enter_usb(void)
++{
++    if (usb_vol_on)
++        return;
++    usb_vol_swap();
++    usb_vol_on = true;
++}
++
++static void usb_vol_enter_local(void)
++{
++    if (!usb_vol_on)
++        return;
++    usb_vol_swap();
++    usb_vol_on = false;
++}
++
++void n3pro_usb_vol_leave(void)
++{
++    usb_vol_enter_local();
++}
++
++/* Public entry for the bluetooth route when it falls back onto the USB
++ * output: enter the domain AND adopt the active card into the engine's
++ * retarget bookkeeping (the switch happened outside the engine). */
++void n3pro_usb_vol_enter(void)
++{
++    usb_vol_enter_usb();
++
++    if (pcm_alsa_is_usb_active() && usb_routed_id[0] == '\0')
++    {
++        char id[32];
++        if (n3pro_usb_card_discover(id, sizeof(id)))
++            snprintf(usb_routed_id, sizeof(usb_routed_id), "%s", id);
++    }
++}
++
++/* ------------------------------------------------------------------ */
++/* route changes                                                       */
++/* ------------------------------------------------------------------ */
++
++static bool usb_pause_if_playing(void)
++{
++    int status = audio_status();
++    if ((status & AUDIO_STATUS_PLAY) && !(status & AUDIO_STATUS_PAUSE))
++    {
++        audio_pause();
++        sleep(HZ / 4);
++        return true;
++    }
++    return false;
++}
++
++static void usb_route_to_internal(bool show_message)
++{
++    bool was_playing = usb_pause_if_playing();
++
++    pcm_alsa_switch_playback_device(N3PRO_INT_DEVICE);
++    usb_routed_id[0] = '\0';
++    usb_vol_enter_local();
++
++    if (was_playing)
++    {
++        /* Internal output needs a load: the jack state is real again now
++         * that the USB override is off, so only resume when something is
++         * plugged -- otherwise stay paused. */
++        if (headphones_inserted())
++            audio_resume();
++    }
++
++    if (show_message)
++        splash(HZ, "Output: Local");
++}
++
++/* Take the discovered card up.  When the USB route is already active on
++ * ANOTHER card, bounce through the internal device first so the usbvol
++ * PCM is really re-opened against the rewritten configuration. */
++static void usb_route_to_card(const char *id)
++{
++    bool was_playing;
++    bool retarget = pcm_alsa_is_usb_active() &&
++                    strcmp(usb_routed_id, id) != 0;
++
++    if (!n3pro_usb_write_conf(id))
++        return;
++
++    was_playing = usb_pause_if_playing();
++
++    if (retarget)
++    {
++        pcm_alsa_switch_playback_device(N3PRO_INT_DEVICE);
++        usb_vol_enter_local();
++    }
++
++    if (pcm_alsa_switch_playback_device(N3PRO_USB_DEVICE) == 0)
++    {
++        snprintf(usb_routed_id, sizeof(usb_routed_id), "%s", id);
++        usb_vol_enter_usb();
++        if (was_playing)
++            audio_resume();
++        logf("usb out: routed to card %s", id);
++        splash(HZ, "Output: USB DAC");
++    }
++    else
++    {
++        /* Could not open the card after all: put the internal device
++         * back and stay honest about the route. */
++        logf("usb out: open failed for card %s", id);
++        pcm_alsa_switch_playback_device(N3PRO_INT_DEVICE);
++        usb_routed_id[0] = '\0';
++        usb_vol_enter_local();
++        if (was_playing)
++            audio_resume();
++        splash(HZ, "USB DAC open failed");
++    }
++}
++
++/* ------------------------------------------------------------------ */
++/* uevent listener (raw pthread: only bumps the sequence counter)      */
++/* ------------------------------------------------------------------ */
++
++static volatile unsigned usb_evt_seq = 0;
++
++static void *usb_uevent_thread(void *arg)
++{
++    struct sockaddr_nl sa = { .nl_family = AF_NETLINK, .nl_groups = 1 };
++    char buf[4096];
++
++    (void)arg;
++
++    int s = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
++    if (s < 0)
++        return NULL;
++    if (bind(s, (void *)&sa, sizeof(sa)) < 0)
++    {
++        close(s);
++        return NULL;
++    }
++
++    while (true)
++    {
++        int n = recv(s, buf, sizeof(buf) - 1, 0);
++        if (n <= 0)
++            continue;
++        buf[n] = '\0';
++        /* first token: ACTION@DEVPATH */
++        if (strstr(buf, "/sound/card"))
++            usb_evt_seq++;
++    }
++    return NULL;
++}
++
++/* ------------------------------------------------------------------ */
++/* executor (rockbox thread)                                           */
++/* ------------------------------------------------------------------ */
++
++static void usb_route_executor(void)
++{
++    unsigned handled_seq = usb_evt_seq;
++    long start_tick = current_tick;
++
++    /* Let the freshly opened playback engine settle before the first
++     * route decision. */
++    while (TIME_BEFORE(current_tick, start_tick + 2 * HZ))
++        sleep(HZ / 4);
++
++    /* Initial decision: a DAC that was already plugged when this thread
++     * started had its uevents emitted long before the socket existed. */
++    if (!pcm_alsa_is_bluetooth_active())
++    {
++        char id[32];
++        if (n3pro_usb_card_discover(id, sizeof(id)) &&
++            !pcm_alsa_is_usb_active())
++            usb_route_to_card(id);
++    }
++
++    while (true)
++    {
++        sleep(HZ / 4);
++
++        unsigned seq = usb_evt_seq;
++
++        if (seq != handled_seq)
++        {
++            handled_seq = seq;
++
++            /* Bluetooth owns the output: drop the event; the route
++             * back from bluetooth resolves wired() on its own. */
++            if (pcm_alsa_is_bluetooth_active())
++                continue;
++
++            char id[32];
++            bool present = n3pro_usb_card_discover(id, sizeof(id));
++
++            if (present)
++            {
++                if (!pcm_alsa_is_usb_active() ||
++                    strcmp(usb_routed_id, id) != 0)
++                    usb_route_to_card(id);
++            }
++            else if (pcm_alsa_is_usb_active())
++                usb_route_to_internal(true);
++            else
++                pcm_alsa_usb_link_lost_clear();
++        }
++        else if (pcm_alsa_is_usb_active() && pcm_alsa_usb_link_lost())
++        {
++            /* the pump saw the PCM die: uevent backup path */
++            pcm_alsa_usb_link_lost_clear();
++            usb_route_to_internal(true);
++        }
++    }
++}
++
++static long usb_executor_stack[(DEFAULT_STACK_SIZE + 0x1000) / sizeof(long)];
++static bool usb_out_started = false;
++
++void n3pro_usb_out_start(void)
++{
++    pthread_t t;
++    pthread_attr_t attr;
++
++    if (usb_out_started)
++        return;
++    usb_out_started = true;
++
++    if (create_thread(usb_route_executor, usb_executor_stack,
++                      sizeof(usb_executor_stack), 0, "usb route"
++                      IF_PRIO(, PRIORITY_SYSTEM)
++                      IF_COP(, CPU)) <= 0)
++        usb_out_started = false;
++
++    pthread_attr_init(&attr);
++    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
++    if (pthread_create(&t, &attr, usb_uevent_thread, NULL) != 0)
++        usb_out_started = false;      /* executor still runs, uevent-less */
++    pthread_attr_destroy(&attr);
++}
++
++#endif /* CAYIN_N3PRO */
+diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-usb-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-usb-pcm-hooks.h
+new file mode 100644
+index 0000000000..38dc870e56
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/n3pro-usb-pcm-hooks.h
+@@ -0,0 +1,99 @@
++/***************************************************************************
++ * N3Pro USB DAC routing hooks for the shared hosted ALSA backend.
++ *
++ * Included directly by firmware/target/hosted/pcm-alsa.c for
++ * CAYIN_N3PRO, right after n3pro-bt-pcm-hooks.h (same pattern):
++ *
++ *   - open_hwdev() recognises the generated usbvol PCM and opens it
++ *     against a private config tree parsed from N3PRO_USB_CONF, so the
++ *     file can be rewritten at runtime (alsa-lib caches the global
++ *     config, exactly like the bluetooth route);
++ *   - the pump marks the link lost when the USB PCM dies under us;
++ *   - after the first successful open the routing engine in
++ *     n3pro-usb-out.c is started (executor + uevent listener).
++ ****************************************************************************/
++#ifndef __N3PRO_USB_PCM_HOOKS_H__
++#define __N3PRO_USB_PCM_HOOKS_H__
++
++#include "n3pro-usb-pcm.h"
++
++static bool n3pro_pcm_is_usb_device(const char *device)
++{
++    return device && !strcmp(device, N3PRO_USB_DEVICE);
++}
++
++/* Open the usbvol PCM through a private config tree parsed from our own
++ * alsa configuration file (kept beside the bt tree, never freed while a
++ * handle references it). */
++static snd_config_t *n3pro_usb_cfg = NULL;
++
++static int n3pro_usb_open(snd_pcm_t **pcm, snd_pcm_stream_t mode)
++{
++    snd_config_t *top = NULL;
++    snd_input_t *in = NULL;
++    int err;
++
++    if (n3pro_usb_cfg)
++    {
++        snd_config_delete(n3pro_usb_cfg);
++        n3pro_usb_cfg = NULL;
++    }
++
++    err = snd_config_top(&top);
++    if (err >= 0)
++        err = snd_input_stdio_open(&in, N3PRO_USB_CONF, "r");
++    if (err >= 0)
++    {
++        err = snd_config_load(top, in);
++        snd_input_close(in);
++    }
++    if (err >= 0)
++        err = snd_pcm_open_lconf(pcm, N3PRO_USB_DEVICE, mode, 0, top);
++
++    if (err >= 0)
++        n3pro_usb_cfg = top;
++    else if (top)
++        snd_config_delete(top);
++
++    return err;
++}
++
++/* Whether the engine is currently routed to the USB output. */
++bool pcm_alsa_is_usb_active(void)
++{
++    return current_alsa_device &&
++           !strcmp(current_alsa_device, N3PRO_USB_DEVICE);
++}
++
++/* Readiness probe: open + close the generated PCM. */
++int pcm_alsa_usb_probe(void)
++{
++    snd_pcm_t *pcm = NULL;
++    int err = n3pro_usb_open(&pcm, SND_PCM_STREAM_PLAYBACK);
++
++    if (err >= 0)
++        snd_pcm_close(pcm);
++
++    return err;
++}
++
++/* Raised by the pump when the USB PCM dies under us (card pulled while
++ * the uevent was missed); the executor acts on it. */
++static volatile bool n3pro_usb_link_lost_flag = false;
++
++static void n3pro_usb_mark_link_lost(void)
++{
++    n3pro_usb_link_lost_flag = true;
++}
++
++bool pcm_alsa_usb_link_lost(void)
++{
++    return n3pro_usb_link_lost_flag;
++}
++
++void pcm_alsa_usb_link_lost_clear(void)
++{
++    n3pro_usb_link_lost_flag = false;
++}
++
++#endif /* __N3PRO_USB_PCM_HOOKS_H__ */
+diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-usb-pcm.h b/firmware/target/hosted/cayin/n3pro/n3pro-usb-pcm.h
+new file mode 100644
+index 0000000000..118b3a5b07
+--- /dev/null
++++ b/firmware/target/hosted/cayin/n3pro/n3pro-usb-pcm.h
+@@ -0,0 +1,75 @@
++/***************************************************************************
++ * N3Pro USB DAC output routing (hosted ALSA backend).
++ *
++ * When a USB sound card appears on the OTG port the playback PCM is
++ * re-opened on it automatically: kernel uevents drive the switch, the
++ * executor thread performs it (see n3pro-usb-out.c), and the shared
++ * pcm-alsa.c backend learns about the device through the hooks in
++ * n3pro-usb-pcm-hooks.h -- the exact pattern the bluetooth output
++ * route established (n3pro-bt-pcm.h / n3pro-bt-pcm-hooks.h).
++ *
++ * Routing table (output devices only; no input modes take part):
++ *   INT  --usb add-->            USB
++ *   USB  --usb remove-->         INT
++ *   INT/USB --bt earphones-->    BT   (bluetooth preempts, existing logic)
++ *   BT   --bt gone-->            wired() = USB when present, else INT
++ *   USB  --pcm DISCONNECTED-->   INT   (pump fallback, uevent lost)
++ *   boot with DAC plugged:       USB
++ ****************************************************************************/
++#ifndef __N3PRO_USB_PCM_H__
++#define __N3PRO_USB_PCM_H__
++
++#include <stdbool.h>
++#include <stddef.h>
++
++/* Name of the generated playback PCM entry: a plug->softvol wrapper
++ * around the discovered card, written to N3PRO_USB_CONF (our own file;
++ * the vendor /etc/asound.conf belongs to the bluetooth route). */
++#define N3PRO_USB_DEVICE   "usbvol"
++#define N3PRO_USB_CONF     "/etc/asound-usb.conf"
++
++/* Internal wired output when no USB card is around (same literal the
++ * bluetooth route uses as its local device). */
++#define N3PRO_INT_DEVICE   "plughw:0,0"
++
++/* Find the first "USB-Audio" card in /proc/asound/cards and copy its
++ * ALSA card id (the bracketed name, e.g. "YSHIFIF801").  Card numbers
++ * are unstable across replugs, so every device string is built from the
++ * id.  Returns false when no USB card is present. */
++bool n3pro_usb_card_discover(char *id, size_t idsz);
++
++/* (Re)write N3PRO_USB_CONF so pcm.!usbvol wraps plughw:CARD=<id>.
++ * Skips the write when the content already matches; returns false when
++ * the file cannot be written (the route then stays away from USB). */
++bool n3pro_usb_write_conf(const char *card_id);
++
++/* Returns 0 when the generated usbvol PCM opens right now. */
++int pcm_alsa_usb_probe(void);
++
++/* True while the engine is routed to the USB output. */
++bool pcm_alsa_is_usb_active(void);
++
++/* Set by the data pump when the USB PCM dies under us (card pulled);
++ * the executor picks this up and falls back to the internal card. */
++bool pcm_alsa_usb_link_lost(void);
++void pcm_alsa_usb_link_lost_clear(void);
++
++/* Wired-output resolution: N3PRO_USB_DEVICE when a USB card is present
++ * and its configuration is writable, else N3PRO_INT_DEVICE.  Used by
++ * the bluetooth route when it falls back to the wired output. */
++const char *n3pro_usb_wired_device(void);
++
++/* Volume-domain management.  The USB route keeps an independent level
++ * (global_settings.usb_volume) exactly like the bluetooth route; this
++ * puts the hardware-volume level back before bluetooth takes over. */
++void n3pro_usb_vol_leave(void);
++
++/* Enter the USB volume domain (and adopt the active card when the route
++ * was switched by the bluetooth fallback rather than the engine). */
++void n3pro_usb_vol_enter(void);
++
++/* Start the uevent listener and the routing executor (once).  Called
++ * from the pcm backend after the first successful open. */
++void n3pro_usb_out_start(void);
++
++#endif /* __N3PRO_USB_PCM_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c b/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c
 new file mode 100644
 index 0000000000..e7cb64009f
@@ -55743,10 +56363,10 @@ index 0000000000..7ffc8b6996
 +    _usb_init = true;
 +}
 diff --git a/firmware/target/hosted/hiby/hibylinux_codec.c b/firmware/target/hosted/hiby/hibylinux_codec.c
-index 4cb445887d..37e47e2997 100644
+index 4cb445887d..085be8ada9 100644
 --- a/firmware/target/hosted/hiby/hibylinux_codec.c
 +++ b/firmware/target/hosted/hiby/hibylinux_codec.c
-@@ -35,6 +35,15 @@
+@@ -35,6 +35,16 @@
  
  #include "logf.h"
  
@@ -55755,6 +56375,7 @@ index 4cb445887d..37e47e2997 100644
 +#include "settings.h"
 +#include "sound.h"
 +#include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
++#include "n3pro-usb-pcm.h"  /* pcm_alsa_is_usb_active() */
 +#include "bt_input.h" /* bt_input_active() */
 +#include <alsa/asoundlib.h>
 +#endif
@@ -55762,7 +56383,7 @@ index 4cb445887d..37e47e2997 100644
  int hiby_has_valid_output(void);
  
  static int hw_init = 0;
-@@ -52,7 +61,11 @@ void audiohw_mute(int mute)
+@@ -52,7 +62,11 @@ void audiohw_mute(int mute)
  
      muted = mute;
  
@@ -55774,7 +56395,7 @@ index 4cb445887d..37e47e2997 100644
  }
  
  int hiby_has_valid_output(void) {
-@@ -62,6 +75,26 @@ int hiby_has_valid_output(void) {
+@@ -62,6 +76,26 @@ int hiby_has_valid_output(void) {
  
      if (!hw_init) return ps;
  
@@ -55801,7 +56422,7 @@ index 4cb445887d..37e47e2997 100644
      const char * const sysfs_hs_switch = "/sys/class/switch/headset/state";
      const char * const sysfs_bal_switch = "/sys/class/switch/balance/state";
  
-@@ -70,6 +103,7 @@ int hiby_has_valid_output(void) {
+@@ -70,6 +104,7 @@ int hiby_has_valid_output(void) {
  
      if (sysfs_get_int(sysfs_bal_switch, &status) && status)
          ps = 3; // balanced output
@@ -55809,7 +56430,7 @@ index 4cb445887d..37e47e2997 100644
  
      return ps;
  }
-@@ -109,12 +143,22 @@ void audiohw_preinit(void)
+@@ -109,12 +144,22 @@ void audiohw_preinit(void)
      hw_init = 1;
  
      audiohw_mute(false);  /* No need ? */
@@ -55832,7 +56453,7 @@ index 4cb445887d..37e47e2997 100644
  }
  
  void audiohw_close(void)
-@@ -129,6 +173,107 @@ void audiohw_set_frequency(int fsel)
+@@ -129,6 +174,142 @@ void audiohw_set_frequency(int fsel)
      (void)fsel;
  }
  
@@ -55935,12 +56556,47 @@ index 4cb445887d..37e47e2997 100644
 +        }
 +    }
 +}
++
++/* The USB DAC route has no hardware volume either, but its stream is the
++ * plain 32-bit path through pcm-alsa, so the whole curve can live in the
++ * shared digital gain (a 50 dB window) instead of a softvol control. */
++static void n3pro_set_usb_volume(int vol_cb)
++{
++    int min_vol = sound_min(SOUND_VOLUME);
++    int max_vol = sound_max(SOUND_VOLUME);
++    int span;
++    int pct;
++
++    if (global_settings.volume_limit < max_vol)
++        max_vol = global_settings.volume_limit;
++    if (max_vol < min_vol)
++        max_vol = min_vol;
++
++    if (vol_cb < min_vol)
++        vol_cb = min_vol;
++    if (vol_cb > max_vol)
++        vol_cb = max_vol;
++
++    span = max_vol - min_vol;
++    if (span <= 0)
++        pct = 100;
++    else
++        pct = ((vol_cb - min_vol) * 100 + span / 2) / span;
++
++    if (pct < 0)
++        pct = 0;
++    if (pct > 100)
++        pct = 100;
++
++    /* 0 dB at full, -50 dB at the bottom (centibels). */
++    pcm_set_mixer_volume((pct - 100) * 50, (pct - 100) * 50);
++}
 +#endif
 +
  void audiohw_set_volume(int vol_l, int vol_r)
  {
      logf("hw vol %d %d", vol_l, vol_r);
-@@ -138,26 +283,123 @@ void audiohw_set_volume(int vol_l, int vol_r)
+@@ -138,26 +319,129 @@ void audiohw_set_volume(int vol_l, int vol_r)
      vol_l_hw = vol_l;
      vol_r_hw = vol_r;
  
@@ -56012,6 +56668,12 @@ index 4cb445887d..37e47e2997 100644
 +         * sample stream at unity so the two attenuations do not stack. */
 +        pcm_set_mixer_volume(0, 0);
 +        n3pro_set_bt_volume((vol_l + vol_r) / 2);
++    }
++    else if (pcm_alsa_is_usb_active())
++    {
++        /* USB DAC route: no hardware volume sits in the path, so the
++         * shared 32-bit digital gain carries the whole curve. */
++        n3pro_set_usb_volume((vol_l + vol_r) / 2);
 +    }
 +    else
 +        pcm_set_mixer_volume(sw_gain[step_l], sw_gain[step_r]);
@@ -56703,7 +57365,7 @@ index 63661a1254..06369efc21 100644
          redraw();
      }
 diff --git a/firmware/target/hosted/pcm-alsa.c b/firmware/target/hosted/pcm-alsa.c
-index 10b379b03d..dd1853e7de 100644
+index 10b379b03d..fee0937c17 100644
 --- a/firmware/target/hosted/pcm-alsa.c
 +++ b/firmware/target/hosted/pcm-alsa.c
 @@ -99,7 +99,9 @@ static unsigned int xruns = 0;
@@ -56716,7 +57378,7 @@ index 10b379b03d..dd1853e7de 100644
  
  static const char *playback_dev = DEFAULT_PLAYBACK_DEVICE;
  
-@@ -111,11 +113,29 @@ static snd_pcm_stream_t current_alsa_mode;  /* SND_PCM_STREAM_PLAYBACK / _CAPTUR
+@@ -111,11 +113,31 @@ static snd_pcm_stream_t current_alsa_mode;  /* SND_PCM_STREAM_PLAYBACK / _CAPTUR
  
  static const char *current_alsa_device;
  
@@ -56724,6 +57386,8 @@ index 10b379b03d..dd1853e7de 100644
 +/* Dynamic output routing + the poll pump for the stock bluetooth PCM
 + * (see cayin/n3pro/n3pro-bt-pcm-hooks.h). */
 +#include "cayin/n3pro/n3pro-bt-pcm-hooks.h"
++/* USB DAC output routing hooks (see cayin/n3pro/n3pro-usb-pcm-hooks.h). */
++#include "cayin/n3pro/n3pro-usb-pcm-hooks.h"
 +#endif
 +
  void pcm_alsa_set_playback_device(const char *device)
@@ -56746,7 +57410,7 @@ index 10b379b03d..dd1853e7de 100644
  #ifdef HAVE_RECORDING
  void pcm_alsa_set_capture_device(const char *device)
  {
-@@ -137,6 +157,20 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
+@@ -137,6 +159,20 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
         Note these are in FRAMES, and are sized to be about 8.5ms
         for the buffer and 2.1ms for the period
       */
@@ -56767,7 +57431,7 @@ index 10b379b03d..dd1853e7de 100644
      if (sampr > SAMPR_96) {
          buffer_size = MIX_FRAME_SAMPLES * 4 * 4;
          period_size = MIX_FRAME_SAMPLES * 4;
-@@ -147,19 +181,31 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
+@@ -147,19 +183,31 @@ static int set_hwparams(snd_pcm_t *handle, unsigned long sampr)
          buffer_size = MIX_FRAME_SAMPLES * 4;
          period_size = MIX_FRAME_SAMPLES;
      }
@@ -56799,7 +57463,7 @@ index 10b379b03d..dd1853e7de 100644
          goto error;
      }
      /* set the sample format */
-@@ -381,6 +427,121 @@ static bool copy_frames(bool first)
+@@ -381,6 +429,123 @@ static bool copy_frames(bool first)
      return true;
  }
  
@@ -56838,6 +57502,8 @@ index 10b379b03d..dd1853e7de 100644
 +#if defined(CAYIN_N3PRO)
 +        if (n3pro_pcm_is_bt_device(current_alsa_device))
 +            n3pro_bt_mark_link_lost("pcm disconnected");
++        if (n3pro_pcm_is_usb_device(current_alsa_device))
++            n3pro_usb_mark_link_lost();
 +#endif
 +        return;
 +    }
@@ -56921,7 +57587,7 @@ index 10b379b03d..dd1853e7de 100644
  static void async_callback(snd_async_handler_t *ahandler)
  {
      int err;
-@@ -467,11 +628,15 @@ static void async_callback(snd_async_handler_t *ahandler)
+@@ -467,11 +632,17 @@ static void async_callback(snd_async_handler_t *ahandler)
                  }
  		continue;  /* buffer contents trashed, no sense in trying to copy */
              }
@@ -56936,13 +57602,15 @@ index 10b379b03d..dd1853e7de 100644
 +#if defined(CAYIN_N3PRO)
 +                    if (n3pro_pcm_is_bt_device(current_alsa_device))
 +                        n3pro_bt_mark_link_lost("write error");
++                    if (n3pro_pcm_is_usb_device(current_alsa_device))
++                        n3pro_usb_mark_link_lost();
 +#endif
 +                    break;
 +                }
  
              /* start the fake DMA transfer */
              if (!copy_frames(false))
-@@ -496,11 +661,18 @@ static void async_callback(snd_async_handler_t *ahandler)
+@@ -496,11 +667,18 @@ static void async_callback(snd_async_handler_t *ahandler)
  abort:
      pthread_mutex_unlock(&pcm_mtx);
  }
@@ -56961,7 +57629,7 @@ index 10b379b03d..dd1853e7de 100644
      if (handle) {
          snd_pcm_drain(handle);
  #ifdef AUDIOHW_MUTE_ON_STOP
-@@ -534,6 +706,10 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -534,6 +712,10 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
  
      logf("opendev %s (%p)", device, handle);
  
@@ -56972,7 +57640,7 @@ index 10b379b03d..dd1853e7de 100644
      if (handle && device == current_alsa_device
  #ifdef HAVE_RECORDING
          && current_alsa_mode == mode
-@@ -542,16 +718,38 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -542,16 +724,52 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
      {
          return;
      }
@@ -56994,6 +57662,18 @@ index 10b379b03d..dd1853e7de 100644
 +            return;
 +        }
 +    }
++    else if (n3pro_pcm_is_usb_device(device))
++    {
++        /* Generated usbvol PCM (see n3pro-usb-pcm-hooks.h): opened
++         * against a freshly parsed config tree so a rewritten card
++         * target is picked up; non-fatal like the bluetooth branch. */
++        if ((err = n3pro_usb_open(&handle, mode)) < 0)
++        {
++            logf("%s(): Cannot open usb PCM: %s", __func__, snd_strerror(err));
++            handle = NULL;
++            return;
++        }
++    }
 +    else
 +#endif
      if ((err = snd_pcm_open(&handle, device, mode, 0)) < 0)
@@ -57007,11 +57687,13 @@ index 10b379b03d..dd1853e7de 100644
 +     * plugin has no SIGIO support, and driving the wired PCM from both a
 +     * SIGIO handler and the poll thread races the kernel wait queues). */
 +    n3pro_pcm_after_open();
++    /* USB DAC routing: uevent listener + executor (starts itself once). */
++    n3pro_usb_out_start();
 +#else
      pthread_mutexattr_t attr;
      pthread_mutexattr_init(&attr);
      pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-@@ -585,6 +783,7 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
+@@ -585,6 +803,7 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
      {
          panicf("Unable to install alternative signal stack: %s", strerror(err));
      }
@@ -57019,7 +57701,7 @@ index 10b379b03d..dd1853e7de 100644
  
  #ifdef HAVE_RECORDING
      current_alsa_mode = mode;
-@@ -674,6 +873,18 @@ static void sink_dma_start(const void *addr, size_t size)
+@@ -674,6 +893,18 @@ static void sink_dma_start(const void *addr, size_t size)
      audiohw_mute(false);
  #endif
  

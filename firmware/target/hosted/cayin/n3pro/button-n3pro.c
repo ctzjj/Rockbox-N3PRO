@@ -25,6 +25,7 @@
 #include "hibylinux_codec.h"
 #ifndef BOOTLOADER
 #include "cayin-n3pro.h"
+#include "n3pro-usb-pcm.h"
 #endif
 #ifdef HAVE_BACKLIGHT
 #include "backlight.h"
@@ -127,6 +128,12 @@ bool headphones_inserted(void)
         int ps = hiby_get_outputs();
         present = (ps != CAYIN_OUTPUT_NONE);
         cayin_tube_tick(ps);
+        /* The USB DAC output does not use the analogue jacks: report the
+         * phones as present while that route is active so the core never
+         * fires a plug/unplug event (and thus never pauses) -- the tube
+         * is switched off for this route anyway. */
+        if (pcm_alsa_is_usb_active())
+            present = true;
     }
     return present;
 #endif

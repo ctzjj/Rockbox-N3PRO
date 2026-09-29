@@ -52,6 +52,7 @@
 #include "sound.h"
 #include "pcm-alsa.h"
 #include "n3pro-bt-pcm.h"
+#include "n3pro-usb-pcm.h"
 #include "bt_audio.h"
 #include "bt_input.h"
 #include "button-devinput.h"
@@ -849,8 +850,12 @@ static void bt_route_to_local(bool show_message)
         sleep(HZ / 4);
     }
 
-    pcm_alsa_switch_playback_device(BT_LOCAL_PLAYBACK_DEVICE);
+    pcm_alsa_switch_playback_device(n3pro_usb_wired_device());
     bt_vol_enter_local();
+    /* When the wired output resolves to the USB DAC, its independent
+     * volume takes over from the hardware level just restored. */
+    if (pcm_alsa_is_usb_active())
+        n3pro_usb_vol_enter();
 
     if (was_playing)
         audio_resume();
@@ -883,9 +888,12 @@ static bool bt_route_to_bluetooth(const char *mac)
         bt_peer_linked(mac))
     {
         /* Switch to the independent bluetooth volume (the softvol follows
-         * it); the earpiece volume is left alone. */
+         * it); the earpiece volume is left alone.  Leaving the USB
+         * volume domain first keeps the swap anchored to the hardware
+         * level when bluetooth takes the output from the USB DAC. */
         pcm_alsa_bt_link_lost_clear();
         bt_watchdog_start();
+        n3pro_usb_vol_leave();
         bt_vol_enter_bt();
         bt_kick_audio_if_playing();
         return true;
@@ -918,6 +926,7 @@ static bool bt_route_auto(const char *mac)
             pcm_alsa_bt_link_lost_clear();
             bt_watchdog_start();
             bt_set_selected_mac(mac);
+            n3pro_usb_vol_leave();
             bt_vol_enter_bt();
             bt_kick_audio_if_playing();
             return true;

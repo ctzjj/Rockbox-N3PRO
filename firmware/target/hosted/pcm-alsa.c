@@ -117,6 +117,8 @@ static const char *current_alsa_device;
 /* Dynamic output routing + the poll pump for the stock bluetooth PCM
  * (see cayin/n3pro/n3pro-bt-pcm-hooks.h). */
 #include "cayin/n3pro/n3pro-bt-pcm-hooks.h"
+/* USB DAC output routing hooks (see cayin/n3pro/n3pro-usb-pcm-hooks.h). */
+#include "cayin/n3pro/n3pro-usb-pcm-hooks.h"
 #endif
 
 void pcm_alsa_set_playback_device(const char *device)
@@ -462,6 +464,8 @@ static void pcm_pump_locked(snd_pcm_t *h)
 #if defined(CAYIN_N3PRO)
         if (n3pro_pcm_is_bt_device(current_alsa_device))
             n3pro_bt_mark_link_lost("pcm disconnected");
+        if (n3pro_pcm_is_usb_device(current_alsa_device))
+            n3pro_usb_mark_link_lost();
 #endif
         return;
     }
@@ -634,6 +638,8 @@ static void async_callback(snd_async_handler_t *ahandler)
 #if defined(CAYIN_N3PRO)
                     if (n3pro_pcm_is_bt_device(current_alsa_device))
                         n3pro_bt_mark_link_lost("write error");
+                    if (n3pro_pcm_is_usb_device(current_alsa_device))
+                        n3pro_usb_mark_link_lost();
 #endif
                     break;
                 }
@@ -736,6 +742,18 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
             return;
         }
     }
+    else if (n3pro_pcm_is_usb_device(device))
+    {
+        /* Generated usbvol PCM (see n3pro-usb-pcm-hooks.h): opened
+         * against a freshly parsed config tree so a rewritten card
+         * target is picked up; non-fatal like the bluetooth branch. */
+        if ((err = n3pro_usb_open(&handle, mode)) < 0)
+        {
+            logf("%s(): Cannot open usb PCM: %s", __func__, snd_strerror(err));
+            handle = NULL;
+            return;
+        }
+    }
     else
 #endif
     if ((err = snd_pcm_open(&handle, device, mode, 0)) < 0)
@@ -749,6 +767,8 @@ static void open_hwdev(const char *device, snd_pcm_stream_t mode)
      * plugin has no SIGIO support, and driving the wired PCM from both a
      * SIGIO handler and the poll thread races the kernel wait queues). */
     n3pro_pcm_after_open();
+    /* USB DAC routing: uevent listener + executor (starts itself once). */
+    n3pro_usb_out_start();
 #else
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);

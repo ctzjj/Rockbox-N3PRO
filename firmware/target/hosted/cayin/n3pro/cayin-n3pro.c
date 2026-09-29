@@ -28,6 +28,7 @@
 #include "alsa-controls.h"
 #include "cayin-n3pro.h"
 #include "n3pro-bt-pcm.h"
+#include "n3pro-usb-pcm.h"
 #include "bt_input.h"
 
 #define TIMBRE_PATH      CAYIN_N3PRO_SYSFS_BASE "/timbre_select"
@@ -122,9 +123,9 @@ void cayin_tube_tick(int out_ps)
         return;
     }
 
-    /* 2. Bluetooth OUTPUT bypasses the tube entirely: switch it off
-     *    straight away while audio is routed there. */
-    if (pcm_alsa_is_bluetooth_active())
+    /* 2. Digital outputs (bluetooth, USB DAC) bypass the tube entirely:
+     *    switch it off straight away while audio is routed there. */
+    if (pcm_alsa_is_bluetooth_active() || pcm_alsa_is_usb_active())
     {
         tube_off_now();
         return;

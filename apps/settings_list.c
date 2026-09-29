@@ -1195,6 +1195,11 @@ const struct settings_list settings[] = {
                        UNIT_INT, -1020, 0, 5, NULL, NULL, NULL),
     OFFON_SETTING(0, bt_volume_set, LANG_BLUETOOTH, false, "bt volume set",
                   NULL),
+    /* Independent USB DAC output volume; same model as bluetooth. */
+    INT_SETTING_NOWRAP(0, usb_volume, LANG_VOLUME, -300, "usb volume",
+                       UNIT_INT, -1020, 0, 5, NULL, NULL, NULL),
+    OFFON_SETTING(0, usb_volume_set, LANG_VOLUME, false, "usb volume set",
+                  NULL),
 #endif
 #ifdef HAVE_WIFI_MENU
     /* Remembered WiFi network; hand-editable in config.cfg. */

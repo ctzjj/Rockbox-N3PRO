@@ -90,6 +90,11 @@ firmware/target/hosted/cayin/n3pro/                 the N3Pro target driver
     powermgmt-n3pro.c                               battery curves (see "Battery")
     led-n3pro.c                                     RGB LED (LP5562 pattern engine)
     cayin-n3pro.c/.h                                tube / output routing housekeeping
+    n3pro-bluetooth.c / n3pro-bt-input.c/.h         BT output route + A2DP receive
+    n3pro-usb-out.c                                 USB DAC *output* route (uevent listener
+                                                      + executor, see the routing section)
+    n3pro-usb-pcm.h / n3pro-usb-pcm-hooks.h         USB route contract + ALSA backend hooks
+                                                      (private-config open, link-lost)
     n3pro_patcher.sh                                unpack + inject + pack a .upt
 apps/keymaps/keymap-n3pro.c                         keymap (scroll wheel + HOME)
 apps/wifi_menu.{c,h}, apps/menus/wifi_menu.c         WiFi menu — generic UI over the
@@ -252,6 +257,51 @@ BT receive and BT output are mutually exclusive at the vendor-stack level
 `bt_output_menu` **refuses** when `bt_input_active()`.  The output-ownership
 work above does not touch this.
 
+### USB DAC output route (event-driven, automatic)
+
+A USB sound card on the OTG port becomes the wired output automatically --
+no setting, no UI.  Kernel uevents (`NETLINK_KOBJECT_UEVENT`, filtered on
+`/sound/card`) drive the switch: a raw listener pthread only bumps a
+sequence counter, and a Rockbox thread performs the route change exactly
+like `bt_route_to_*` (pause -> re-open -> resume), because
+`pcm_alsa_switch_playback_device()` must stay off the audio threads.
+
+Routing table (output only; BT input/netfm/DLNA only *use* the wired
+output, they are not routing events):
+
+| current | event | target |
+|---|---|---|
+| INT | USB card add (BT route not active) | **USB** |
+| USB | USB card remove | **INT** |
+| INT / USB | BT earphones connect | **BT** (preempts) |
+| BT | BT link gone | `wired()` = USB when present, else INT |
+| USB | PCM `DISCONNECTED` (uevent lost; pump backstop) | **INT** |
+| boot | card already plugged | **USB** |
+
+- Card discovery parses `/proc/asound/cards` for the first `USB-Audio`
+  driver line and takes its bracketed id; **no DAC name is hardcoded**.
+  The bracket field is fixed width, so the padding **must be trimmed** --
+  a padded name makes `snd_card_get_index()` fail with
+  `pcm_hw.c:...(_snd_pcm_hw_open) Invalid value for card` (-ENODEV).
+- `n3pro_usb_write_conf()` (re)generates `/etc/asound-usb.conf` containing
+  `pcm.usbvol = type plug -> type hw card <id>`.  The handle is opened with
+  `snd_pcm_open_lconf()` against a private config tree (alsa-lib caches the
+  global config), so the chain may only use plugin *types*: named PCMs such
+  as `plughw:CARD=x` do not resolve in a bare tree.
+- Volume: independent domain `global_settings.usb_volume` /
+  `usb_volume_set` (same swap model as `bt_volume`), applied entirely by
+  the shared 32-bit digital gain (`pcm_set_mixer_volume()`, 50 dB window)
+  in `hibylinux_codec.c` -- no softvol control (its registration through
+  the private tree proved unreliable).  While the route is active
+  `audiohw_set_volume()` skips the AK4493 registers and drives that gain.
+- Tube: `cayin_tube_tick()` powers the tube off (`tube_off_now()`) while
+  the USB route is active, exactly like the bluetooth route.
+- Jack detection: `headphones_inserted()` (button-n3pro.c) reports
+  "present" while the USB route is active, so the core never fires
+  plug/unplug events and never pauses.  On USB unplug,
+  `usb_route_to_internal()` resumes only when a jack is inserted (the
+  analogue output needs a load), otherwise playback stays paused.
+
 ### Where it lives
 
 - `apps/playback.c` `audio_start_playback` — local playback **stops** the
@@ -267,7 +317,10 @@ work above does not touch this.
   cannot run the receive PCM and the earphone-output PCM at once): Bluetooth
   output is a *route*, so any source — local playback, the radio, DLNA, the
   USB DAC — may connect its audio to the earphones; disconnecting falls back
-  to wired `plughw:0,0`.
+  to `wired()` — the USB DAC route when a card is present, else `plughw:0,0`.
+- USB DAC *output* route (`n3pro-usb-out.c` + `n3pro-usb-pcm-hooks.h`) — a
+  route like the bluetooth output, driven by uevents; see the dedicated
+  subsection above.
 - USB-DAC driver (`firmware/target/hosted/hiby/usb-dac-hiby.c` and the N3Pro
   gadget path) — on plug-in stops local / radio / DLNA / BT.
 - Backstop: the netfm and DLNA monitors yield to `bt_input_active()` /

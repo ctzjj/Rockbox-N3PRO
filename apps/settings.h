@@ -937,6 +937,9 @@ struct user_settings
      * output's level is swapped with global_status.volume on route change. */
     int bt_volume;
     bool bt_volume_set; /* false until derived from the wired volume */
+    /* Separate volume for the USB DAC output (same model). */
+    int usb_volume;
+    bool usb_volume_set; /* false until derived from the wired volume */
 #endif
 
 #ifdef HAVE_WIFI_MENU

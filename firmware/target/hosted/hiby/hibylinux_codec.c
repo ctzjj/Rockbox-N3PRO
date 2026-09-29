@@ -40,6 +40,7 @@
 #include "settings.h"
 #include "sound.h"
 #include "n3pro-bt-pcm.h"   /* pcm_alsa_is_bluetooth_active() */
+#include "n3pro-usb-pcm.h"  /* pcm_alsa_is_usb_active() */
 #include "bt_input.h" /* bt_input_active() */
 #include <alsa/asoundlib.h>
 #endif
@@ -272,6 +273,41 @@ static void n3pro_set_bt_volume(int vol_cb)
         }
     }
 }
+
+/* The USB DAC route has no hardware volume either, but its stream is the
+ * plain 32-bit path through pcm-alsa, so the whole curve can live in the
+ * shared digital gain (a 50 dB window) instead of a softvol control. */
+static void n3pro_set_usb_volume(int vol_cb)
+{
+    int min_vol = sound_min(SOUND_VOLUME);
+    int max_vol = sound_max(SOUND_VOLUME);
+    int span;
+    int pct;
+
+    if (global_settings.volume_limit < max_vol)
+        max_vol = global_settings.volume_limit;
+    if (max_vol < min_vol)
+        max_vol = min_vol;
+
+    if (vol_cb < min_vol)
+        vol_cb = min_vol;
+    if (vol_cb > max_vol)
+        vol_cb = max_vol;
+
+    span = max_vol - min_vol;
+    if (span <= 0)
+        pct = 100;
+    else
+        pct = ((vol_cb - min_vol) * 100 + span / 2) / span;
+
+    if (pct < 0)
+        pct = 0;
+    if (pct > 100)
+        pct = 100;
+
+    /* 0 dB at full, -50 dB at the bottom (centibels). */
+    pcm_set_mixer_volume((pct - 100) * 50, (pct - 100) * 50);
+}
 #endif
 
 void audiohw_set_volume(int vol_l, int vol_r)
@@ -351,6 +387,12 @@ void audiohw_set_volume(int vol_l, int vol_r)
          * sample stream at unity so the two attenuations do not stack. */
         pcm_set_mixer_volume(0, 0);
         n3pro_set_bt_volume((vol_l + vol_r) / 2);
+    }
+    else if (pcm_alsa_is_usb_active())
+    {
+        /* USB DAC route: no hardware volume sits in the path, so the
+         * shared 32-bit digital gain carries the whole curve. */
+        n3pro_set_usb_volume((vol_l + vol_r) / 2);
     }
     else
         pcm_set_mixer_volume(sw_gain[step_l], sw_gain[step_r]);
