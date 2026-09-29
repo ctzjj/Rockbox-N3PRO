@@ -77,4 +77,12 @@ bool wifi_hal_forget(const char *ssid);
 /* Snapshot of the current link state. */
 bool wifi_hal_get_status(struct wifi_hal_status *st);
 
+/* Optional SSH server (hosted targets whose rootfs ships an sshd).
+ * The menu only shows the toggle when the target defines
+ * HAVE_WIFI_SSH; the HAL implementation must exist whenever that
+ * define is set. */
+bool wifi_hal_ssh_on(void);
+bool wifi_hal_ssh_off(void);
+bool wifi_hal_ssh_is_running(void);
+
 #endif /* WIFI_HAL_H */

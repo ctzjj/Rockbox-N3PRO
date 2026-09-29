@@ -258,6 +258,41 @@ static void wifi_flow_saved(void)
     }
 }
 
+#ifdef HAVE_WIFI_SSH
+struct wifi_mstate
+{
+    bool on;    /* wifi radio */
+    bool ssh;   /* sshd running */
+};
+#endif
+
+/* Toggle the SSH server (HAVE_WIFI_SSH targets). */
+#ifdef HAVE_WIFI_SSH
+static void wifi_flow_ssh(bool running)
+{
+    if (running)
+    {
+        splash(0, wifi_str(LANG_SSH_STOP));
+        wifi_hal_ssh_off();
+        splash(HZ * 2, wifi_str(LANG_SSH_STOPPED));
+    }
+    else
+    {
+        splash(0, wifi_str(LANG_SSH_START));
+        if (wifi_hal_ssh_on())
+        {
+            char ip[WIFI_HAL_IP_LEN];
+            if (wifi_hal_get_ip(ip, sizeof(ip)))
+                splashf(HZ * 4, "root@%s  pw: Rockbox", ip);
+            else
+                splash(HZ * 2, wifi_str(LANG_SSH_STARTED));
+        }
+        else
+            splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
+    }
+}
+#endif
+
 /* ------------------------------------------------------------------ */
 /* status screen                                                       */
 /* ------------------------------------------------------------------ */
@@ -439,11 +474,19 @@ static void wifi_flow_reset(void)
 static const char *wifi_menu_name_cb(int selected, void *data,
                                char *buffer, size_t buffer_len)
 {
+#ifdef HAVE_WIFI_SSH
+    struct wifi_mstate *st = data;
+    bool on = st->on;
+#else
     bool on = (bool)(intptr_t)data;
-    int ids[8] = { on ? LANG_WIFI_OFF : LANG_WIFI_ON,
-                   LANG_WIFI_SCAN, LANG_WIFI_SAVED, LANG_WIFI_STATUS,
-                   LANG_WIFI_RESET };
+#endif
+    int ids[9] = { on ? LANG_WIFI_OFF : LANG_WIFI_ON,
+                    LANG_WIFI_SCAN, LANG_WIFI_SAVED, LANG_WIFI_STATUS,
+                    LANG_WIFI_RESET };
     int count = 5;
+#ifdef HAVE_WIFI_SSH
+    ids[count++] = st->ssh ? LANG_SSH_STOP : LANG_SSH_START;
+#endif
 #ifdef HAVE_NETFM
     ids[count++] = LANG_NETFM;
 #endif
@@ -465,6 +508,9 @@ int wifi_menu(void)
     {
         bool on = wifi_hal_is_up();
         int count = 5;
+#ifdef HAVE_WIFI_SSH
+        count++;
+#endif
 #ifdef HAVE_NETFM
         count++;
 #endif
@@ -475,9 +521,16 @@ int wifi_menu(void)
         count++;
 #endif
 
+#ifdef HAVE_WIFI_SSH
+        struct wifi_mstate mstate = { on, wifi_hal_ssh_is_running() };
+        void *menu_data = &mstate;
+#else
+        void *menu_data = (void *)(intptr_t)on;
+#endif
+
         struct simplelist_info info;
         simplelist_info_init(&info, wifi_str(LANG_WIFI), count,
-                             (void *)(intptr_t)on);
+                             menu_data);
         info.get_name = wifi_menu_name_cb;
         info.selection = -1;
         info.title_icon = Icon_Submenu;
@@ -492,6 +545,9 @@ int wifi_menu(void)
                 if (on)
                 {
                     splash(0, wifi_str(LANG_WIFI_STOPPING));
+#ifdef HAVE_WIFI_SSH
+                    wifi_hal_ssh_off();
+#endif
 #ifdef HAVE_WEB_CONTROL
                     web_control_stop();
 #endif
@@ -516,6 +572,9 @@ int wifi_menu(void)
                 wifi_status_screen();
                 break;
             case 4:
+#ifdef HAVE_WIFI_SSH
+                wifi_hal_ssh_off();
+#endif
 #ifdef HAVE_WEB_CONTROL
                 web_control_stop();
 #endif
@@ -532,6 +591,14 @@ int wifi_menu(void)
                 /* optional entries beyond the fixed five; the chain
                  * mirrors the order the name callback builds them in */
                 int idx = 5;
+#ifdef HAVE_WIFI_SSH
+                if (info.selection == idx)
+                {
+                    wifi_flow_ssh(mstate.ssh);
+                    break;
+                }
+                idx++;
+#endif
 #ifdef HAVE_NETFM
                 if (info.selection == idx)
                 {

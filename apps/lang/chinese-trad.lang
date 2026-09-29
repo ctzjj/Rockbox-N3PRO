@@ -12317,6 +12317,62 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_SSH_START
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Start SSH"
+  </source>
+  <dest>
+    *: "開啟 SSH"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STOP
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Stop SSH"
+  </source>
+  <dest>
+    *: "關閉 SSH"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STARTED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "SSH started"
+  </source>
+  <dest>
+    *: "SSH 已開啟"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STOPPED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "SSH stopped"
+  </source>
+  <dest>
+    *: "SSH 已關閉"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
   id: LANG_WEB_CONTROL
   desc: used by the web control screen
   user: core

@@ -18310,6 +18310,62 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_SSH_START
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Start SSH"
+  </source>
+  <dest>
+    *: "Start SSH"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STOP
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Stop SSH"
+  </source>
+  <dest>
+    *: "Stop SSH"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STARTED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "SSH started"
+  </source>
+  <dest>
+    *: "SSH started"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STOPPED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "SSH stopped"
+  </source>
+  <dest>
+    *: "SSH stopped"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
   id: LANG_WEB_CONTROL
   desc: used by the web control screen
   user: core

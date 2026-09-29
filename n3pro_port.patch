@@ -12174,10 +12174,10 @@ index 3d046e9351..f226abbd7e 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..7ef04ec4d5 100644
+index 3c8be16c72..7098aab2b3 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,1870 @@
+@@ -17168,3 +17168,1926 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -13260,6 +13260,62 @@ index 3c8be16c72..7ef04ec4d5 100644
 +  </voice>
 +</phrase>
 +<phrase>
++  id: LANG_SSH_START
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Start SSH"
++  </source>
++  <dest>
++    *: "开启 SSH"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STOP
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Stop SSH"
++  </source>
++  <dest>
++    *: "关闭 SSH"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STARTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSH started"
++  </source>
++  <dest>
++    *: "SSH 已开启"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STOPPED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSH stopped"
++  </source>
++  <dest>
++    *: "SSH 已关闭"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
 +  id: LANG_WEB_CONTROL
 +  desc: used by the web control screen
 +  user: core
@@ -14049,10 +14105,10 @@ index 3c8be16c72..7ef04ec4d5 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-trad.lang b/apps/lang/chinese-trad.lang
-index 2ffee1e338..4f0562b9f1 100644
+index 2ffee1e338..fc03bc24df 100644
 --- a/apps/lang/chinese-trad.lang
 +++ b/apps/lang/chinese-trad.lang
-@@ -11238,3 +11238,1870 @@
+@@ -11238,3 +11238,1926 @@
      ibassodx50,ibassodx90: "CPU頻率管理器"
    </voice>
  </phrase>
@@ -15129,6 +15185,62 @@ index 2ffee1e338..4f0562b9f1 100644
 +  </source>
 +  <dest>
 +    *: "重置中..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_START
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Start SSH"
++  </source>
++  <dest>
++    *: "開啟 SSH"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STOP
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Stop SSH"
++  </source>
++  <dest>
++    *: "關閉 SSH"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STARTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSH started"
++  </source>
++  <dest>
++    *: "SSH 已開啟"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STOPPED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSH stopped"
++  </source>
++  <dest>
++    *: "SSH 已關閉"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -18164,7 +18276,7 @@ index 55028062cd..d37625122d 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..7331eded4e 100644
+index 4c2f0d58b0..9e2d9804c1 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -18230,7 +18342,7 @@ index 4c2f0d58b0..7331eded4e 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,1814 @@
+@@ -17231,3 +17287,1870 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -19251,6 +19363,62 @@ index 4c2f0d58b0..7331eded4e 100644
 +  </source>
 +  <dest>
 +    *: "Resetting..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_START
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Start SSH"
++  </source>
++  <dest>
++    *: "Start SSH"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STOP
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "Stop SSH"
++  </source>
++  <dest>
++    *: "Stop SSH"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STARTED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSH started"
++  </source>
++  <dest>
++    *: "SSH started"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_SSH_STOPPED
++  desc: WiFi menu
++  user: core
++  <source>
++    *: "SSH stopped"
++  </source>
++  <dest>
++    *: "SSH stopped"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -48937,10 +49105,10 @@ index 0000000000..931c362d29
 +#endif /* _WEB_CONTROL_H_ */
 diff --git a/apps/wifi_menu.c b/apps/wifi_menu.c
 new file mode 100644
-index 0000000000..d73cf3b9cf
+index 0000000000..fda13a176a
 --- /dev/null
 +++ b/apps/wifi_menu.c
-@@ -0,0 +1,566 @@
+@@ -0,0 +1,633 @@
 +/***************************************************************************
 + * Generic WiFi menu (framework only).
 + *
@@ -49201,6 +49369,41 @@ index 0000000000..d73cf3b9cf
 +    }
 +}
 +
++#ifdef HAVE_WIFI_SSH
++struct wifi_mstate
++{
++    bool on;    /* wifi radio */
++    bool ssh;   /* sshd running */
++};
++#endif
++
++/* Toggle the SSH server (HAVE_WIFI_SSH targets). */
++#ifdef HAVE_WIFI_SSH
++static void wifi_flow_ssh(bool running)
++{
++    if (running)
++    {
++        splash(0, wifi_str(LANG_SSH_STOP));
++        wifi_hal_ssh_off();
++        splash(HZ * 2, wifi_str(LANG_SSH_STOPPED));
++    }
++    else
++    {
++        splash(0, wifi_str(LANG_SSH_START));
++        if (wifi_hal_ssh_on())
++        {
++            char ip[WIFI_HAL_IP_LEN];
++            if (wifi_hal_get_ip(ip, sizeof(ip)))
++                splashf(HZ * 4, "root@%s  pw: Rockbox", ip);
++            else
++                splash(HZ * 2, wifi_str(LANG_SSH_STARTED));
++        }
++        else
++            splash(HZ * 2, wifi_str(LANG_WIFI_FAILED));
++    }
++}
++#endif
++
 +/* ------------------------------------------------------------------ */
 +/* status screen                                                       */
 +/* ------------------------------------------------------------------ */
@@ -49382,11 +49585,19 @@ index 0000000000..d73cf3b9cf
 +static const char *wifi_menu_name_cb(int selected, void *data,
 +                               char *buffer, size_t buffer_len)
 +{
++#ifdef HAVE_WIFI_SSH
++    struct wifi_mstate *st = data;
++    bool on = st->on;
++#else
 +    bool on = (bool)(intptr_t)data;
-+    int ids[8] = { on ? LANG_WIFI_OFF : LANG_WIFI_ON,
-+                   LANG_WIFI_SCAN, LANG_WIFI_SAVED, LANG_WIFI_STATUS,
-+                   LANG_WIFI_RESET };
++#endif
++    int ids[9] = { on ? LANG_WIFI_OFF : LANG_WIFI_ON,
++                    LANG_WIFI_SCAN, LANG_WIFI_SAVED, LANG_WIFI_STATUS,
++                    LANG_WIFI_RESET };
 +    int count = 5;
++#ifdef HAVE_WIFI_SSH
++    ids[count++] = st->ssh ? LANG_SSH_STOP : LANG_SSH_START;
++#endif
 +#ifdef HAVE_NETFM
 +    ids[count++] = LANG_NETFM;
 +#endif
@@ -49408,6 +49619,9 @@ index 0000000000..d73cf3b9cf
 +    {
 +        bool on = wifi_hal_is_up();
 +        int count = 5;
++#ifdef HAVE_WIFI_SSH
++        count++;
++#endif
 +#ifdef HAVE_NETFM
 +        count++;
 +#endif
@@ -49418,9 +49632,16 @@ index 0000000000..d73cf3b9cf
 +        count++;
 +#endif
 +
++#ifdef HAVE_WIFI_SSH
++        struct wifi_mstate mstate = { on, wifi_hal_ssh_is_running() };
++        void *menu_data = &mstate;
++#else
++        void *menu_data = (void *)(intptr_t)on;
++#endif
++
 +        struct simplelist_info info;
 +        simplelist_info_init(&info, wifi_str(LANG_WIFI), count,
-+                             (void *)(intptr_t)on);
++                             menu_data);
 +        info.get_name = wifi_menu_name_cb;
 +        info.selection = -1;
 +        info.title_icon = Icon_Submenu;
@@ -49435,6 +49656,9 @@ index 0000000000..d73cf3b9cf
 +                if (on)
 +                {
 +                    splash(0, wifi_str(LANG_WIFI_STOPPING));
++#ifdef HAVE_WIFI_SSH
++                    wifi_hal_ssh_off();
++#endif
 +#ifdef HAVE_WEB_CONTROL
 +                    web_control_stop();
 +#endif
@@ -49459,6 +49683,9 @@ index 0000000000..d73cf3b9cf
 +                wifi_status_screen();
 +                break;
 +            case 4:
++#ifdef HAVE_WIFI_SSH
++                wifi_hal_ssh_off();
++#endif
 +#ifdef HAVE_WEB_CONTROL
 +                web_control_stop();
 +#endif
@@ -49475,6 +49702,14 @@ index 0000000000..d73cf3b9cf
 +                /* optional entries beyond the fixed five; the chain
 +                 * mirrors the order the name callback builds them in */
 +                int idx = 5;
++#ifdef HAVE_WIFI_SSH
++                if (info.selection == idx)
++                {
++                    wifi_flow_ssh(mstate.ssh);
++                    break;
++                }
++                idx++;
++#endif
 +#ifdef HAVE_NETFM
 +                if (info.selection == idx)
 +                {
@@ -49891,10 +50126,10 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..33cb69e9a9
+index 0000000000..f388d8fce6
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,136 @@
 +/*
 + * This config file is for the Cayin N3Pro
 + */
@@ -49966,6 +50201,10 @@ index 0000000000..33cb69e9a9
 + * wifi_hal interface; the implementation lives in the n3pro target
 + * directory (n3pro-wifi.c, wpa_supplicant via wpa_cli). */
 +#define HAVE_WIFI_MENU
++/* SSH toggle in the WiFi menu: the vendor rootfs ships /bin/sshd; the
++ * n3pro wifi HAL starts it with root login enabled and sets the root
++ * password to "Rockbox" (n3pro-wifi.c). */
++#define HAVE_WIFI_SSH
 +#define HAVE_NETFM
 +/* Generic Bluetooth audio framework (apps/bluetooth.c) with its target
 + * driver half in target/hosted/cayin/n3pro/n3pro-bluetooth.c, and the
@@ -50153,10 +50392,10 @@ index 0000000000..477019af95
 +#endif
 diff --git a/firmware/export/wifi_hal.h b/firmware/export/wifi_hal.h
 new file mode 100644
-index 0000000000..10ff5545b0
+index 0000000000..3acacc6b15
 --- /dev/null
 +++ b/firmware/export/wifi_hal.h
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,88 @@
 +/***************************************************************************
 + * Generic WiFi HAL contract for hosted ports.
 + *
@@ -50235,6 +50474,14 @@ index 0000000000..10ff5545b0
 +
 +/* Snapshot of the current link state. */
 +bool wifi_hal_get_status(struct wifi_hal_status *st);
++
++/* Optional SSH server (hosted targets whose rootfs ships an sshd).
++ * The menu only shows the toggle when the target defines
++ * HAVE_WIFI_SSH; the HAL implementation must exist whenever that
++ * define is set. */
++bool wifi_hal_ssh_on(void);
++bool wifi_hal_ssh_off(void);
++bool wifi_hal_ssh_is_running(void);
 +
 +#endif /* WIFI_HAL_H */
 diff --git a/firmware/pcm.c b/firmware/pcm.c
@@ -54250,10 +54497,10 @@ index 0000000000..66ea95e0b5
 +#endif /* __N3PRO_BT_PCM_H__ */
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c b/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c
 new file mode 100644
-index 0000000000..127fe36b0e
+index 0000000000..e7cb64009f
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-wifi.c
-@@ -0,0 +1,448 @@
+@@ -0,0 +1,562 @@
 +/***************************************************************************
 + * WiFi HAL implementation for the Cayin N3Pro hosted port.
 + *
@@ -54270,6 +54517,9 @@ index 0000000000..127fe36b0e
 +#include <string.h>
 +#include <stdlib.h>
 +#include <unistd.h>
++#include <signal.h>
++#include <sys/stat.h>
++#include <sys/types.h>
 +
 +#include "kernel.h"
 +#include "wifi_hal.h"
@@ -54642,6 +54892,117 @@ index 0000000000..127fe36b0e
 +     * left untouched so the next power-on works normally. */
 +    system(WIFI_OFF_SH " >/dev/null 2>&1");
 +    sleep(HZ / 2);
++}
++
++/* ------------------------------------------------------------------ */
++/* SSH server                                                          */
++/* ------------------------------------------------------------------ */
++
++/* SHA-512 crypt of "Rockbox" with a fixed salt.  Precomputed at
++ * build time so no crypt() support is needed on the target. */
++#define SSH_ROOT_HASH \
++    "$6$R0ckb0xN3Pr0$beXbnnRcBgRB0inF.mqi7cV6j14tXnpYqJtzHwYFSVJKW9mzpSHvWd8IO2yKQnGRiXxrQ3qenElEaHl9187GW."
++
++/* Put the known password hash on the root account (its vendor entry
++ * is locked, which makes password logins impossible).  Every other
++ * field of the shadow line is preserved. */
++static bool ssh_set_root_password(void)
++{
++    static char buf[8192], out[8192];
++    FILE *f = fopen("/etc/shadow", "r");
++    if (!f)
++        return false;
++    size_t got = fread(buf, 1, sizeof(buf) - 1, f);
++    fclose(f);
++    if (got == 0)
++        return false;
++    buf[got] = '\0';
++
++    /* the root line: start of file or right after a newline */
++    char *line = buf;
++    if (strncmp(line, "root:", 5) != 0)
++    {
++        line = strstr(buf, "\nroot:");
++        if (!line)
++            return false;
++        line++;
++    }
++
++    /* password hash sits between the first and second colon */
++    char *f1 = strchr(line, ':');
++    char *f2 = f1 ? strchr(f1 + 1, ':') : NULL;
++    if (!f2)
++        return false;
++
++    if (strncmp(f1 + 1, SSH_ROOT_HASH, sizeof(SSH_ROOT_HASH) - 1) == 0)
++        return true;               /* already in place */
++
++    snprintf(out, sizeof(out), "%.*s%s%s", (int)(f1 + 1 - buf), buf,
++             SSH_ROOT_HASH, f2);
++
++    FILE *o = fopen("/etc/shadow.new", "w");
++    if (!o)
++        return false;
++    fputs(out, o);
++    fchmod(fileno(o), S_IRUSR | S_IWUSR);
++    fclose(o);
++
++    if (rename("/etc/shadow.new", "/etc/shadow") != 0)
++    {
++        remove("/etc/shadow.new");
++        return false;
++    }
++    return true;
++}
++
++bool wifi_hal_ssh_on(void)
++{
++    if (!ssh_set_root_password())
++        return false;
++
++    /* host keys on first use, then the daemon; the vendor
++     * sshd_config locks root login and passwords down */
++    system("ssh-keygen -A >/dev/null 2>&1");
++    if (system("/bin/sshd -o PermitRootLogin=yes "
++               "-o PasswordAuthentication=yes >/dev/null 2>&1") != 0)
++        return false;
++    sleep(HZ / 2);
++    return wifi_hal_ssh_is_running();
++}
++
++bool wifi_hal_ssh_off(void)
++{
++    char pids[128];
++    FILE *f = popen("pidof sshd 2>/dev/null", "r");
++    if (!f)
++        return false;
++    bool any = fgets(pids, sizeof(pids), f) != NULL;
++    pclose(f);
++
++    if (any)
++    {
++        char *sp;
++        for (char *p = strtok_r(pids, " \n", &sp); p;
++             p = strtok_r(NULL, " \n", &sp))
++        {
++            int pid = atoi(p);
++            if (pid > 1)
++                kill(pid, SIGTERM);
++        }
++        sleep(HZ / 4);
++    }
++    return !wifi_hal_ssh_is_running();
++}
++
++bool wifi_hal_ssh_is_running(void)
++{
++    char pids[128];
++    FILE *f = popen("pidof sshd 2>/dev/null", "r");
++    if (!f)
++        return false;
++    bool up = fgets(pids, sizeof(pids), f) != NULL;
++    pclose(f);
++    return up && pids[0] >= '0' && pids[0] <= '9';
 +}
 +
 +/* statusbar glyph query (statusbar_rf.h) */

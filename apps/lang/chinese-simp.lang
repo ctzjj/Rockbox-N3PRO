@@ -18247,6 +18247,62 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_SSH_START
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Start SSH"
+  </source>
+  <dest>
+    *: "开启 SSH"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STOP
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "Stop SSH"
+  </source>
+  <dest>
+    *: "关闭 SSH"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STARTED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "SSH started"
+  </source>
+  <dest>
+    *: "SSH 已开启"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SSH_STOPPED
+  desc: WiFi menu
+  user: core
+  <source>
+    *: "SSH stopped"
+  </source>
+  <dest>
+    *: "SSH 已关闭"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
   id: LANG_WEB_CONTROL
   desc: used by the web control screen
   user: core

@@ -69,6 +69,10 @@
  * wifi_hal interface; the implementation lives in the n3pro target
  * directory (n3pro-wifi.c, wpa_supplicant via wpa_cli). */
 #define HAVE_WIFI_MENU
+/* SSH toggle in the WiFi menu: the vendor rootfs ships /bin/sshd; the
+ * n3pro wifi HAL starts it with root login enabled and sets the root
+ * password to "Rockbox" (n3pro-wifi.c). */
+#define HAVE_WIFI_SSH
 #define HAVE_NETFM
 /* Generic Bluetooth audio framework (apps/bluetooth.c) with its target
  * driver half in target/hosted/cayin/n3pro/n3pro-bluetooth.c, and the

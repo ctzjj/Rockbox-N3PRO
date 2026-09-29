@@ -14,6 +14,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "kernel.h"
 #include "wifi_hal.h"
@@ -386,6 +389,117 @@ void wifi_hal_reset(void)
      * left untouched so the next power-on works normally. */
     system(WIFI_OFF_SH " >/dev/null 2>&1");
     sleep(HZ / 2);
+}
+
+/* ------------------------------------------------------------------ */
+/* SSH server                                                          */
+/* ------------------------------------------------------------------ */
+
+/* SHA-512 crypt of "Rockbox" with a fixed salt.  Precomputed at
+ * build time so no crypt() support is needed on the target. */
+#define SSH_ROOT_HASH \
+    "$6$R0ckb0xN3Pr0$beXbnnRcBgRB0inF.mqi7cV6j14tXnpYqJtzHwYFSVJKW9mzpSHvWd8IO2yKQnGRiXxrQ3qenElEaHl9187GW."
+
+/* Put the known password hash on the root account (its vendor entry
+ * is locked, which makes password logins impossible).  Every other
+ * field of the shadow line is preserved. */
+static bool ssh_set_root_password(void)
+{
+    static char buf[8192], out[8192];
+    FILE *f = fopen("/etc/shadow", "r");
+    if (!f)
+        return false;
+    size_t got = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    if (got == 0)
+        return false;
+    buf[got] = '\0';
+
+    /* the root line: start of file or right after a newline */
+    char *line = buf;
+    if (strncmp(line, "root:", 5) != 0)
+    {
+        line = strstr(buf, "\nroot:");
+        if (!line)
+            return false;
+        line++;
+    }
+
+    /* password hash sits between the first and second colon */
+    char *f1 = strchr(line, ':');
+    char *f2 = f1 ? strchr(f1 + 1, ':') : NULL;
+    if (!f2)
+        return false;
+
+    if (strncmp(f1 + 1, SSH_ROOT_HASH, sizeof(SSH_ROOT_HASH) - 1) == 0)
+        return true;               /* already in place */
+
+    snprintf(out, sizeof(out), "%.*s%s%s", (int)(f1 + 1 - buf), buf,
+             SSH_ROOT_HASH, f2);
+
+    FILE *o = fopen("/etc/shadow.new", "w");
+    if (!o)
+        return false;
+    fputs(out, o);
+    fchmod(fileno(o), S_IRUSR | S_IWUSR);
+    fclose(o);
+
+    if (rename("/etc/shadow.new", "/etc/shadow") != 0)
+    {
+        remove("/etc/shadow.new");
+        return false;
+    }
+    return true;
+}
+
+bool wifi_hal_ssh_on(void)
+{
+    if (!ssh_set_root_password())
+        return false;
+
+    /* host keys on first use, then the daemon; the vendor
+     * sshd_config locks root login and passwords down */
+    system("ssh-keygen -A >/dev/null 2>&1");
+    if (system("/bin/sshd -o PermitRootLogin=yes "
+               "-o PasswordAuthentication=yes >/dev/null 2>&1") != 0)
+        return false;
+    sleep(HZ / 2);
+    return wifi_hal_ssh_is_running();
+}
+
+bool wifi_hal_ssh_off(void)
+{
+    char pids[128];
+    FILE *f = popen("pidof sshd 2>/dev/null", "r");
+    if (!f)
+        return false;
+    bool any = fgets(pids, sizeof(pids), f) != NULL;
+    pclose(f);
+
+    if (any)
+    {
+        char *sp;
+        for (char *p = strtok_r(pids, " \n", &sp); p;
+             p = strtok_r(NULL, " \n", &sp))
+        {
+            int pid = atoi(p);
+            if (pid > 1)
+                kill(pid, SIGTERM);
+        }
+        sleep(HZ / 4);
+    }
+    return !wifi_hal_ssh_is_running();
+}
+
+bool wifi_hal_ssh_is_running(void)
+{
+    char pids[128];
+    FILE *f = popen("pidof sshd 2>/dev/null", "r");
+    if (!f)
+        return false;
+    bool up = fgets(pids, sizeof(pids), f) != NULL;
+    pclose(f);
+    return up && pids[0] >= '0' && pids[0] <= '9';
 }
 
 /* statusbar glyph query (statusbar_rf.h) */
