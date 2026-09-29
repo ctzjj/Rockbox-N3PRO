@@ -33,9 +33,14 @@ Download the ready-made image and SD-card payload from the
 | SD card (`/mnt/sd_0`) | working |
 | USB: Mass Storage / Charge only / ADB modes | working |
 | USB Audio (USB DAC, incl. "DAC + storage" and "DAC + ADB" gadgets) | working* |
+| USB DAC **output** (plug a USB sound card into the OTG port: automatic routing, own volume) | working |
 | Bluetooth output (A2DP earphones: scan / pair / connect, LDAC/APTX/AAC/SBC) | working |
 | Bluetooth input (phone A2DP → Rockbox DSP → wired outputs) | working |
+| WiFi menu (radio on/off, scan / connect / saved networks / status) | working |
 | Internet radio (WiFi → HTTP/HLS streaming, AAC/MP3, self-decoded) | working |
+| DLNA renderer (UPnP MediaRenderer, controlled from a phone/PC) | working |
+| Web control (browser remote: HTTP + WebSocket) | working |
+| SSH server toggle (WiFi menu; login `root` / `Rockbox`) | working |
 | RGB status LED (charge + playback, colour by sample rate) | working |
 | Battery gauge | working (kernel fuel gauge) |
 | Backlight / sleep | working |
@@ -74,6 +79,15 @@ in-box WinUSB driver, so the **libusb** adb backend is required
   vendor char device `/dev/uac_sa`; enabling it is `enable=0 -> functions=... ->
   enable=1`.  A dumb charger never enumerates, so the gadget `state` is used to
   tell a host from a charger.
+* USB **host**: in host mode (OTG adapter) the kernel `snd-usb-audio` driver
+  brings external sound cards up as ordinary ALSA cards; they are picked up
+  automatically (see *USB DAC output*).  The port is either host or gadget,
+  never both.
+* Backlight: the fade uses `bl_power` duty-cycling at 200 Hz from a bare
+  thread.  The alternative `brightness` path sends a panel command over the
+  LCD bus and blocks the kernel 12–30 ms per write, which used to stutter
+  DLNA / Bluetooth-input audio on screen blank/unblank; steady state is
+  unchanged (`bl_power` releases the driver's parked duty cycle).
 * Battery: the percentage comes from the kernel fuel gauge
   (`/sys/class/power_supply/battery/capacity`) and needs no calibration; the
   voltage/runtime curves use the same Li-ion range as the other HiBy ports.
@@ -88,6 +102,8 @@ in-box WinUSB driver, so the **libusb** adb backend is required
 * **Settings -> General Settings -> System -> LED indicators** enables the
   playback LED (charging indication is always shown).
 * **Settings -> Sound Settings**: *Filter roll-off* and *Tube Mode*.
+* **Main menu -> WiFi**: radio on/off, scan / saved networks / status, plus
+  the **internet radio**, **DLNA**, **web control** and **SSH** entries.
 * **Main menu -> 蓝牙 (Bluetooth)**: two entries — **蓝牙输出 (audio output)**
   and **蓝牙输入 (audio input)**, see below.
 
@@ -124,15 +140,61 @@ ALSA `bluetooth` plugin, BCM4345C5) through a two-entry menu:
   bluetooth output; the tubes follow the wired rules for received audio and
   are forced off on bluetooth output.
 
+## USB DAC output
+
+Plug a **USB sound card** into the player's USB-C/OTG port and playback
+moves to it automatically — no menu entry, no setting.  The switch is driven
+by kernel uevents, so plug and unplug are handled reliably:
+
+* **insert** → audio routes to the external DAC (any `USB-Audio` card; the
+  device is discovered by name at runtime, nothing is hardcoded)
+* **remove** → audio returns to the internal output; playback pauses when no
+  headphone is plugged (the analogue output needs a load) and continues when
+  one is
+* Bluetooth earphones still **take priority** over the DAC; when they
+  disconnect the output falls back to the DAC when one is present
+* while the DAC route is active the **electron-tube supply is switched off**
+  and the 3.5 mm **jack detection is suspended** (plugging headphones in or
+  out does not pause playback)
+* the DAC output has its **own volume level** (like Bluetooth), stored in
+  `config.cfg`; it is applied digitally in the player (50 dB range), so the
+  DAC's own hardware volume stays at full scale
+
+The USB-C port can only be a host (USB DAC output) or a gadget
+(ADB / USB Audio input / mass storage / charging) at one time — plugging a
+DAC takes the port over, unplugging restores the normal modes.
+
+## WiFi
+
+The WiFi menu (built on the vendor `wifi_on.sh` / `wpa_cli` stack) turns the
+radio on/off, scans and connects networks (the remembered ssid/password live
+in `config.cfg`), lists saved networks and shows link status.  Everything
+networked hangs off it:
+
+* **Internet radio** — HTTP/HLS streaming with its own decoder
+  (`apps/netfm*`), stations from `.rockbox/stream/netfm/netfm.txt`.
+* **DLNA renderer** — a UPnP MediaRenderer (`apps/dlna/`) driven by a
+  phone/PC controller; audio goes through the netfm pipeline and thus the
+  DSP chain (EQ and Sound settings apply).
+* **Web control** — a small browser remote (HTTP + WebSocket,
+  `apps/web_control.c`), pages under `.rockbox/web/control/`.
+* **SSH** — start/stop the vendor `sshd` from the menu.  Log in as `root`
+  with password **`Rockbox`** (the password is written to `/etc/shadow` on
+  first start; the server runs with root login enabled).
+
 ## Files
 
 The target driver lives in `firmware/target/hosted/cayin/n3pro/`, including
 **standalone LCD and USB drivers** (`lcd-n3pro.c`, `usb-n3pro.c` — the shared
 `lcd-linuxfb.c` / `usb-hiby.c` stay upstream-clean and are excluded for this
-target in `firmware/SOURCES`).  The Bluetooth manager is `apps/n3pro_bluetooth.c`
-(menu, pairing, routing, watchdog) with the receive pump in
-`firmware/target/hosted/cayin/n3pro/n3pro-bt-input.c` and the bluetooth PCM
-hooks in `n3pro-bt-pcm-hooks.h`.  The model header is
+target in `firmware/SOURCES`).  The Bluetooth manager is
+`firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c` (menu, pairing,
+routing, watchdog) with the receive pump in `n3pro-bt-input.c` and the
+bluetooth PCM hooks in `n3pro-bt-pcm-hooks.h`.  The **USB DAC output** route
+is `n3pro-usb-out.c` (uevent listener + executor) with the ALSA backend
+hooks in `n3pro-usb-pcm-hooks.h` and the contract in `n3pro-usb-pcm.h`.
+WiFi/SSH live in `n3pro-wifi.c` (wifi HAL + SSH toggle) under the generic
+`apps/wifi_menu.c` / `firmware/export/wifi_hal.h`.  The model header is
 `firmware/export/config/n3pro.h` and the keymap is
 `apps/keymaps/keymap-n3pro.c`.  Registration is in `tools/configure`,
 `tools/builds.pm`, `firmware/SOURCES`, `apps/SOURCES`,
@@ -141,7 +203,9 @@ The internet radio lives in `apps/netfm.{c,h}` (menu/status screen),
 `apps/netfm_stream.{c,h}` (HTTP/HLS worker + MPEG-TS demux) and
 `apps/netfm_playback.{c,h}` (own raw-pthread decoder feeding
 `PCM_MIXER_CHAN_NETFM`); stations are read from `stream/netfm/netfm.txt`
-(`name,url` per line, shipped to `.rockbox/stream/netfm`).
+(`name,url` per line, shipped to `.rockbox/stream/netfm`).  The DLNA renderer
+is under `apps/dlna/` (GMediaRender-derived) and the browser remote in
+`apps/web_control.{c,h}` with pages in `web/control/`.
 `n3pro_port.patch` applies all of this to a pristine Rockbox checkout, and
 `n3pro_patcher.sh` builds the flashable `.upt`.
 
