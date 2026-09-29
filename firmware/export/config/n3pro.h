@@ -117,5 +117,16 @@
 /* Generic HiBy stuff */
 #include "hibylinux.h"
 
+/* The vendor brightness sysfs reprograms the panel over the LCD MCU bus and
+ * stalls the whole kernel for 12-30 ms per write (worse with the bluetooth
+ * PCM active).  The stock software fade would do ~50 of those writes from
+ * the cooperative backlight thread and freeze the system for the entire
+ * fade - audible as stutter on the short-slack chains (DLNA 370 ms ring,
+ * bluetooth input 200 ms ring).  The N3Pro fades by duty-cycling the fast
+ * bl_power gate from a dedicated thread instead; the engine lives in
+ * firmware/target/hosted/backlight-unix.c. */
+#undef CONFIG_BACKLIGHT_FADING
+#define CONFIG_BACKLIGHT_FADING BACKLIGHT_FADING_TARGET
+
 /* start the ADB gadget automatically in the bootloader */
 #define AUTO_ENABLE_ADB

@@ -397,6 +397,61 @@ adb shell "sync; reboot"                                # UMS gadget is up
   voltage readout / runtime estimate.
 - **No cpufreq**: the SoC runs at a fixed frequency, so the device idles warm;
   `/proc/stat`'s idle counter is not maintained and will look like 100 % system.
+- **Backlight**: `pwm-backlight.0` does **not** use the X1000 TCU PWM (all TCU
+  registers read zero).  Writing `brightness` sends a panel command over the
+  LCD MCU bus and **blocks the kernel 12–30 ms per write** (worse with the
+  bluetooth PCM active); a stock software fade therefore stalls the whole
+  system ~50×30 ms per fade — this was the root cause of the DLNA/BT-input
+  stutter on screen blank/unblank (only chains with <1 s of audio slack broke:
+  DLNA ring 370 ms, BT-in ring 200 ms; local playback's pcmbuf and the 200 ms
+  ALSA period added for the X1000 smart-LCD stalls survive).  `bl_power`
+  (0=on, 1=powerdown-equivalent gate) is a **fast** path (~0.1–0.3 ms write),
+  so the N3Pro fades by duty-cycling `bl_power` at 200 Hz from a bare thread
+  (`BACKLIGHT_FADING_TARGET`, engine in `backlight-unix.c`; visually smooth,
+  ~4 % CPU during the fade only, steady state untouched because bl_power=0
+  restores the driver's parked duty).  `gpio-89 (BL PWR)` is an **input**
+  (feedback/sense line), not the control.
+- **GPIO map** (from `debugfs` on the stock kernel; base for a native port;
+  X1000 GPIO phys 0x10010000, +0x100 per bank, `cat9555` = I2C1 addr 0x20):
+
+  | Bank | Pin | Label | Dir | Function |
+  |---|---|---|---|---|
+  | A | 16 | lcd rst | out | panel reset |
+  | A | 17 | usb-insert-detect | in | USB host detect |
+  | A | 18 | hp mute | out | headphone mute |
+  | B | 32/35 | ring1/ring2_gpio | in | scroll wheel rings |
+  | B | 37 | AK4493_PDN | out | DAC power-down |
+  | B | 38 | mmc_detect | in | SD detect |
+  | B | 39–42 | GPIO_HBC2500_PIN_{RES,SDO,CS,CLK} | out | BT module (HBC2500) SPI |
+  | B | 43 | bal 4.4 mute | out | 4.4 balanced mute |
+  | B | 44–47 | JTAG_GPIO_PORT_{TDO,TMS,TDI,TCK} | — | JTAG |
+  | B | 48 | lcd rd | out | LCD MCU bus |
+  | B | 51 | lcd vsync | in | panel TE/vsync (~60 Hz, slcd_vsync) |
+  | B | 53/54/60/63 | next/ok/prev/power key | in | keys |
+  | B | 57 | drvvbus_pin | out | USB VBUS drive |
+  | B | 58 | rtc32k | in | 32 kHz clock |
+  | C | 72 | lp5562_en | out | RGB LED driver enable |
+  | C | 80 | oob_irq | in | WiFi/BT OOB interrupt |
+  | C | 81 | wifi_reset | out | WiFi reset |
+  | C | 82 | bt_reg_on | out | BT power |
+  | C | 83/84 | host_wake_bt / bt_wake_host | out/in | BT wakeup handshake |
+  | C | 85 | GTP_INT_IRQ | in | touch interrupt (GT9XX) |
+  | C | 86 | pca9539_irq | out | I2C expander IRQ |
+  | C | 88 | tube led en | out | tube glow LED |
+  | C | 89 | BL PWR | **in** | backlight power **sense** |
+  | D | 98 | otg-id-detect | in | OTG ID |
+  | D | 99 | GTP_RST_PORT | in | touch reset |
+  | D | 100 | lo mute | out | line-out mute |
+  | axp | 128–132 | (none claimed) | — | AXP PMIC pins |
+  | cat9555 | 160 | amp pwr en | out | amplifier power |
+  | cat9555 | 161 | dac 3v3 en | out | DAC 3.3 V rail |
+  | cat9555 | 162 | timber sel | out | transistor/tube stage select |
+  | cat9555 | 163 | bal po sel | out | balanced output select |
+  | cat9555 | 164/165/166 | headphone / lineout / balance | in | jack detects |
+  | cat9555 | 167 | earpods_wire | in | headset mic wire detect |
+  | cat9555 | 168 | tube pwr en | out | JAN6418 tube supply |
+  | cat9555 | 169 | pcm dad sel | out | PCM data-path select |
+  | cat9555 | 172/173 | tube mode a1 / a0 | out | triode/ultra-linear wiring |
 
 ---
 
