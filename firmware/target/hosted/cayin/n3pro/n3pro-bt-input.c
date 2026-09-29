@@ -71,11 +71,19 @@
 #define BTIN_RATE         44100
 #define BTIN_LATENCY_US   200000   /* 200 ms capture buffering */
 #define BTIN_SYSFS_BT     "/sys/class/bluetooth"
+/* Hold the first real audio back until the ring carries this much, so
+ * the plugin's bursty stream start cannot underrun into clicks. */
+#define BTIN_PRIME_MS     100
+/* On release, drop the leading frames: they carry the encoder/link
+ * startup artifacts ("pa pa pa") of every fresh play press. The skip
+ * is also the steady-state stream latency (prime - skip). */
+#define BTIN_SKIP_MS      50
 
 /* Ring of S16 stereo frames. A power of two so head/tail wrap cleanly.
- * Large enough to ride out the bluetooth plugin's bursty delivery at
- * 96 kHz (341 ms) without underrunning. */
-#define BTIN_RING_FRAMES   32768
+ * 1.5 s at the highest plugin rate (96 kHz), several seconds at 48 kHz:
+ * rides out kernel stalls (screen blank, vendor paths) without
+ * underrunning the mixer feed. */
+#define BTIN_RING_FRAMES   262144
 #define BTIN_CHUNK_FRAMES  512   /* mixer buffer granularity */
 
 static int16_t btin_ring[BTIN_RING_FRAMES * 2];
@@ -93,6 +101,10 @@ static struct dsp_config *btin_dsp;
 static int btin_rate;
 /* Link-history for the WAITING vs DISCONNECTED distinction. */
 static volatile bool btin_ever_connected;
+/* Startup pre-buffer: false after every ring reset; get_more() returns
+ * silence (without consuming) until the ring holds BTIN_PRIME_MS of
+ * audio, then latches true for the rest of the stream. */
+static volatile bool btin_primed;
 /* True while the receive screen is open: only then may the pump keep
  * retrying for the phone. In the background a lost (or never
  * established) link winds the pump down instead of spinning. */
@@ -116,6 +128,31 @@ static void btin_get_more(const void **start, size_t *size)
     buf = out[which];
 
     unsigned int tail = btin_tail;
+
+    /* Startup prime: keep silence until the ring carries enough real
+     * audio, so the stream begins from a buffered position instead of
+     * a near-empty ring (initial pop). On release, skip the first
+     * BTIN_SKIP_MS - the dirtiest frames of a fresh stream start. */
+    if (!btin_primed)
+    {
+        int rate = btin_rate > 0 ? btin_rate : BTIN_RATE;
+        unsigned int need = (unsigned int)rate * BTIN_PRIME_MS / 1000;
+
+        if (btin_head - tail < need)
+        {
+            memset(buf, 0, BTIN_CHUNK_FRAMES * 2 * sizeof(int16_t));
+            *start = buf;
+            *size = BTIN_CHUNK_FRAMES * 2 * sizeof(int16_t);
+            return;
+        }
+        btin_primed = true;
+        unsigned int skip = (unsigned int)rate * BTIN_SKIP_MS / 1000;
+
+        skip = MIN(skip, btin_head - tail);
+        btin_tail = tail + skip;
+        tail += skip;
+    }
+
     unsigned int avail = btin_head - tail;         /* wrap-safe */
     avail = MIN(avail, BTIN_CHUNK_FRAMES);
 
@@ -150,6 +187,7 @@ static void btin_apply_rate(int rate)
     btin_rate = rate;
 
     btin_tail = btin_head;          /* ring: drop old-rate audio */
+    btin_primed = false;            /* re-prime at the new rate */
 
     mixer_set_frequency(rate);
     if (btin_dsp)
@@ -377,6 +415,7 @@ static void *btin_pump_thread(void *arg)
             }
 
             btin_head = btin_tail;   /* ring: drop stale audio */
+            btin_primed = false;     /* re-prime after the relink */
             btin_apply_rate(rate > 0 ? (int)rate : BTIN_RATE);
             btin_ever_connected = true;
             btin_link_ok = true;
@@ -487,6 +526,7 @@ bool bt_input_start(void)
 
     btin_head = btin_tail = 0;
     btin_rate = 0;
+    btin_primed = false;
     btin_dsp = NULL;
     btin_ever_connected = false;
     btin_peer_mac[0] = '\0';
