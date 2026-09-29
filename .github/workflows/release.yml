@@ -5,9 +5,12 @@ name: "Build release artifacts"
 # (mipsel-rockbox-linux-gnu, GCC 9.5.0), stored as an asset of the
 # internal "toolchain-v1" prerelease.
 #
-# Optional flashable image: attach the *stock* firmware as an asset named
-# "stock-update.upt" to the release before publishing; it is turned into
-# n3pro_rockbox.upt and removed again after the build.
+# Flashable image: the *stock* firmware is kept once in the internal
+# "stock-firmware" release (asset "stock-update.upt", same idea as the
+# toolchain) and fetched from there; the patcher turns it into
+# n3pro_rockbox.upt.  A "stock-update.upt" asset attached to the release
+# itself still overrides it (useful to build against a different stock
+# version).
 
 on:
   release:
@@ -25,9 +28,12 @@ permissions:
 env:
   TOOLCHAIN_URL: "https://github.com/ctzjj/Rockbox-N3PRO/releases/download/toolchain-v1/rockbox-toolchain-mipsel.tar.xz"
   TOOLCHAIN_MD5: "d79ee6d6ca89186fb72d893c0ffd72f7"
+  STOCK_URL: "https://github.com/ctzjj/Rockbox-N3PRO/releases/download/stock-firmware/stock-update.upt"
 
 jobs:
+  # The stock-firmware release itself never builds anything.
   build:
+    if: ${{ github.event_name != 'release' || github.event.release.tag_name != 'stock-firmware' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -86,15 +92,21 @@ jobs:
           cp bootloader.n3pro ../bootloader.n3pro
           md5sum ../bootloader.n3pro
 
-      - name: Build the flashable image (if the stock firmware was attached)
+      - name: Build the flashable image (stock firmware)
         id: upt
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ inputs.tag || github.event.release.tag_name }}"
-          if [ -n "$TAG" ] &&
-             gh release download "$TAG" -R "${{ github.repository }}" \
-                --pattern 'stock-update.upt' -O /tmp/stock.upt; then
+          # A per-release stock asset overrides the shared one.
+          if [ -n "$TAG" ]; then
+            gh release download "$TAG" -R "${{ github.repository }}" \
+               --pattern 'stock-update.upt' -O /tmp/stock.upt 2>/dev/null || true
+          fi
+          if [ ! -s /tmp/stock.upt ]; then
+            curl -fL --retry 3 -o /tmp/stock.upt "$STOCK_URL" || rm -f /tmp/stock.upt
+          fi
+          if [ -s /tmp/stock.upt ]; then
             sudo apt-get install -y -q p7zip-full genisoimage mtd-utils python3-pip
             python3 -m pip install --user --break-system-packages ubi_reader ||
               python3 -m pip install --user ubi_reader
@@ -107,7 +119,7 @@ jobs:
             rm stock-update.upt
             md5sum n3pro_rockbox.upt
           else
-            echo "no stock-update.upt asset; skipping the .upt image"
+            echo "no stock firmware available; skipping the .upt image"
           fi
 
       - name: Keep artifacts from manual runs
