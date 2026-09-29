@@ -104,15 +104,15 @@ in-box WinUSB driver, so the **libusb** adb backend is required
 * **Settings -> Sound Settings**: *Filter roll-off* and *Tube Mode*.
 * **Main menu -> WiFi**: radio on/off, scan / saved networks / status, plus
   the **internet radio**, **DLNA**, **web control** and **SSH** entries.
-* **Main menu -> 蓝牙 (Bluetooth)**: two entries — **蓝牙输出 (audio output)**
-  and **蓝牙输入 (audio input)**, see below.
+* **Main menu -> Bluetooth**: two entries — **output (audio output)**
+  and **input (audio input)**, see below.
 
 ## Bluetooth
 
 The port drives the vendor Bluetooth stack (BlueZ4 + `sys_server` + the stock
 ALSA `bluetooth` plugin, BCM4345C5) through a two-entry menu:
 
-* **Audio output (蓝牙输出)** — A2DP to earphones/speakers:
+* **Audio output** — A2DP to earphones/speakers:
   * scan, pair, connect, disconnect; a codec preference walk negotiates the
     best codec the peer accepts (LDAC_HQ → APTX → AAC → SBC).
   * An output watchdog follows the link state: audio auto-routes to the
@@ -122,7 +122,7 @@ ALSA `bluetooth` plugin, BCM4345C5) through a two-entry menu:
   * Volume: the bluetooth route uses a userspace softvol (`Bluetooth Vol`,
     50 dB window) driven by the normal volume keys; each output remembers its
     own volume and they are swapped on route changes.
-* **Audio input (蓝牙输入)** — the phone connects to the N3Pro and its music
+* **Audio input** — the phone connects to the N3Pro and its music
   plays through Rockbox:
   * the received A2DP stream is decoded by the vendor plugin, pumped through
     the full Rockbox DSP chain (**EQ and Sound settings apply**) and played
@@ -131,7 +131,7 @@ ALSA `bluetooth` plugin, BCM4345C5) through a two-entry menu:
   * entering the screen powers the radio on (the phone can then pair) and
     stops local playback, like USB DAC; the screen shows link state, peer,
     codec and rate. **Back** keeps receiving in the background; the
-    **断开连接** item disconnects the phone and powers the radio off.
+    **Disconnect** item disconnects the phone and powers the radio off.
   * while receiving, the wired volume is pinned wide open — **the phone is
     the volume control** — and the user's own volume setting is restored
     afterwards (also after a crash or poweroff during receive).
