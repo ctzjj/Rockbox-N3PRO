@@ -92,10 +92,12 @@ static void sig_handler(int sig, siginfo_t *siginfo, void *context)
 
 void power_off(void)
 {
+#if defined(CAYIN_N3PRO)
     /* init sends SIGTERM to everything it shuts down; stay alive so the
      * launcher does not see us exit (it would run its reboot fallback)
      * and so the panel keeps the shutdown message until the power goes. */
     signal(SIGTERM, SIG_IGN);
+#endif
     backlight_hw_off();
     button_close_device();
     sync();
@@ -128,17 +130,27 @@ void system_init(void)
 #else
     sigaction(SIGPIPE, &sa, NULL);
 #endif
+#if defined(CAYIN_N3PRO)
     /* SIGTERM is how init asks us to go away on shutdown: that is a normal
      * exit, so let it use the default action instead of painting the white
-     * panic/backtrace screen just before the system goes down. */
+     * panic/backtrace screen just before the system goes down.  (The second
+     * sigaction(SIGTERM) below the SIGBUS line was a copy-paste slip; trap
+     * SIGTRAP like the other fatal signals instead.) */
     signal(SIGTERM, SIG_DFL);
     sigaction(SIGBUS, &sa, NULL);
     sigaction(SIGTRAP, &sa, NULL);
+#else
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGBUS, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+#endif
 }
 
 void system_reboot(void)
 {
-    signal(SIGTERM, SIG_IGN);
+#if defined(CAYIN_N3PRO)
+    signal(SIGTERM, SIG_IGN);   /* stay up until the reset actually happens */
+#endif
     backlight_hw_off();
     system("/sbin/reboot");
     while (1) {
