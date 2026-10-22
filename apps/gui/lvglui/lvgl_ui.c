@@ -74,6 +74,20 @@ void lvgui_idle_pump(void)
     lv_timer_handler();
 }
 
+/* Run the plugin queued by the stock tree (plugin_open()), then repaint
+ * over whatever it left on the framebuffer. Called from lvgui_ft_enter_path()
+ * inside a job, so the LVGL loop is not running while the plugin draws. */
+extern int root_menu_plugin_screen(void);
+int lvgui_plugin_run(void)
+{
+    int rc = root_menu_plugin_screen();
+
+    lv_obj_invalidate(lv_scr_act());
+    lv_obj_invalidate(lv_layer_top());
+    lv_refr_now(NULL);
+    return rc;
+}
+
 static void lvgui_home_key(void)
 {
     extern int lvgl_shell_locked;

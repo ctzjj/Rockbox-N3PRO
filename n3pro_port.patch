@@ -10750,10 +10750,10 @@ index 0000000000..aa6a5627fc
 +
 +#endif /* _XMLESCAPE_H */
 diff --git a/apps/filetree.c b/apps/filetree.c
-index cbf2423ea0..19ecf060d3 100644
+index cbf2423ea0..0bc02cb7e2 100644
 --- a/apps/filetree.c
 +++ b/apps/filetree.c
-@@ -912,3 +912,13 @@ int ft_exit(struct tree_context* c)
+@@ -912,3 +912,22 @@ int ft_exit(struct tree_context* c)
  
      return rc;
  }
@@ -10761,10 +10761,19 @@ index cbf2423ea0..19ecf060d3 100644
 +#ifdef HAVE_LVGL_UI
 +/* native UI: run the stock browser "enter" action on an explicitly
 + * picked file (theme/lang/cfg/font pickers reuse the whole logic) */
++extern int lvgui_plugin_run(void);
++
 +int lvgui_ft_enter_path(const char *path)
 +{
++    int rc;
++
 +    set_current_file(path);
-+    return ft_enter(tree_get_context());
++    rc = ft_enter(tree_get_context());
++    /* plugin files only queue a GO_TO_PLUGIN screen: there is no classic
++     * screen loop to run it, so do it right here */
++    if (rc == GO_TO_PLUGIN)
++        rc = lvgui_plugin_run();
++    return rc;
 +}
 +#endif
 diff --git a/apps/filetypes.c b/apps/filetypes.c
@@ -543056,10 +543065,10 @@ index 0000000000..58eceeb449
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..baf148e233
+index 0000000000..0da085eb06
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,166 @@
+@@ -0,0 +1,180 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543134,6 +543143,20 @@ index 0000000000..baf148e233
 +void lvgui_idle_pump(void)
 +{
 +    lv_timer_handler();
++}
++
++/* Run the plugin queued by the stock tree (plugin_open()), then repaint
++ * over whatever it left on the framebuffer. Called from lvgui_ft_enter_path()
++ * inside a job, so the LVGL loop is not running while the plugin draws. */
++extern int root_menu_plugin_screen(void);
++int lvgui_plugin_run(void)
++{
++    int rc = root_menu_plugin_screen();
++
++    lv_obj_invalidate(lv_scr_act());
++    lv_obj_invalidate(lv_layer_top());
++    lv_refr_now(NULL);
++    return rc;
 +}
 +
 +static void lvgui_home_key(void)
@@ -605071,7 +605094,7 @@ index cb00fef74f..aa0915ccfd 100644
               * for cell; page three completes Latin-1 and adds the accented
               * letters common to the other European locales. The space bar
 diff --git a/apps/root_menu.c b/apps/root_menu.c
-index 918669b245..ac98b992c1 100644
+index 918669b245..b353afc837 100644
 --- a/apps/root_menu.c
 +++ b/apps/root_menu.c
 @@ -330,6 +330,32 @@ static int recscrn(void* param)
@@ -605240,7 +605263,33 @@ index 918669b245..ac98b992c1 100644
  void root_menu_set_default(void* setting, void* defaultval)
  {
      unsigned i;
-@@ -1080,3 +1201,26 @@ load_next_screen: /* load_screen is inlined */
+@@ -843,6 +964,25 @@ static int load_plugin_screen(char *key)
+     return ret_val;
+ }
+ 
++#ifdef HAVE_LVGL_UI
++/* The native UI has no classic screen loop: the file picker runs the stock
++ * tree "enter" action itself and then calls this to run the plugin that
++ * plugin_open() queued. Screen bookkeeping is restored so the next start
++ * screen is not affected. */
++int root_menu_plugin_screen(void)
++{
++    int ns = next_screen;
++    int ls = last_screen;
++    char gls = global_status.last_screen;
++    int rc = load_plugin_screen((char *)ID2P(LANG_OPEN_PLUGIN));
++
++    next_screen = ns;
++    last_screen = ls;
++    global_status.last_screen = gls;
++    return rc;
++}
++#endif
++
+ static void ignore_back_button_stub(bool ignore)
+ {
+ #if (CONFIG_PLATFORM&PLATFORM_ANDROID)
+@@ -1080,3 +1220,26 @@ load_next_screen: /* load_screen is inlined */
      }
  
  }

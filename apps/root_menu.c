@@ -964,6 +964,25 @@ static int load_plugin_screen(char *key)
     return ret_val;
 }
 
+#ifdef HAVE_LVGL_UI
+/* The native UI has no classic screen loop: the file picker runs the stock
+ * tree "enter" action itself and then calls this to run the plugin that
+ * plugin_open() queued. Screen bookkeeping is restored so the next start
+ * screen is not affected. */
+int root_menu_plugin_screen(void)
+{
+    int ns = next_screen;
+    int ls = last_screen;
+    char gls = global_status.last_screen;
+    int rc = load_plugin_screen((char *)ID2P(LANG_OPEN_PLUGIN));
+
+    next_screen = ns;
+    last_screen = ls;
+    global_status.last_screen = gls;
+    return rc;
+}
+#endif
+
 static void ignore_back_button_stub(bool ignore)
 {
 #if (CONFIG_PLATFORM&PLATFORM_ANDROID)
