@@ -592,8 +592,7 @@ static void player_set_art(player_t *p)
     }
     if (!p->path[0])
         return;
-    /* the JPEG decoder rejects targets >= 256px, so decode at 240 and let
-     * LVGL scale the image up to the artwork box */
+    /* decode the cover at the card's size and let LVGL scale it to the box */
     p->art = lib_track_art_sized(p->path, 240, 240);
     if (!p->art)
     {
