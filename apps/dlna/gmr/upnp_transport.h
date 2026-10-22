@@ -44,4 +44,6 @@ void upnp_transport_deinit(void);
 void upnp_transport_register_variable_listener(variable_change_listener_t cb,
 						       void *userdata);
 
+const char *upnp_transport_art_uri(void);
+
 #endif /* _UPNP_TRANSPORT_H */

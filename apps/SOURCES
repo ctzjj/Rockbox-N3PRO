@@ -5,7 +5,6 @@ action.c
 #ifdef HAVE_RTC_ALARM
 alarm_menu.c
 #endif
-abrepeat.c
 bookmark.c
 core_keymap.c
 debug_menu.c
@@ -17,6 +16,29 @@ gesture.c
 language.c
 main.c
 menu.c
+#ifdef HAVE_LVGL_UI
+gui/lvglui/lvgl_ui.c
+gui/lvglui/png_decode.c
+gui/lvglui/ime_pinyin.c
+gui/lvglui/lvgl_port_disp.c
+gui/lvglui/lvgl_port_input.c
+gui/lvglui/ui_shell.c
+gui/lvglui/ui_backend.c
+gui/lvglui/ui_library.c
+gui/lvglui/ui_player.c
+gui/lvglui/ui_charset.c
+gui/lvglui/ui_theme.c
+gui/lvglui/ui_control.c
+gui/lvglui/ui_icons.c
+gui/lvglui/ui_widgets.c
+gui/lvglui/ui_menu.c
+gui/lvglui/ui_compat.c
+gui/lvglui/iconv_musl/iconv.c
+gui/lvglui/fonts/NotoSansSC_16.c
+gui/lvglui/fonts/NotoSansSC_14.c
+gui/lvglui/fonts/NotoSansSC_20.c
+gui/lvglui/fonts/NotoSansSC_CN16.c
+#endif
 menus/menu_common.c
 menus/display_menu.c
 menus/theme_menu.c
@@ -53,7 +75,6 @@ open_plugin.c
 onplay.c
 playlist.c
 playlist_catalog.c
-playlist_viewer.c
 plugin.c
 root_menu.c
 screens.c
@@ -101,9 +122,11 @@ gui/icon.c
 gui/list.c
 gui/line.c
 gui/bitmap/list.c
+#ifndef HAVE_LVGL_UI
 gui/bitmap/list-skinned.c
+#endif
 gui/option_select.c
-#ifdef HAVE_PITCHCONTROL
+#if defined(HAVE_PITCHCONTROL) && !defined(HAVE_LVGL_UI)
 gui/pitchscreen.c
 #endif
 #ifdef HAVE_QUICKSCREEN
@@ -114,11 +137,9 @@ gui/folder_select.c
 gui/mask_select.c
 #endif
 
-gui/wps.c
 gui/scrollbar.c
 gui/splash.c
 gui/statusbar.c
-gui/statusbar-skinned.c
 #if (CONFIG_PLATFORM&PLATFORM_ANDROID)
 hosted/android/yesno.c
 hosted/android/notification.c
@@ -127,15 +148,6 @@ gui/yesno.c
 #endif
 gui/viewport.c
 
-gui/skin_engine/skin_backdrops.c
-gui/skin_engine/skin_display.c
-gui/skin_engine/skin_engine.c
-gui/skin_engine/skin_parser.c
-gui/skin_engine/skin_render.c
-gui/skin_engine/skin_tokens.c
-#ifdef HAVE_TOUCHSCREEN
-gui/skin_engine/skin_touchsupport.c
-#endif
 
 #if (LCD_DEPTH > 1) || (defined(HAVE_REMOTE_LCD) && (LCD_REMOTE_DEPTH > 1))
 gui/backdrop.c
@@ -169,7 +181,7 @@ gui/color_picker.c
 recorder/recording.c
 #endif
 
-#if CONFIG_TUNER
+#if CONFIG_TUNER && !defined(HAVE_LVGL_UI)
 radio/radio.c
 radio/presets.c
 radio/radio_skin.c

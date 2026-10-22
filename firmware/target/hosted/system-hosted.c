@@ -92,6 +92,10 @@ static void sig_handler(int sig, siginfo_t *siginfo, void *context)
 
 void power_off(void)
 {
+    /* init sends SIGTERM to everything it shuts down; stay alive so the
+     * launcher does not see us exit (it would run its reboot fallback)
+     * and so the panel keeps the shutdown message until the power goes. */
+    signal(SIGTERM, SIG_IGN);
     backlight_hw_off();
     button_close_device();
     sync();
@@ -124,13 +128,17 @@ void system_init(void)
 #else
     sigaction(SIGPIPE, &sa, NULL);
 #endif
-    sigaction(SIGTERM, &sa, NULL);
+    /* SIGTERM is how init asks us to go away on shutdown: that is a normal
+     * exit, so let it use the default action instead of painting the white
+     * panic/backtrace screen just before the system goes down. */
+    signal(SIGTERM, SIG_DFL);
     sigaction(SIGBUS, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGTRAP, &sa, NULL);
 }
 
 void system_reboot(void)
 {
+    signal(SIGTERM, SIG_IGN);
     backlight_hw_off();
     system("/sbin/reboot");
     while (1) {

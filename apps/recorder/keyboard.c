@@ -17,9 +17,13 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
+#include "config.h"
 #include "kernel.h"
 #include "system.h"
 #include "string-extra.h"
+#ifdef HAVE_LVGL_UI
+int shell_kbd_input(char *text, int buflen);   /* apps/gui/lvglui/ui_shell.c */
+#endif
 #include "font.h"
 #include "screens.h"
 #include "talk.h"
@@ -451,6 +455,12 @@ static void kbd_move_picker_vertical(struct keyboard_parameters *pm,
 
 int kbd_input(char* text, int buflen, ucschar_t *kbd)
 {
+#ifdef HAVE_LVGL_UI
+    /* LVGL UI: same handler logic, our keyboard. Blocks (pumping the UI
+     * loop) and returns 0 on confirm / -1 on cancel like the original. */
+    (void)kbd;
+    return shell_kbd_input(text, buflen);
+#endif
     bool done = false;
     struct keyboard_parameters * const param = kbd_param;
     struct edit_state state;

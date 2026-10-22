@@ -16,6 +16,9 @@
 #ifndef DLNA_STREAM_H
 #define DLNA_STREAM_H
 
+int dlna_http_fetch(const char *url, unsigned char **out,
+                    size_t *out_len, size_t max);
+
 #include <stdbool.h>
 #include <stddef.h>
 

@@ -87,6 +87,10 @@ void bt_audio_watchdog_start(void);
 void bt_audio_watchdog_stop(void);
 void bt_audio_busy(bool on);
 
+/* called while long-running driver work (scan) blocks; lets the UI
+ * keep repainting (set by the LVGL UI) */
+extern void (*bt_audio_idle_hook)(void);
+
 /* Peer the output route is pinned to ("" when local). */
 const char *bt_audio_selected(void);
 

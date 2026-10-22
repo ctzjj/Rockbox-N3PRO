@@ -82,6 +82,40 @@ static int bt_simplelist_ok_cancel(int action, struct gui_synclist *lists)
     return action;
 }
 
+#ifdef HAVE_LVGL_UI
+/* per-row icons for the LVGL simplelist hook (pseudo-ids) */
+static enum themable_icons bt_top_icon_cb(int selected, void *data)
+{
+    static const int ic[3] = { -8, -3, -6 };  /* out / in / reset */
+    (void)data;
+    if (selected < 0 || selected > 2)
+        return (enum themable_icons)0;
+    return (enum themable_icons)ic[selected];
+}
+static enum themable_icons bt_action_icon_cb(int selected, void *data)
+{
+    static const int ic[3] = { -5, -3, -9 };  /* status / devices / off */
+    (void)data;
+    if (selected < 0 || selected > 2)
+        return (enum themable_icons)0;
+    return (enum themable_icons)ic[selected];
+}
+static enum themable_icons bt_dev_icon_cb(int selected, void *data)
+{
+    static const int ic[2] = { -10, -6 };     /* connect / delete */
+    (void)data;
+    if (selected < 0 || selected > 1)
+        return (enum themable_icons)0;
+    return (enum themable_icons)ic[selected];
+}
+static enum themable_icons bt_devlist_icon_cb(int selected, void *data)
+{
+    (void)selected; (void)data;
+    return (enum themable_icons)-3;           /* device row */
+}
+#endif
+
+
 static const char *bt_action_name_cb(int selected_item, void *data,
     char *buffer, size_t buffer_len)
 {
@@ -154,6 +188,9 @@ static int bt_choose_device(const char *title, struct bt_audio_dev *devices,
 
     simplelist_info_init(&info, (char *)title, total_count, &data);
     info.get_name = bt_device_name_cb;
+#ifdef HAVE_LVGL_UI
+    info.get_icon = bt_devlist_icon_cb;
+#endif
     info.action_callback = bt_simplelist_ok_cancel;
     info.selection = -1;
     info.title_icon = Icon_Submenu;
@@ -191,6 +228,9 @@ static void bt_device_menu(struct bt_audio_dev *devices, int *count, int idx)
 
     simplelist_info_init(&info, (char *)devices[idx].name, 2, NULL);
     info.get_name = bt_device_action_name_cb;
+#ifdef HAVE_LVGL_UI
+    info.get_icon = bt_dev_icon_cb;
+#endif
     info.action_callback = bt_simplelist_ok_cancel;
     info.selection = -1;
     info.title_icon = Icon_Submenu;
@@ -215,6 +255,15 @@ static void bt_show_devices(void)
     static struct bt_audio_dev devices[BT_MAX_DEVICES];
     int count;
     int idx;
+
+#ifdef HAVE_LVGL_UI
+    {
+        bool lvgui_in_job(void);
+        void shell_splash(int ticks, const char *msg);
+        if (lvgui_in_job())
+            shell_splash(0, bt_str(LANG_BT_SCANNING));
+    }
+#endif
 
     if (!bt_audio_prepare())
     {
@@ -305,6 +354,9 @@ static int bt_output_menu(void)
 
         simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
         info.get_name = bt_action_name_cb;
+#ifdef HAVE_LVGL_UI
+        info.get_icon = bt_action_icon_cb;
+#endif
         info.action_callback = bt_simplelist_ok_cancel;
         info.selection = -1;
         info.title_icon = Icon_Submenu;
@@ -493,18 +545,33 @@ static void bt_rx_screen(void)
         return;
     }
 
-    simplelist_info_init(&info, bt_str(LANG_BT_RX), BT_RX_ROWS, NULL);
-    info.get_name = bt_rx_name_cb;
-    info.action_callback = bt_rx_action_cb;
-    info.timeout = HZ * 2;
-    info.selection = BT_RX_ROWS - 1;
-    info.title_icon = Icon_Submenu;
+    bool stopped = false;
+#ifdef HAVE_LVGL_UI
+    {
+        bool lvgui_in_job(void);
+        int lvgui_bt_rx_view(void);
+        if (lvgui_in_job())
+            stopped = lvgui_bt_rx_view() != 0;
+        else
+#endif
+    {
+        simplelist_info_init(&info, bt_str(LANG_BT_RX), BT_RX_ROWS, NULL);
+        info.get_name = bt_rx_name_cb;
+        info.action_callback = bt_rx_action_cb;
+        info.timeout = HZ * 2;
+        info.selection = BT_RX_ROWS - 1;
+        info.title_icon = Icon_Submenu;
 
-    simplelist_show_list(&info);
+        simplelist_show_list(&info);
+        stopped = (info.selection == BT_RX_ROWS - 1);
+    }
+#ifdef HAVE_LVGL_UI
+    }
+#endif
 
     bt_input_set_fg(false);
 
-    if (info.selection == BT_RX_ROWS - 1)
+    if (stopped)
     {
         /* "Disconnect": full stop -- drop the phone link, stop the
          * pump and power the radio down before returning. */
@@ -529,6 +596,22 @@ static void bt_reset_screen(void)
 
     if (!yesno_pop(bt_str(LANG_BT_RESET_CONFIRM)))
         return;
+
+#ifdef HAVE_LVGL_UI
+    {
+        /* Avoid the classic text screen: show an LVGL toast instead. */
+        bool lvgui_in_job(void);
+        void shell_toast(int ticks, const char *msg, const char *icon);
+        void shell_toast_clear(void);
+        if (lvgui_in_job())
+        {
+            shell_toast(0, bt_str(LANG_BT_RESETTING), NULL);
+            bt_audio_reset_stack();
+            shell_toast_clear();
+            return;
+        }
+    }
+#endif
 
     /* The re-init blocks for several seconds (firmware download,
      * bluetoothd start); keep a message on screen while it runs.
@@ -561,6 +644,27 @@ static const char *bt_top_name_cb(int selected_item, void *data,
     return buffer;
 }
 
+#ifdef HAVE_LVGL_UI
+/* Native (do_menu) entry points: the LVGL menu tree calls these instead of
+ * running the simplelist loop below. */
+int bt_lvgl_output(void)
+{
+    return bt_output_menu();
+}
+
+int bt_lvgl_input(void)
+{
+    bt_rx_screen();
+    return 0;
+}
+
+int bt_lvgl_reset(void)
+{
+    bt_reset_screen();
+    return 0;
+}
+#endif
+
 int bluetooth_menu(void)
 {
     while (true)
@@ -569,6 +673,9 @@ int bluetooth_menu(void)
 
         simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
         info.get_name = bt_top_name_cb;
+#ifdef HAVE_LVGL_UI
+        info.get_icon = bt_top_icon_cb;
+#endif
         info.selection = -1;
         info.title_icon = Icon_Submenu;
 

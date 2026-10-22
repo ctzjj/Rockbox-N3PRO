@@ -12,15 +12,23 @@ Base commit the patch was generated against: **`1784c9b8a7`** (Rockbox master,
 
 ## Branch model
 
-Two release lines share this repository:
+Three release lines share this repository:
 
 - **`main`** — the clean hardware port: target drivers, config, keymaps, WPS
   assets and hardware-level fixes only.  It stays minimal — pure hardware
   porting, no feature work.  **`v1.x` releases are tagged from `main`.**
-- **`n3pro`** (this branch) — the feature integration line: everything
+- **`n3pro`** — the feature integration line: everything
   `main` has, plus the Bluetooth work (output, A2DP input, menu, reset) and
   future features built on the ported hardware.  **`v2.x` releases are
   tagged from `n3pro`.**  It is always a superset of `main`.
+- **`n3pro-lvgl`** — the modern-UI line: everything `n3pro` has, with the
+  classic renderer replaced by the touch-first LVGL shell
+  (`apps/gui/lvglui/`, `HAVE_LVGL_UI`).  **`v3.x` releases are tagged from
+  `n3pro-lvgl`.**  It is always a superset of `n3pro`.  The architecture and
+  the mandatory backend boundary are documented in **`docs/lvgl-ui.md`** —
+  read it before touching any `ui_*` file.  Its patch adds the `lib/lvgl`
+  submodule as a gitlink only: a tree rebuilt from `n3pro_port.patch` needs
+  `git submodule update --init lib/lvgl` (v8.4.0) before building.
 
 All code changes are made in a separate rockbox checkout (the working tree),
 never directly in this repository — this repo only holds overlay files plus
@@ -30,6 +38,7 @@ never directly in this repository — this repo only holds overlay files plus
 |----------------------------------------------------|-----------------|
 | `port-newbase` = upstream base + the port commit   | `main`          |
 | `n3pro-newbase` = `port-newbase` + feature work    | `n3pro`         |
+| `lvgl-ui` = `n3pro-newbase` + the LVGL UI          | `n3pro-lvgl`    |
 
 Landing changes on a line (same procedure for both branches):
 
@@ -48,7 +57,8 @@ Landing changes on a line (same procedure for both branches):
 Flow rules:
 
 1. **One-way merging**: `main` merges INTO `n3pro`; never merge or wholesale
-   cherry-pick `n3pro` into `main`.  To promote a general improvement (one
+   cherry-pick `n3pro` into `main`.  The same applies from `n3pro` into
+   `n3pro-lvgl`.  To promote a general improvement (one
    with no BT-file dependencies) back to `main`, extract a clean hunk in
    the rockbox tree, land it on `main`, and let it flow into `n3pro` with
    the next merge.
@@ -97,6 +107,16 @@ firmware/target/hosted/cayin/n3pro/                 the N3Pro target driver
                                                       (private-config open, link-lost)
     n3pro_patcher.sh                                unpack + inject + pack a .upt
 apps/keymaps/keymap-n3pro.c                         keymap (scroll wheel + HOME)
+apps/gui/lvglui/                                     the LVGL UI (n3pro-lvgl line only):
+                                                     screens (ui_shell/ui_library/ui_player/
+                                                     ui_menu/ui_control), shell + job API
+                                                     (lvgl_ui.{c,h}), theme, widgets, icons,
+                                                     display/input ports, and the backend
+                                                     boundary ui_backend.{c,h} — see
+                                                     docs/lvgl-ui.md before editing
+lib/lvgl, lib/lvgl.make, .gitmodules                 LVGL v8.4.0 submodule + build glue
+docs/lvgl-ui.md                                      LVGL architecture and the
+                                                     backend call-layer rules
 apps/wifi_menu.{c,h}, apps/menus/wifi_menu.c         WiFi menu — generic UI over the
                                                       `firmware/export/wifi_hal.h` HAL contract
                                                       (incl. the `HAVE_WIFI_SSH` toggle row:
@@ -200,6 +220,11 @@ must obey the rules below.
    up as an unbootable player or a slow death.  Only reach for the heap when an
    API you must use forces it, keep it out of hot paths, and free it
    deterministically.
+7. **LVGL screens talk to `ui_backend.c` only.**  On `n3pro-lvgl`, `ui_*.c`
+   must not include Rockbox core headers, `ui_backend.c` must not include
+   LVGL, blocking stock calls run through `lvgui_run_job()`, and nothing but
+   the GUI thread may touch LVGL.  The full contract, recipes and review
+   checklist are in `docs/lvgl-ui.md`.
 
 ---
 

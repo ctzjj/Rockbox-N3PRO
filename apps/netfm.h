@@ -14,4 +14,10 @@ struct netfm_station
 
 int netfm_menu(void);
 
+#ifdef HAVE_LVGL_UI
+/* prev/next station while the LVGL play screen is open (netfm.c) */
+int netfm_step_station(int dir);
+const char *netfm_last_station_name(void);
+#endif
+
 #endif

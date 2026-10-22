@@ -88,7 +88,10 @@ int button_map(int keycode)
             if (is_backlight_on(true)) {
                 return BUTTON_TOUCH;
             }
-            /* Screen off: ignore touch so it cannot spuriously wake. */
+            /* Screen off: the first touch wakes the display but is not
+             * delivered as a press, so a waking tap cannot also trigger
+             * whatever it happens to land on. */
+            backlight_on();
             return 0;
 #else
             return BUTTON_TOUCH;

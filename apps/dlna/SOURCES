@@ -1,6 +1,7 @@
 dlna.c
 dlna_stream.c
 dlna_output.c
+dlna_jpeg_mem.c
 dlna_playback.c
 gmr/logging.c
 gmr/output.c

@@ -38,6 +38,11 @@
 #define HAVE_BUTTON_DATA
 #define HAVE_TOUCHSCREEN
 #define HAVE_KBD_POINT_MODE
+/* Music database (tagcache) for the library browser. */
+#define HAVE_TAGCACHE
+
+/* Modern touch UI (LVGL) replacing the classic menu tree. */
+#define HAVE_LVGL_UI 1
 #endif
 
 /* KeyPad configuration for plugins */

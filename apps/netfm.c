@@ -12,6 +12,7 @@
 #include "misc.h"
 #include "netfm.h"
 #include "netfm_stream.h"
+#include "netfm_playback.h"
 #include "splash.h"
 #include "wifi_hal.h"
 #ifdef HAVE_DLNA
@@ -319,6 +320,18 @@ static void netfm_play_screen(const struct netfm_station *station)
         netfm_stream_get_status(&status);
     }
 
+#ifdef HAVE_LVGL_UI
+    {
+        bool lvgui_in_job(void);
+        int lvgui_netfm_play(struct netfm_stream_status *);
+        if (lvgui_in_job())
+        {
+            if (lvgui_netfm_play(&status))
+                netfm_stream_stop();    /* the stop button was pressed */
+            return;
+        }
+    }
+#endif
     simplelist_info_init(&info, str(LANG_NETFM), NETFM_STATUS_ROWS, &status);
     info.get_name = status_name_cb;
     info.action_callback = status_action_cb;
@@ -330,6 +343,14 @@ static void netfm_play_screen(const struct netfm_station *station)
     /* deliberately no stop here: Back leaves the radio playing and the
      * stop row (last) tears the stream down explicitly */
 }
+
+#ifdef HAVE_LVGL_UI
+static enum themable_icons netfm_station_icon_cb(int selected, void *data)
+{
+    (void)selected; (void)data;
+    return (enum themable_icons)-8;          /* station row */
+}
+#endif
 
 int netfm_menu(void)
 {
@@ -351,6 +372,9 @@ int netfm_menu(void)
         struct netfm_station *s;
         simplelist_info_init(&info, str(LANG_NETFM), station_count, NULL);
         info.get_name = station_name_cb;
+#ifdef HAVE_LVGL_UI
+        info.get_icon = netfm_station_icon_cb;
+#endif
         info.selection = -1;
         info.title_icon = Icon_Submenu;
         simplelist_show_list(&info);
@@ -365,4 +389,55 @@ int netfm_menu(void)
     free_station_index();
     return 0;
 }
+
+#ifdef HAVE_LVGL_UI
+/* Prev/next station for the LVGL play screen.  Finds the currently
+ * playing station by name and starts the neighbour (wrapping); the
+ * station list is only loaded while the menu is open, which it is. */
+#ifdef HAVE_LVGL_UI
+static char last_station_name[128];
+
+const char *netfm_last_station_name(void)
+{
+    return last_station_name;
+}
+#endif
+
+int netfm_step_station(int dir)
+{
+    struct netfm_stream_status status;
+    int cur = -1, nxt;
+
+    if (!stations || station_count <= 0)
+        build_station_index();      /* menu closed: list was released */
+    if (!stations || station_count <= 0)
+        return -1;
+    netfm_stream_get_status(&status);
+    for (int i = 0; i < station_count; i++)
+        if (strcmp(stations[i].name, status.name) == 0)
+        {
+            cur = i;
+            break;
+        }
+    nxt = cur < 0 ? 0 : (cur + dir + station_count) % station_count;
+    /* netfm_stream_start() refuses to run while the decoder still owns
+     * the stream, so stop the current station first */
+    if (netfm_playback_active())
+        netfm_playback_stop();
+    if (!netfm_stream_start(stations[nxt].name, stations[nxt].url))
+    {
+        /* the previous worker can still be winding down: retry once */
+        sleep(HZ / 2);
+        if (!netfm_stream_start(stations[nxt].name, stations[nxt].url))
+        {
+                return -1;
+        }
+    }
+#ifdef HAVE_LVGL_UI
+    snprintf(last_station_name, sizeof last_station_name, "%s",
+             stations[nxt].name);
+#endif
+    return nxt;
+}
+#endif
 #endif

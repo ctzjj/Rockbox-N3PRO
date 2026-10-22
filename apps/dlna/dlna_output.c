@@ -58,6 +58,137 @@ static output_transition_cb_t transition_cb;
 static volatile bool monitoring;        /* renderer session alive */
 static volatile bool pending_play;      /* set by the libupnp worker thread */
 static volatile bool pending_stop;
+
+/* Album art pushed with the DIDL: downloaded on a worker thread and kept
+ * in RAM as compressed bytes; the UI decodes it directly (no SD/tmp file).
+ * JPEG and PNG are both accepted (sniffed from the stream). */
+static volatile bool art_busy;
+static char art_uri[512];
+static volatile unsigned art_gen;
+static volatile size_t art_len;
+static unsigned char *art_buf;   /* only while/downloaded art */
+static char art_pending[512];    /* track change requested mid-download */
+static pthread_mutex_t art_lock = PTHREAD_MUTEX_INITIALIZER;
+static volatile bool art_pending_valid;
+static size_t art_cap;
+
+static void dlna_art_start(const char *uri);
+
+static void dlna_art_thread(void)
+{
+    unsigned char *buf = NULL;
+    size_t len = 0;
+
+    /* One malloc of exactly the object size (see dlna_http_fetch), released
+     * right after the UI decoded it. */
+    if (dlna_http_fetch(art_uri, &buf, &len, 512 * 1024) == 0 &&
+        len > 64)
+    {
+        pthread_mutex_lock(&art_lock);
+        free(art_buf);
+        art_buf = buf;
+        art_cap = len;
+        art_len = len;
+        art_gen++;
+        pthread_mutex_unlock(&art_lock);
+    }
+    else
+    {
+        /* No usable cover (too large / failed): drop it and let the UI
+         * fall back to the placeholder instead of keeping the old art. */
+        free(buf);
+        pthread_mutex_lock(&art_lock);
+        art_len = 0;
+        art_gen++;
+        pthread_mutex_unlock(&art_lock);
+    }
+    art_busy = false;
+    if (art_pending_valid)
+    {
+        art_pending_valid = false;
+        dlna_art_start(art_pending);
+    }
+}
+
+const unsigned char *dlna_output_art_data(size_t *len, unsigned *gen)
+{
+    if (art_busy)
+    {
+        *len = 0;
+        *gen = art_gen;
+        return NULL;
+    }
+    *len = art_len;
+    *gen = art_gen;
+    return art_buf;
+}
+
+/* Called by the UI right after it decoded the bytes: the compressed copy
+ * is dead weight then, so release it immediately.  The decoded pixels live
+ * in the UI, and art_gen is left alone so it does not rebuild. */
+void dlna_output_art_lock(void) { pthread_mutex_lock(&art_lock); }
+void dlna_output_art_unlock(void) { pthread_mutex_unlock(&art_lock); }
+
+void dlna_output_art_release(unsigned gen)
+{
+    /* The decoded 240x240 pixels are shared by every consumer (player screen
+     * and dock chip), so the compressed object is no longer needed. */
+    if (art_busy || gen != art_gen)
+        return;
+    free(art_buf);
+    art_buf = NULL;
+    art_cap = 0;
+    art_len = 0;
+}
+
+static void dlna_art_start(const char *uri)
+{
+    /* Cover art is disabled: no download thread, no image buffer, no decode.
+     * Kept as a stub so the DIDL plumbing stays in place if it comes back. */
+    (void)uri;
+    return;
+    if (!uri || !uri[0])
+    {
+        art_uri[0] = '\0';
+        art_len = 0;
+        art_gen++;
+        return;
+    }
+    /* Only one fetch at a time: art_uri is read by the running worker, so
+     * never rewrite it underneath it.  A change that lands mid-download is
+     * remembered and picked up as soon as the worker is done (tracks switch
+     * faster than a big cover downloads). */
+    if (art_busy)
+    {
+        strlcpy(art_pending, uri, sizeof art_pending);
+        art_pending_valid = true;
+        return;
+    }
+    if (!strcmp(uri, art_uri) && art_len > 0)
+        return;
+    strncpy(art_uri, uri, sizeof art_uri - 1);
+    art_uri[sizeof art_uri - 1] = '\0';
+    /* The UI already decoded the old bytes into its own pixels, so the
+     * compressed copy can go now; screen keeps the old cover until the
+     * new download finishes. */
+    pthread_mutex_lock(&art_lock);
+    free(art_buf);
+    art_buf = NULL;
+    art_cap = 0;
+    art_len = 0;
+    art_busy = true;
+    pthread_mutex_unlock(&art_lock);
+    {
+        pthread_t tid;
+        pthread_attr_t at;
+        pthread_attr_init(&at);
+        pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED);
+        if (pthread_create(&tid, &at, (void *(*)(void *))dlna_art_thread,
+                           NULL) != 0)
+            art_busy = false;
+        pthread_attr_destroy(&at);
+    }
+}
 static volatile float pending_volume;   /* 0..1 linear amplitude */
 static volatile bool pending_volume_valid;
 static float dlna_volume = 1.0f;        /* the AVTransport gain, reported
@@ -217,6 +348,8 @@ static void dlna_output_set_uri(const char *uri,
     bool changed;
 
     (void)meta_cb;      /* stream metadata is not parsed in v1 */
+
+    dlna_art_start(upnp_transport_art_uri());
     if (!uri)
         uri = "";
     changed = (strncmp(cur_uri, uri, URI_LEN - 1) != 0);
@@ -329,6 +462,13 @@ static int dlna_output_get_position(gint64 *track_duration,
 }
 
 /* duration (ms) of the last pushed item, for the UI (0 = unknown) */
+/* Ask the monitor thread to stop the renderer session (same as the stop
+ * button on the DLNA screen). */
+void dlna_output_request_stop(void)
+{
+    pending_stop = true;
+}
+
 int dlna_output_get_duration_ms(void)
 {
     return upnp_transport_last_duration_ms();

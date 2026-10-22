@@ -391,15 +391,30 @@ int dlna_menu(void)
     }
 
     dlna_stream_get_status(&status);
-    simplelist_info_init(&info, str(LANG_DLNA), DLNA_ROWS, &status);
-    info.get_name = dlna_row_cb;
-    info.action_callback = dlna_action_cb;
-    info.timeout = HZ * 2;
-    info.selection = DLNA_ROWS - 1;
-    info.title_icon = Icon_Submenu;
-    simplelist_show_list(&info);
+    bool stopped = false;
+#ifdef HAVE_LVGL_UI
+    {
+        bool lvgui_in_job(void);
+        int lvgui_dlna_view(void);
+        if (lvgui_in_job())
+            stopped = lvgui_dlna_view() != 0;
+        else
+#endif
+    {
+        simplelist_info_init(&info, str(LANG_DLNA), DLNA_ROWS, &status);
+        info.get_name = dlna_row_cb;
+        info.action_callback = dlna_action_cb;
+        info.timeout = HZ * 2;
+        info.selection = DLNA_ROWS - 1;
+        info.title_icon = Icon_Submenu;
+        simplelist_show_list(&info);
+        stopped = (info.selection == DLNA_ROWS - 1);
+    }
+#ifdef HAVE_LVGL_UI
+    }
+#endif
 
-    if (info.selection == DLNA_ROWS - 1)
+    if (stopped)
     {
         /* the exit row: renderer, stream and all threads stop here */
         dlna_renderer_stop();

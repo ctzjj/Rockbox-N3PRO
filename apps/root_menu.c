@@ -330,6 +330,32 @@ static int recscrn(void* param)
     return GO_TO_ROOT;
 }
 #endif
+#ifdef HAVE_LVGL_UI
+/* Native home "play / resume" entry: same semantics as wpsscrn() below. */
+int lvgui_resume_playback(void)
+{
+    if (audio_status())
+    {
+        shell_player_show();
+        return 0;
+    }
+    if (global_status.resume_index != -1)
+    {
+        if (playlist_resume() != -1)
+        {
+            playlist_resume_track(global_status.resume_index,
+                global_status.resume_crc32,
+                global_status.resume_elapsed,
+                global_status.resume_offset);
+            shell_player_show();
+            return 0;
+        }
+    }
+    splash(HZ * 2, ID2P(LANG_NOTHING_TO_RESUME));
+    return 0;
+}
+#endif
+
 static int wpsscrn(void* param)
 {
     int ret_val = GO_TO_PREVIOUS;
@@ -471,12 +497,42 @@ extern struct menu_item_ex
         playlist_options,
         info_menu,
         system_menu;
+#ifdef HAVE_LVGL_UI
+/* the native playlist screens replace the classic viewer/catalog */
+extern void shell_playlists_show(void);
+extern void shell_playlist_show(void);
+extern void shell_player_show(void);
+static int playlist_view_catalog_lvgl(void *param)
+{
+    (void)param;
+    shell_playlists_show();
+    return GO_TO_ROOT;
+}
+static int playlist_view_lvgl(void *param)
+{
+    (void)param;
+    shell_playlist_show();
+    return GO_TO_ROOT;
+}
+static int wps_lvgl(void *param)
+{
+    (void)param;
+    shell_player_show();
+    return GO_TO_ROOT;
+}
+#endif
+
 static const struct root_items items[] = {
     [GO_TO_FILEBROWSER] =   { browser, (void*)GO_TO_FILEBROWSER, &file_menu},
 #ifdef HAVE_TAGCACHE
     [GO_TO_DBBROWSER] =     { browser, (void*)GO_TO_DBBROWSER, &tagcache_menu },
 #endif
-    [GO_TO_WPS] =           { wpsscrn, NULL, &playback_settings },
+    [GO_TO_WPS] =
+#ifdef HAVE_LVGL_UI
+                            { wps_lvgl, NULL, &playback_settings },
+#else
+                            { wpsscrn, NULL, &playback_settings },
+#endif
     [GO_TO_MAINMENU] =      { miscscrn, (struct menu_item_ex*)&main_menu_,
                                                             &manage_settings },
 
@@ -490,9 +546,18 @@ static const struct root_items items[] = {
 
     [GO_TO_RECENTBMARKS] =  { load_bmarks, NULL, &bookmark_settings_menu },
     [GO_TO_BROWSEPLUGINS] = { miscscrn, &plugin_menu, NULL },
+#ifdef HAVE_LVGL_UI
+    [GO_TO_PLAYLISTS_SCREEN] = { playlist_view_catalog_lvgl, NULL,
+                                                        &playlist_options },
+#else
     [GO_TO_PLAYLISTS_SCREEN] = { playlist_view_catalog, NULL,
                                                         &playlist_options },
+#endif
+#ifdef HAVE_LVGL_UI
+    [GO_TO_PLAYLIST_VIEWER] = { playlist_view_lvgl, NULL, &playlist_options },
+#else
     [GO_TO_PLAYLIST_VIEWER] = { playlist_view, NULL, &playlist_options },
+#endif
     [GO_TO_SYSTEM_SCREEN] = { miscscrn, &info_menu, &system_menu },
     [GO_TO_SHORTCUTMENU] = { do_shortcut_menu, NULL, NULL },
 
@@ -646,6 +711,56 @@ char* root_menu_write_to_cfg(void* setting, char*buf, int buf_len)
     }
     return buf;
 }
+
+#ifdef HAVE_LVGL_UI
+/* native main-menu editor: enumerate all stock root items and rebuild the
+ * table from a key list (persisted via root_menu_write_to_cfg) */
+int lvgui_root_items(const char **keys, const char **labels,
+                     unsigned char *enabled, int max)
+{
+    int n = 0;
+    unsigned cur = MENU_GET_COUNT(root_menu_.flags);
+    for (unsigned t = 0; t < MAX_MENU_ITEMS && n < max; t++)
+    {
+        const struct menu_item_ex *it = menu_table[t].item;
+        keys[n] = menu_table[t].string;
+        if (it->flags & MENU_HAS_DESC)
+            labels[n] = P2STR(it->callback_and_desc->desc);
+        else
+            labels[n] = menu_table[t].string;
+        enabled[n] = 0;
+        for (unsigned c = 0; c < cur; c++)
+            if (root_menu__[c] == it)
+                enabled[n] = 1;
+        n++;
+    }
+    return n;
+}
+
+void lvgui_root_apply(const char **keys, int n)
+{
+    int j = 0;
+    bool has_settings = false;
+    for (int i = 0; i < n; i++)
+    {
+        for (unsigned t = 0; t < MAX_MENU_ITEMS; t++)
+        {
+            if (!strcmp(keys[i], menu_table[t].string))
+            {
+                root_menu__[j++] = (struct menu_item_ex *)menu_table[t].item;
+                if (!strcmp(keys[i], "settings"))
+                    has_settings = true;
+                break;
+            }
+        }
+    }
+    /* stock rockbox always keeps the settings entry */
+    if (!has_settings && j < (int)MAX_MENU_ITEMS)
+        root_menu__[j++] = (struct menu_item_ex *)&menu_;
+    root_menu_.flags = (root_menu_.flags & ~MENU_COUNT_MASK)
+                       | MENU_ITEM_COUNT(j);
+}
+#endif
 
 void root_menu_set_default(void* setting, void* defaultval)
 {
@@ -1086,3 +1201,26 @@ load_next_screen: /* load_screen is inlined */
     }
 
 }
+
+#ifdef HAVE_LVGL_UI
+/* LVGL home reads the configured root-menu order (menu_table names) */
+int lvgui_root_names(const char **names, int max)
+{
+    unsigned count = MENU_GET_COUNT(root_menu_.flags);
+    int n = (count > (unsigned)max) ? max : (int)count;
+
+    for (int i = 0; i < n; i++)
+    {
+        names[i] = NULL;
+        for (unsigned j = 0; j < MAX_MENU_ITEMS; j++)
+        {
+            if (menu_table[j].item == root_menu__[i])
+            {
+                names[i] = menu_table[j].string;
+                break;
+            }
+        }
+    }
+    return n;
+}
+#endif

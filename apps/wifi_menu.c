@@ -158,6 +158,27 @@ static const char *wifi_saved_name_cb(int selected, void *data,
 }
 
 /* Scan, pick a network, ask for a password and connect. */
+#ifdef HAVE_LVGL_UI
+static enum themable_icons wifi_row_icon_cb(int selected, void *data)
+{
+    (void)selected; (void)data;
+    return (enum themable_icons)-2;          /* network row */
+}
+static enum themable_icons wifi_act_icon_cb(int selected, void *data)
+{
+    static const int ic[3] = { -10, -6, -9 }; /* connect/forget/cancel */
+    (void)data;
+    if (selected < 0 || selected > 2)
+        return (enum themable_icons)0;
+    return (enum themable_icons)ic[selected];
+}
+static enum themable_icons wifi_status_icon_cb(int selected, void *data)
+{
+    (void)selected; (void)data;
+    return (enum themable_icons)-5;          /* info row */
+}
+#endif
+
 static void wifi_flow_scan(void)
 {
     static struct wifi_hal_net nets[WIFI_MAX_NETS];
@@ -177,6 +198,9 @@ static void wifi_flow_scan(void)
     struct simplelist_info info;
     simplelist_info_init(&info, wifi_str(LANG_WIFI_SCAN), count, nets);
     info.get_name = wifi_scan_name_cb;
+#ifdef HAVE_LVGL_UI
+    info.get_icon = wifi_row_icon_cb;
+#endif
     simplelist_show_list(&info);
     int pick = info.selection;
     if (pick < 0 || pick >= count)
@@ -221,6 +245,9 @@ static void wifi_flow_saved(void)
     struct simplelist_info info;
     simplelist_info_init(&info, wifi_str(LANG_WIFI_SAVED), count, nets);
     info.get_name = wifi_saved_name_cb;
+#ifdef HAVE_LVGL_UI
+    info.get_icon = wifi_row_icon_cb;
+#endif
     simplelist_show_list(&info);
     int pick = info.selection;
     if (pick < 0 || pick >= count)
@@ -232,6 +259,9 @@ static void wifi_flow_saved(void)
     struct simplelist_info act_info;
     simplelist_info_init(&act_info, nets[pick].ssid, 3, &act);
     act_info.get_name = wifi_id_name_cb;
+#ifdef HAVE_LVGL_UI
+    act_info.get_icon = wifi_act_icon_cb;
+#endif
     simplelist_show_list(&act_info);
     if (act_info.selection < 0)
         return;
@@ -435,6 +465,9 @@ static void wifi_status_screen(void)
     simplelist_info_init(&info, wifi_str(LANG_WIFI_STATUS), WIFI_STATUS_ROWS,
                          NULL);
     info.get_name = wifi_status_name_cb;
+#ifdef HAVE_LVGL_UI
+    info.get_icon = wifi_status_icon_cb;
+#endif
     info.action_callback = wifi_status_action_cb;
     info.timeout = HZ * 2;
     info.selection = 0;
@@ -453,6 +486,22 @@ static void wifi_flow_reset(void)
 {
     if (!yesno_pop(wifi_str(LANG_WIFI_RESET_CONFIRM)))
         return;
+
+#ifdef HAVE_LVGL_UI
+    {
+        /* Avoid the classic text screen: show an LVGL toast instead. */
+        bool lvgui_in_job(void);
+        void shell_toast(int ticks, const char *msg, const char *icon);
+        void shell_toast_clear(void);
+        if (lvgui_in_job())
+        {
+            shell_toast(0, wifi_str(LANG_WIFI_RESETTING), NULL);
+            wifi_hal_reset();
+            shell_toast_clear();
+            return;
+        }
+    }
+#endif
 
     struct viewport vp;
     struct screen *sc = &screens[SCREEN_MAIN];
@@ -502,6 +551,40 @@ static const char *wifi_menu_name_cb(int selected, void *data,
     return buffer;
 }
 
+#ifdef HAVE_LVGL_UI
+/* per-row icons mirroring wifi_menu_name_cb's id chain (pseudo-ids are
+ * resolved by the LVGL simplelist hook) */
+static enum themable_icons wifi_menu_icon_cb(int selected, void *data)
+{
+    static const int base[5] = { -1, -4, -2, -5, -6 };
+    int idx = 5;
+    (void)data;
+    if (selected < 5)
+        return (enum themable_icons)base[selected];
+#ifdef HAVE_WIFI_SSH
+    if (selected == idx)
+        return (enum themable_icons)-7;      /* ssh */
+    idx++;
+#endif
+#ifdef HAVE_NETFM
+    if (selected == idx)
+        return (enum themable_icons)-8;      /* radio */
+    idx++;
+#endif
+#ifdef HAVE_WEB_CONTROL
+    if (selected == idx)
+        return (enum themable_icons)-2;      /* web */
+    idx++;
+#endif
+#ifdef HAVE_DLNA
+    if (selected == idx)
+        return (enum themable_icons)-11;     /* dlna push */
+    idx++;
+#endif
+    return (enum themable_icons)0;
+}
+#endif
+
 int wifi_menu(void)
 {
     while (true)
@@ -532,6 +615,9 @@ int wifi_menu(void)
         simplelist_info_init(&info, wifi_str(LANG_WIFI), count,
                              menu_data);
         info.get_name = wifi_menu_name_cb;
+#ifdef HAVE_LVGL_UI
+        info.get_icon = wifi_menu_icon_cb;
+#endif
         info.selection = -1;
         info.title_icon = Icon_Submenu;
 

@@ -207,11 +207,21 @@ static int bt_device_sort_cmp(const void *a, const void *b)
     return strcasecmp(da->name, db->name);
 }
 
+static int bt_sys_command_to(const char *command, char *reply,
+                             size_t reply_size, int recv_ms);
+
 static int bt_sys_command(const char *command, char *reply, size_t reply_size)
+{
+    return bt_sys_command_to(command, reply, reply_size, 2000);
+}
+
+static int bt_sys_command_to(const char *command, char *reply,
+                             size_t reply_size, int recv_ms)
 {
     struct sockaddr_un addr;
     struct timeval tv_send = { .tv_sec = 1, .tv_usec = 0 };
-    struct timeval tv_recv = { .tv_sec = 2, .tv_usec = 0 };
+    struct timeval tv_recv = { .tv_sec = recv_ms / 1000,
+                               .tv_usec = (recv_ms % 1000) * 1000 };
     int fd = -1;
     ssize_t n;
 
@@ -445,6 +455,54 @@ static int bt_merge_devices_from_bt_scan_file(struct bt_audio_dev *devices, int 
     return count;
 }
 
+/* Optional UI pump, installed by the LVGL layer while a stock
+ * bluetooth operation runs on the UI thread (keeps the screen alive). */
+void (*bt_audio_idle_hook)(void);
+
+static void bt_pump(void)
+{
+    if (bt_audio_idle_hook)
+        bt_audio_idle_hook();
+}
+
+static void bt_sleep(int ticks)
+{
+    int step = HZ / 20;
+    while (ticks > 0)
+    {
+        bt_pump();
+        sleep(step);
+        ticks -= step;
+    }
+}
+
+/* Run a shell command without freezing the UI (20 s watchdog). */
+static void bt_run_cmd(const char *cmd)
+{
+    pid_t pid = fork();
+    int status = 0, waited = 0;
+
+    if (pid == 0)
+    {
+        execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
+        _exit(127);
+    }
+    if (pid < 0)
+        return;
+    while (waitpid(pid, &status, WNOHANG) == 0)
+    {
+        bt_pump();
+        sleep(HZ / 10);
+        waited += HZ / 10;
+        if (waited >= HZ * 20)
+        {
+            kill(pid, SIGKILL);
+            waitpid(pid, &status, 0);
+            break;
+        }
+    }
+}
+
 static int bt_load_devices_via_sys_list(struct bt_audio_dev *devices, int max_devices)
 {
     char reply[BT_SYS_REPLY_MAX];
@@ -476,7 +534,7 @@ static int bt_load_devices_via_sys_list(struct bt_audio_dev *devices, int max_de
         if (ready && (changed || waited >= HZ))
             break;
 
-        sleep(HZ / 5);
+        bt_sleep(HZ / 5);
         waited += HZ / 5;
     }
 
@@ -489,11 +547,44 @@ static int bt_load_devices_via_sys_list(struct bt_audio_dev *devices, int max_de
  * firmware (the inquiry never reports the neighbourhood), so drive the
  * vendor discovery helper directly: it runs a full ~10 s inquiry and
  * writes the JSON list itself. */
+
+/* Run the vendor discovery helper without freezing the UI: poll it and
+ * let the UI repaint between polls (20 s hard watchdog). */
+static void bt_run_scan_helper(void)
+{
+    pid_t pid = fork();
+    int status = 0;
+    int waited = 0;
+
+    if (pid == 0)
+    {
+        execl("/usr/bin/bt-adapter", "bt-adapter", "-d", "-p",
+              BT_SCAN_FILE, (char *)NULL);
+        _exit(127);
+    }
+    if (pid < 0)
+        return;
+
+    while (waitpid(pid, &status, WNOHANG) == 0)
+    {
+        if (bt_audio_idle_hook)
+            bt_audio_idle_hook();
+        sleep(HZ / 10);
+        waited += HZ / 10;
+        if (waited >= HZ * 20)
+        {
+            kill(pid, SIGKILL);
+            waitpid(pid, &status, 0);
+            break;
+        }
+    }
+}
+
 static int bt_scan_and_merge_devices(struct bt_audio_dev *devices, int count, int max_devices)
 {
     bool ready = false;
 
-    system("/usr/bin/bt-adapter -d -p " BT_SCAN_FILE " >/dev/null 2>&1");
+    bt_run_scan_helper();
 
     count = bt_merge_devices_from_bt_scan_file(devices, count, max_devices, &ready);
 
@@ -986,7 +1077,7 @@ static void bt_ensure_sys_server(void)
         return;
 
     system("(setsid /usr/bin/sys_server >/dev/null 2>&1 &)");
-    sleep(HZ / 2);
+    bt_sleep(HZ / 2);
 }
 
 static bool bt_prepare_stack(void)
@@ -996,7 +1087,7 @@ static bool bt_prepare_stack(void)
 
     bt_ensure_sys_server();
 
-    system("bt_enable >/dev/null 2>&1");
+    bt_run_cmd("bt_enable >/dev/null 2>&1");
 
     for (i = 0; i < 12; i++)
     {
@@ -1012,9 +1103,9 @@ static bool bt_prepare_stack(void)
         }
 
         reply[0] = '\0';
-        bt_sys_command("BT:ON", reply, sizeof(reply));
+        bt_sys_command_to("BT:ON", reply, sizeof(reply), 500);
 
-        sleep(HZ / 5);
+        bt_sleep(HZ / 5);
     }
 
     return false;

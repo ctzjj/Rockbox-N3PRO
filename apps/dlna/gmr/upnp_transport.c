@@ -576,6 +576,10 @@ const char *upnp_transport_last_title(void) { return last_push_title_; }
 static int last_push_duration_ms;
 int upnp_transport_last_duration_ms(void) { return last_push_duration_ms; }
 
+/* <upnp:albumArtURI> the controller pushed with SetAVTransportURI. */
+static char art_uri_[512];
+const char *upnp_transport_art_uri(void) { return art_uri_; }
+
 static int replace_transport_uri_and_meta(const char *uri, const char *meta) {
 	/* Keep the human readable <dc:title> the controller pushed: the
 	 * Rockbox output uses it as the track name (the URI usually ends in
@@ -605,6 +609,20 @@ static int replace_transport_uri_and_meta(const char *uri, const char *meta) {
 			    h >= 0 && m >= 0 && s >= 0)
 				last_push_duration_ms =
 					((h * 60 + m) * 60 + s) * 1000;
+		}
+	}
+	/* <upnp:albumArtURI>...</upnp:albumArtURI> */
+	art_uri_[0] = '\0';
+	if (meta != NULL) {
+		const char *a = strstr(meta, "albumArtURI>");
+		if (a != NULL) {
+			const char *b = a + 12;
+			const char *e = strstr(b, "<");
+			if (e != NULL && (size_t)(e - b) < sizeof(art_uri_)) {
+				size_t n = (size_t)(e - b);
+				memcpy(art_uri_, b, n);
+				art_uri_[n] = '\0';
+			}
 		}
 	}
 	replace_var(TRANSPORT_VAR_AV_URI, uri);

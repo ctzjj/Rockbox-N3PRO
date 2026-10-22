@@ -22,5 +22,10 @@
 #define __BLUETOOTH_H__
 
 int bluetooth_menu(void);
+#ifdef HAVE_LVGL_UI
+int bt_lvgl_output(void);
+int bt_lvgl_input(void);
+int bt_lvgl_reset(void);
+#endif
 
 #endif /* __BLUETOOTH_H__ */

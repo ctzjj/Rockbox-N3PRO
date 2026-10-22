@@ -379,6 +379,98 @@ static struct dlna_source source = {
     .lock = PTHREAD_MUTEX_INITIALIZER,
     .ready = PTHREAD_COND_INITIALIZER,
 };
+/* Fetch a small object (album art) into buf.  Returns 0 and the body
+ * length on success.  Reuses the same connection/TLS code as the stream,
+ * just with a plain GET and the response headers skipped. */
+int dlna_http_fetch(const char *url, unsigned char **out, size_t *out_len,
+                    size_t max)
+{
+    struct dlna_conn c;
+    char host[256], path[2048], req[2400], hdr[8192];
+    unsigned char tmp[4096];
+    unsigned char *buf = NULL;
+    size_t cap = 0, used = 0, body = 0;
+    long clen = -1;
+    int n, off, hlen = 0, done = 0;
+
+    *out = NULL;
+    *out_len = 0;
+    if (dlna_conn_open(url, host, sizeof host, path, sizeof path, &c) != 0)
+        return -1;
+    n = snprintf(req, sizeof req,
+                 "GET %s HTTP/1.0\r\nHost: %s\r\n"
+                 "User-Agent: Rockbox\r\nAccept: image/*\r\n"
+                 "Connection: close\r\n\r\n", path, host);
+    for (off = 0; off < n; )
+    {
+        ssize_t w = dlna_conn_write(&c, req + off, (size_t)(n - off));
+        if (w <= 0) { dlna_conn_close(&c); return -1; }
+        off += (int)w;
+    }
+
+    /* headers: read until the blank line, remember what is already body */
+    while (!done && hlen < (int)sizeof hdr - 1 &&
+           (n = (int)dlna_conn_read(&c, hdr + hlen, sizeof hdr - 1 - hlen)) > 0)
+    {
+        char *e;
+        hlen += n;
+        hdr[hlen] = '\0';
+        e = strstr(hdr, "\r\n\r\n");
+        if (!e)
+            continue;
+        body = (size_t)(hdr + hlen - (e + 4));
+        done = 1;
+        /* Content-Length tells us exactly how much RAM to reserve */
+        {
+            char *q = hdr;
+            while ((q = strchr(q, ':')) != NULL)
+            {
+                char *ls = q - 14;
+                if (ls >= hdr && !strncasecmp(ls, "Content-Length", 14))
+                {
+                    clen = strtol(q + 1, NULL, 10);
+                    break;
+                }
+                q++;
+            }
+        }
+        if (clen > (long)max)
+        {
+            /* object far larger than the RAM we can spend on art */
+            free(buf);
+            dlna_conn_close(&c);
+            return -2;
+        }
+        if (clen > 0)
+            cap = (size_t)clen;
+        if (cap == 0)
+            cap = body > 65536 ? body : 65536;
+        if (cap > max)
+            cap = max;
+        buf = malloc(cap);
+        if (!buf) { dlna_conn_close(&c); return -1; }
+        if (body > cap) body = cap;
+        memcpy(buf, e + 4, body);
+        used = body;
+    }
+    if (!done) { free(buf); dlna_conn_close(&c); return -1; }
+
+    while (used < cap && (n = (int)dlna_conn_read(&c, tmp, sizeof tmp)) > 0)
+    {
+        size_t take = (size_t)n;
+        if (used + take > cap) take = cap - used;
+        memcpy(buf + used, tmp, take);
+        used += take;
+        if (take < (size_t)n) break;    /* full: object too large */
+    }
+    dlna_conn_close(&c);
+
+    if (used < 64) { free(buf); return -1; }
+    *out = buf;
+    *out_len = used;
+    return (clen > 0 && used < (size_t)clen) ? -1 : 0;
+}
+
 static struct dlna_conn *volatile active_conn;
 
 /* A pushed file's RAM buffer may still be read by the decoder thread

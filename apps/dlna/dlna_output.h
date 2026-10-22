@@ -7,6 +7,13 @@
 #ifndef DLNA_OUTPUT_H
 #define DLNA_OUTPUT_H
 
+void dlna_output_request_stop(void);
+const unsigned char *dlna_output_art_data(size_t *len,
+                                          unsigned *gen);
+void dlna_output_art_lock(void);
+void dlna_output_art_unlock(void);
+void dlna_output_art_release(unsigned gen);
+
 struct output_module;
 
 /* the module registered under the shortname "dlna" (gmr/output.c) */
