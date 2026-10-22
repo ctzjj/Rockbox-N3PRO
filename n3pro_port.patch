@@ -543421,10 +543421,10 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..2ba8aae944
+index 0000000000..5390a3e764
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
-@@ -0,0 +1,1539 @@
+@@ -0,0 +1,1554 @@
 +/* ui_backend.c -- rockbox adapter implementation.
 + * Everything here talks to rockbox (tagcache, playlist, file tree,
 + * metadata, artwork); nothing here talks to LVGL. */
@@ -543649,6 +543649,42 @@ index 0000000000..2ba8aae944
 +    return NULL;
 +}
 +
++/* Decode a (possibly embedded) JPEG into a w x h bitmap.  Ask the decoder
++ * for the exact buffer size first: JPEG_DECODE_OVERHEAD alone is not enough
++ * for the resize line buffers once the source is much bigger than the
++ * target, and the decode then quietly returns 0 (a missing cover). */
++static be_img_t *be_art_jpeg(const char *path, int offset, unsigned long len,
++                             int w, int h, int fmt)
++{
++    struct bitmap probe;
++    memset(&probe, 0, sizeof probe);
++    probe.width = w;
++    probe.height = h;
++    /* the decoder stores its state at bm->data, so the probe needs a real
++     * buffer; JPEG_DECODE_OVERHEAD is by definition big enough */
++    probe.data = malloc(JPEG_DECODE_OVERHEAD);
++    if (!probe.data)
++        return NULL;
++    int need = clip_jpeg_file(path, offset, len, &probe, JPEG_DECODE_OVERHEAD,
++                              fmt | FORMAT_RETURN_SIZE, NULL);
++    free(probe.data);
++    if (need <= 0)
++        return NULL;
++    void *buf = malloc(need + 128);   /* alignment slack for the second run */
++    if (!buf)
++        return NULL;
++    struct bitmap bm;
++    memset(&bm, 0, sizeof bm);
++    bm.data = buf;
++    bm.width = w;
++    bm.height = h;
++    int rc = clip_jpeg_file(path, offset, len, &bm, need + 128, fmt, NULL);
++    if (rc > 0)
++        return be_art_from_bm(&bm, buf);
++    free(buf);
++    return NULL;
++}
++
 +be_img_t *be_track_art(const char *path, int w, int h)
 +{
 +    static struct mp3entry id3;          /* big; reuse, UI thread only */
@@ -543682,21 +543718,11 @@ index 0000000000..2ba8aae944
 +    if (id3.has_embedded_albumart && id3.albumart.size > 0 &&
 +        (id3.albumart.type & AA_CLEAR_FLAGS_MASK) == AA_TYPE_JPG)
 +    {
-+        void *buf = malloc(maxsize);
-+        if (buf)
-+        {
-+            memset(&bm, 0, sizeof bm);
-+            bm.data = buf;
-+            bm.width = w;
-+            bm.height = h;
-+            int cr = clip_jpeg_file(path, id3.albumart.pos,
-+                                    id3.albumart.size, &bm, maxsize,
-+                                    art_fmt, NULL);
-+
-+            if (cr > 0)
-+                return be_art_from_bm(&bm, buf);
-+            free(buf);
-+        }
++        be_img_t *im = be_art_jpeg(path, id3.albumart.pos,
++                                   (unsigned long)id3.albumart.size,
++                                   w, h, art_fmt);
++        if (im)
++            return im;
 +    }
 +
 +    /* stock artwork lookup: same folder and its parent directory */
@@ -543709,20 +543735,9 @@ index 0000000000..2ba8aae944
 +        const char *ext = strrchr(artpath, '.');
 +        if (ext && strcasecmp(ext, ".jpg") == 0)
 +        {
-+            void *buf = malloc(maxsize);
-+            if (buf)
-+            {
-+                memset(&bm, 0, sizeof bm);
-+                bm.data = buf;
-+                bm.width = w;
-+                bm.height = h;
-+                int jr = read_jpeg_file(artpath, &bm, maxsize,
-+                                        art_fmt, NULL);
-+
-+                if (jr > 0)
-+                    return be_art_from_bm(&bm, buf);
-+                free(buf);
-+            }
++            be_img_t *im = be_art_jpeg(artpath, 0, 0, w, h, art_fmt);
++            if (im)
++                return im;
 +        }
 +        else if (ext && strcasecmp(ext, ".png") == 0)
 +        {
@@ -552530,10 +552545,10 @@ index 0000000000..52a2817ee4
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_player.c b/apps/gui/lvglui/ui_player.c
 new file mode 100644
-index 0000000000..d601929a5f
+index 0000000000..0b8ce9115a
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_player.c
-@@ -0,0 +1,1191 @@
+@@ -0,0 +1,1190 @@
 +/* ui_player.c — M3 now-playing screen (WPS equivalent, LVGL edition)
 + *
 + * Follows the approved design mock (brainstorm 587, screen 21/21b):
@@ -553128,8 +553143,7 @@ index 0000000000..d601929a5f
 +    }
 +    if (!p->path[0])
 +        return;
-+    /* the JPEG decoder rejects targets >= 256px, so decode at 240 and let
-+     * LVGL scale the image up to the artwork box */
++    /* decode the cover at the card's size and let LVGL scale it to the box */
 +    p->art = lib_track_art_sized(p->path, 240, 240);
 +    if (!p->art)
 +    {
@@ -605053,6 +605067,26 @@ index d2ffb33fe6..8844910141 100644
  /* use touchscreen */
  
  #elif CONFIG_KEYPAD == MA_PAD
+diff --git a/apps/recorder/albumart.c b/apps/recorder/albumart.c
+index 78a6b8e594..b291afcf2a 100644
+--- a/apps/recorder/albumart.c
++++ b/apps/recorder/albumart.c
+@@ -93,6 +93,15 @@ static bool try_exts(char *path, int len)
+         if (file_exists(path))
+             return true;
+     }
++#ifdef HAVE_LVGL_UI
++    /* the native UI decodes PNG cover files as well (lodepng) */
++    if (len + 4 <= MAX_PATH)
++    {
++        strcpy(path + len, "png");
++        if (file_exists(path))
++            return true;
++    }
++#endif
+     return false;
+ }
+ #define EXT
 diff --git a/apps/recorder/keyboard.c b/apps/recorder/keyboard.c
 index cb00fef74f..aa0915ccfd 100644
 --- a/apps/recorder/keyboard.c

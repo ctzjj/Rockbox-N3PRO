@@ -222,6 +222,42 @@ be_img_t *be_art_blob(const unsigned char *data, size_t len, int w, int h)
     return NULL;
 }
 
+/* Decode a (possibly embedded) JPEG into a w x h bitmap.  Ask the decoder
+ * for the exact buffer size first: JPEG_DECODE_OVERHEAD alone is not enough
+ * for the resize line buffers once the source is much bigger than the
+ * target, and the decode then quietly returns 0 (a missing cover). */
+static be_img_t *be_art_jpeg(const char *path, int offset, unsigned long len,
+                             int w, int h, int fmt)
+{
+    struct bitmap probe;
+    memset(&probe, 0, sizeof probe);
+    probe.width = w;
+    probe.height = h;
+    /* the decoder stores its state at bm->data, so the probe needs a real
+     * buffer; JPEG_DECODE_OVERHEAD is by definition big enough */
+    probe.data = malloc(JPEG_DECODE_OVERHEAD);
+    if (!probe.data)
+        return NULL;
+    int need = clip_jpeg_file(path, offset, len, &probe, JPEG_DECODE_OVERHEAD,
+                              fmt | FORMAT_RETURN_SIZE, NULL);
+    free(probe.data);
+    if (need <= 0)
+        return NULL;
+    void *buf = malloc(need + 128);   /* alignment slack for the second run */
+    if (!buf)
+        return NULL;
+    struct bitmap bm;
+    memset(&bm, 0, sizeof bm);
+    bm.data = buf;
+    bm.width = w;
+    bm.height = h;
+    int rc = clip_jpeg_file(path, offset, len, &bm, need + 128, fmt, NULL);
+    if (rc > 0)
+        return be_art_from_bm(&bm, buf);
+    free(buf);
+    return NULL;
+}
+
 be_img_t *be_track_art(const char *path, int w, int h)
 {
     static struct mp3entry id3;          /* big; reuse, UI thread only */
@@ -255,21 +291,11 @@ be_img_t *be_track_art(const char *path, int w, int h)
     if (id3.has_embedded_albumart && id3.albumart.size > 0 &&
         (id3.albumart.type & AA_CLEAR_FLAGS_MASK) == AA_TYPE_JPG)
     {
-        void *buf = malloc(maxsize);
-        if (buf)
-        {
-            memset(&bm, 0, sizeof bm);
-            bm.data = buf;
-            bm.width = w;
-            bm.height = h;
-            int cr = clip_jpeg_file(path, id3.albumart.pos,
-                                    id3.albumart.size, &bm, maxsize,
-                                    art_fmt, NULL);
-
-            if (cr > 0)
-                return be_art_from_bm(&bm, buf);
-            free(buf);
-        }
+        be_img_t *im = be_art_jpeg(path, id3.albumart.pos,
+                                   (unsigned long)id3.albumart.size,
+                                   w, h, art_fmt);
+        if (im)
+            return im;
     }
 
     /* stock artwork lookup: same folder and its parent directory */
@@ -282,20 +308,9 @@ be_img_t *be_track_art(const char *path, int w, int h)
         const char *ext = strrchr(artpath, '.');
         if (ext && strcasecmp(ext, ".jpg") == 0)
         {
-            void *buf = malloc(maxsize);
-            if (buf)
-            {
-                memset(&bm, 0, sizeof bm);
-                bm.data = buf;
-                bm.width = w;
-                bm.height = h;
-                int jr = read_jpeg_file(artpath, &bm, maxsize,
-                                        art_fmt, NULL);
-
-                if (jr > 0)
-                    return be_art_from_bm(&bm, buf);
-                free(buf);
-            }
+            be_img_t *im = be_art_jpeg(artpath, 0, 0, w, h, art_fmt);
+            if (im)
+                return im;
         }
         else if (ext && strcasecmp(ext, ".png") == 0)
         {
