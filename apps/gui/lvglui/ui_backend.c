@@ -332,10 +332,10 @@ void be_img_free(be_img_t *a)
 }
 
 /* ---- playback ------------------------------------------------------------ */
-/* Building the playlist reads metadata for every track and can take a
- * moment. Small lists build synchronously; big ones go to a background
- * thread so the caller's UI loop (which blocks in button_get_w_tmo each
- * cycle) keeps running. */
+/* Building the playlist reads metadata for every track.  Run it in the
+ * caller's (GUI) thread like the classic UI does: the job yields every few
+ * tracks, and a background thread used to trip the kernel's "abandon ship"
+ * check in thread_exit() when it was the last thing running. */
 
 typedef struct
 {
@@ -343,17 +343,6 @@ typedef struct
     int count;
     int start;
 } playjob_t;
-
-static long play_stack[(DEFAULT_STACK_SIZE + 0x1000) / sizeof(long)];
-static playjob_t *g_playjob;
-
-static void play_job_free(playjob_t *j)
-{
-    for (int i = 0; i < j->count; i++)
-        free(j->paths[i]);
-    free(j->paths);
-    free(j);
-}
 
 static void play_build_run(playjob_t *j)
 {
@@ -375,58 +364,20 @@ static void play_build_run(playjob_t *j)
         playlist_start(j->start, 0, 0);
 }
 
-static void play_build_thread(void)
-{
-    playjob_t *j = g_playjob;
-    play_build_run(j);
-    play_job_free(j);
-    g_playjob = NULL;
-    thread_exit();
-}
-
 void be_play(const be_list_t *t, int start)
 {
     if (t->count <= 0 || start < 0 || start >= t->count)
         return;
-    if (g_playjob)
-        return;                         /* a build is already running */
 
-    /* Small lists (a folder, an album, ...) build in no time: do it right
-     * here so playback has already started when the caller shows its
-     * playing screen. Big lists still go to the background thread. */
-    if (t->count <= 64)
-    {
-        playjob_t job;
-        job.paths = t->path;            /* borrowed: valid for this call */
-        job.count = t->count;
-        job.start = start;
-        play_build_run(&job);
-        return;
-    }
+    /* Big lists take a while (tag reads): tell the user before we block. */
+    if (t->count > 64)
+        shell_toast(0, "正在载入播放列表…", NULL);
 
-    playjob_t *j = calloc(1, sizeof *j);
-    if (!j)
-        return;
-    j->paths = malloc(sizeof(char *) * t->count);
-    if (!j->paths)
-    {
-        free(j);
-        return;
-    }
-    j->count = t->count;
-    j->start = start;
-    for (int i = 0; i < t->count; i++)
-        j->paths[i] = strdup(t->path[i]);
-
-    g_playjob = j;
-    if (create_thread(play_build_thread, play_stack, sizeof play_stack,
-                      0, "lvgl_play" IF_PRIO(, PRIORITY_PLAYBACK)) == 0)
-    {
-        /* could not spawn: build synchronously (rare) */
-        play_build_run(j);
-        play_job_free(j);
-        g_playjob = NULL;
-    }
+    playjob_t job;
+    job.paths = t->path;                /* borrowed: valid for this call */
+    job.count = t->count;
+    job.start = start;
+    play_build_run(&job);
 }
 
 /* Play a playlist file exactly like the file browser does (dir + name,

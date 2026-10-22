@@ -74,6 +74,17 @@ void lvgui_idle_pump(void)
     lv_timer_handler();
 }
 
+static void lvgui_home_key(void)
+{
+    extern int lvgl_shell_locked;
+    /* the lock screen owns the device: only the swipe unlocks */
+    if (lvgl_shell_locked)
+        return;
+    if (lvgui_control_is_open())
+        lvgui_control_close();
+    shell_nav_home();
+}
+
 void lvgui_pump(void)
 {
     if (g_wake_dirty)
@@ -106,6 +117,13 @@ void lvgui_pump(void)
             adjust_volume(-1);
         else if (button & BUTTON_SCROLL_BACK)
             adjust_volume(1);
+        /* the bottom-front touch key under the status LED is the HOME key */
+        if (button & BUTTON_HOME)
+        {
+            if (!(button & (BUTTON_REL | BUTTON_REPEAT)))
+                lvgui_home_key();
+            button &= ~BUTTON_HOME;
+        }
         lvgui_input_feed(button, button_get_data());
     }
     lv_timer_handler();
