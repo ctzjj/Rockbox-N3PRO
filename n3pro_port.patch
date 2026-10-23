@@ -543248,10 +543248,10 @@ index 0000000000..5aea596d21
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..1fcbc4a4f2
+index 0000000000..0f5a337592
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,157 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543272,6 +543272,8 @@ index 0000000000..1fcbc4a4f2
 +void shell_nav_home(void);
 +/* rebuild the home screen after a root-menu configuration change */
 +void shell_home_rebuild(void);
++/* repaint the wallpaper after a live theme change (ui_theme_init()) */
++void shell_theme_refresh(void);
 +bool shell_nav_full(void);
 +void shell_statusbar_build(lv_obj_t *parent);
 +void shell_header(lv_obj_t *scr, const char *title);
@@ -549745,10 +549747,10 @@ index 0000000000..a7c361ba25
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..394da8460b
+index 0000000000..f094fb1d0e
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2806 @@
+@@ -0,0 +1,2828 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -549821,6 +549823,9 @@ index 0000000000..394da8460b
 +static int  g_menu_row;      /* clicked row (0-based), -1 = none          */
 +static lv_obj_t *g_menu_scr;   /* current menu screen (rebuilt in place)    */
 +static bool g_menu_cancel;   /* the scrim (outside the card) was tapped   */
++/* a settings change rebuilt the whole UI (theme/font size): unwind the menu
++ * stack without touching the screens that shell_nav_home() removed */
++static bool g_menu_abort;
 +
 +static void menu_row_cb(lv_event_t *e)
 +{
@@ -550142,9 +550147,11 @@ index 0000000000..394da8460b
 +    char tmp[128];
 +    for (int i = 0; i < nb_items; i++)
 +    {
-+        option_get_valuestring(setting, tmp, sizeof tmp,
++        /* the formatter may return a language string instead of filling
++         * tmp (e.g. playback frequency 0 -> "auto"), so keep its pointer */
++        const char *txt = option_get_valuestring(setting, tmp, sizeof tmp,
 +                               lvgui_opt_selection_to_val(setting, i));
-+        labels[i] = strdup(tmp);
++        labels[i] = strdup(txt ? txt : "");
 +    }
 +
 +    g_optp.setting = setting;
@@ -550293,6 +550300,13 @@ index 0000000000..394da8460b
 +
 +    while (!done)
 +    {
++        if (g_menu_abort)
++        {
++            g_menu_abort = false;
++            g_menu_scr = NULL;
++            ret = GO_TO_PREVIOUS;
++            break;
++        }
 +        char tbuf[80];
 +        const char *title = menu_title(menu, tbuf, sizeof tbuf);
 +        int nvis = 0;
@@ -551664,7 +551678,12 @@ index 0000000000..394da8460b
 +    {
 +        global_settings.ui_font_size = sel;
 +        settings_save();
-+        shell_toast(HZ, ID2P(LANG_REBOOT_NOW), LV_SYMBOL_REFRESH);
++        /* fonts come from the theme: apply at once and start over on Home */
++        ui_theme_init();
++        shell_theme_refresh();
++        shell_home_rebuild();
++        shell_nav_home();
++        g_menu_abort = true;
 +    }
 +    return GO_TO_PREVIOUS;
 +}
@@ -551686,7 +551705,12 @@ index 0000000000..394da8460b
 +    {
 +        global_settings.ui_dark_mode = (sel == 1);
 +        settings_save();
-+        shell_toast(HZ, ID2P(LANG_REBOOT_NOW), LV_SYMBOL_REFRESH);
++        /* live switch: refill the palette and rebuild the UI (no reboot) */
++        ui_theme_init();
++        shell_theme_refresh();
++        shell_home_rebuild();
++        shell_nav_home();
++        g_menu_abort = true;
 +    }
 +    return GO_TO_PREVIOUS;
 +}
@@ -553753,10 +553777,10 @@ index 0000000000..0b8ce9115a
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..cc5bcfb6ba
+index 0000000000..0c3f18b3b1
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2409 @@
+@@ -0,0 +1,2388 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -553891,7 +553915,9 @@ index 0000000000..cc5bcfb6ba
 +{
 +    uint8_t *work = malloc((size_t)BK_W * BK_H * 3);   /* RGB888 workspace */
 +    uint8_t *tmp = malloc((size_t)BK_W * BK_H * 3);
-+    backdrop_buf = malloc((size_t)BK_W * BK_H * 2);    /* RGB565 result */
++    if (!backdrop_buf)                                 /* keep it across theme
++                                                        * switches */
++        backdrop_buf = malloc((size_t)BK_W * BK_H * 2); /* RGB565 result */
 +    if (!work || !tmp || !backdrop_buf)
 +    {
 +        free(work); free(tmp);
@@ -555032,50 +555058,18 @@ index 0000000000..cc5bcfb6ba
 +    }
 +}
 +
-+/* live preview rows: tap = preview (on_move), tap again = confirm */
++/* live preview rows: one tap applies the value and leaves, like the stock
++ * option screen (the old "tap to preview, tap again to confirm" needed two
++ * taps for every setting) */
 +static void pick_live_row_cb(lv_event_t *e)
 +{
 +    int i = (int)(intptr_t)lv_event_get_user_data(e);
-+    if (i == g_pick_res)
-+    {
-+        g_pick_confirmed = true;
-+        g_pick_done = true;
-+        shell_nav_pop();
-+        return;
-+    }
 +    g_pick_res = i;
-+    for (int k = 0; k < g_pick_count; k++)
-+    {
-+        bool sel = (k == i);
-+        lv_obj_t *row = g_pick_rows[k];
-+        if (sel)
-+        {
-+            lv_obj_set_style_bg_color(row, lv_color_mix(lv_color_white(),
-+                                      th->accent_blue, 40), 0);
-+            lv_obj_set_style_bg_grad_color(row,
-+                lv_color_darken(th->accent_blue, 60), 0);
-+            lv_obj_set_style_bg_grad_dir(row, LV_GRAD_DIR_VER, 0);
-+            lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-+            lv_obj_set_style_border_color(row,
-+                lv_color_lighten(th->accent_blue, 100), 0);
-+            lv_obj_set_style_border_opa(row, LV_OPA_60, 0);
-+        }
-+        else
-+        {
-+            lv_obj_set_style_bg_color(row, th->glass_bg, 0);
-+            lv_obj_set_style_bg_grad_color(row,
-+                lv_color_darken(th->glass_bg, 16), 0);
-+            lv_obj_set_style_bg_grad_dir(row, LV_GRAD_DIR_VER, 0);
-+            lv_obj_set_style_bg_opa(row, th->card_opa, 0);
-+            lv_obj_set_style_border_color(row, th->border_white, 0);
-+            lv_obj_set_style_border_opa(row, th->card_border_opa, 0);
-+        }
-+        lv_obj_t *lbl = lv_obj_get_child(row, 0);
-+        lv_obj_set_style_text_color(lbl,
-+            sel ? th->fg_inverse : COL_TEXT, 0);
-+    }
 +    if (g_pick_on_move)
 +        g_pick_on_move(i, g_pick_move_ud);
++    g_pick_confirmed = true;
++    g_pick_done = true;
++    shell_nav_pop();
 +}
 +
 +/* Push a full-screen menu list (house style: wallpaper, centred title,
@@ -556130,7 +556124,8 @@ index 0000000000..cc5bcfb6ba
 +        lvui_art_free(dock_art_dsc);
 +        dock_art_dsc = NULL;
 +    }
-+    dock_chip = dock_glyph = dock_l1 = dock_l2 = NULL;
++    dock_chip = dock_glyph = dock_l1 = dock_l2 = dock_btn = NULL;
++    dock_path[0] = '\0';
 +
 +    lv_obj_t *nh = shell_screen_new();
 +    home_build(nh);
@@ -556145,6 +556140,14 @@ index 0000000000..cc5bcfb6ba
 +void shell_home_rebuild(void)
 +{
 +    lv_async_call(home_rebuild_do, NULL);
++}
++
++/* repaint the procedural wallpaper after ui_theme_init() changed the
++ * palette (live theme switch); screens keep pointing at the same image */
++void shell_theme_refresh(void)
++{
++    backdrop_init();
++    lv_obj_invalidate(lv_scr_act());
 +}
 +
 +lv_color_t shell_icon_grad(int i)

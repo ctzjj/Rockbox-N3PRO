@@ -70,6 +70,9 @@
 static int  g_menu_row;      /* clicked row (0-based), -1 = none          */
 static lv_obj_t *g_menu_scr;   /* current menu screen (rebuilt in place)    */
 static bool g_menu_cancel;   /* the scrim (outside the card) was tapped   */
+/* a settings change rebuilt the whole UI (theme/font size): unwind the menu
+ * stack without touching the screens that shell_nav_home() removed */
+static bool g_menu_abort;
 
 static void menu_row_cb(lv_event_t *e)
 {
@@ -391,9 +394,11 @@ bool lvgui_option_screen(const struct settings_list *setting,
     char tmp[128];
     for (int i = 0; i < nb_items; i++)
     {
-        option_get_valuestring(setting, tmp, sizeof tmp,
+        /* the formatter may return a language string instead of filling
+         * tmp (e.g. playback frequency 0 -> "auto"), so keep its pointer */
+        const char *txt = option_get_valuestring(setting, tmp, sizeof tmp,
                                lvgui_opt_selection_to_val(setting, i));
-        labels[i] = strdup(tmp);
+        labels[i] = strdup(txt ? txt : "");
     }
 
     g_optp.setting = setting;
@@ -542,6 +547,13 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
 
     while (!done)
     {
+        if (g_menu_abort)
+        {
+            g_menu_abort = false;
+            g_menu_scr = NULL;
+            ret = GO_TO_PREVIOUS;
+            break;
+        }
         char tbuf[80];
         const char *title = menu_title(menu, tbuf, sizeof tbuf);
         int nvis = 0;
@@ -1913,7 +1925,12 @@ int lvgui_font_pick(void)
     {
         global_settings.ui_font_size = sel;
         settings_save();
-        shell_toast(HZ, ID2P(LANG_REBOOT_NOW), LV_SYMBOL_REFRESH);
+        /* fonts come from the theme: apply at once and start over on Home */
+        ui_theme_init();
+        shell_theme_refresh();
+        shell_home_rebuild();
+        shell_nav_home();
+        g_menu_abort = true;
     }
     return GO_TO_PREVIOUS;
 }
@@ -1935,7 +1952,12 @@ int lvgui_theme_pick(void)
     {
         global_settings.ui_dark_mode = (sel == 1);
         settings_save();
-        shell_toast(HZ, ID2P(LANG_REBOOT_NOW), LV_SYMBOL_REFRESH);
+        /* live switch: refill the palette and rebuild the UI (no reboot) */
+        ui_theme_init();
+        shell_theme_refresh();
+        shell_home_rebuild();
+        shell_nav_home();
+        g_menu_abort = true;
     }
     return GO_TO_PREVIOUS;
 }

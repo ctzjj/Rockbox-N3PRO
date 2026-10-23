@@ -132,7 +132,9 @@ static void backdrop_init(void)
 {
     uint8_t *work = malloc((size_t)BK_W * BK_H * 3);   /* RGB888 workspace */
     uint8_t *tmp = malloc((size_t)BK_W * BK_H * 3);
-    backdrop_buf = malloc((size_t)BK_W * BK_H * 2);    /* RGB565 result */
+    if (!backdrop_buf)                                 /* keep it across theme
+                                                        * switches */
+        backdrop_buf = malloc((size_t)BK_W * BK_H * 2); /* RGB565 result */
     if (!work || !tmp || !backdrop_buf)
     {
         free(work); free(tmp);
@@ -1273,50 +1275,18 @@ static void pick_close_cb(lv_event_t *e)
     }
 }
 
-/* live preview rows: tap = preview (on_move), tap again = confirm */
+/* live preview rows: one tap applies the value and leaves, like the stock
+ * option screen (the old "tap to preview, tap again to confirm" needed two
+ * taps for every setting) */
 static void pick_live_row_cb(lv_event_t *e)
 {
     int i = (int)(intptr_t)lv_event_get_user_data(e);
-    if (i == g_pick_res)
-    {
-        g_pick_confirmed = true;
-        g_pick_done = true;
-        shell_nav_pop();
-        return;
-    }
     g_pick_res = i;
-    for (int k = 0; k < g_pick_count; k++)
-    {
-        bool sel = (k == i);
-        lv_obj_t *row = g_pick_rows[k];
-        if (sel)
-        {
-            lv_obj_set_style_bg_color(row, lv_color_mix(lv_color_white(),
-                                      th->accent_blue, 40), 0);
-            lv_obj_set_style_bg_grad_color(row,
-                lv_color_darken(th->accent_blue, 60), 0);
-            lv_obj_set_style_bg_grad_dir(row, LV_GRAD_DIR_VER, 0);
-            lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(row,
-                lv_color_lighten(th->accent_blue, 100), 0);
-            lv_obj_set_style_border_opa(row, LV_OPA_60, 0);
-        }
-        else
-        {
-            lv_obj_set_style_bg_color(row, th->glass_bg, 0);
-            lv_obj_set_style_bg_grad_color(row,
-                lv_color_darken(th->glass_bg, 16), 0);
-            lv_obj_set_style_bg_grad_dir(row, LV_GRAD_DIR_VER, 0);
-            lv_obj_set_style_bg_opa(row, th->card_opa, 0);
-            lv_obj_set_style_border_color(row, th->border_white, 0);
-            lv_obj_set_style_border_opa(row, th->card_border_opa, 0);
-        }
-        lv_obj_t *lbl = lv_obj_get_child(row, 0);
-        lv_obj_set_style_text_color(lbl,
-            sel ? th->fg_inverse : COL_TEXT, 0);
-    }
     if (g_pick_on_move)
         g_pick_on_move(i, g_pick_move_ud);
+    g_pick_confirmed = true;
+    g_pick_done = true;
+    shell_nav_pop();
 }
 
 /* Push a full-screen menu list (house style: wallpaper, centred title,
@@ -2371,7 +2341,8 @@ static void home_rebuild_do(void *p)
         lvui_art_free(dock_art_dsc);
         dock_art_dsc = NULL;
     }
-    dock_chip = dock_glyph = dock_l1 = dock_l2 = NULL;
+    dock_chip = dock_glyph = dock_l1 = dock_l2 = dock_btn = NULL;
+    dock_path[0] = '\0';
 
     lv_obj_t *nh = shell_screen_new();
     home_build(nh);
@@ -2386,6 +2357,14 @@ static void home_rebuild_do(void *p)
 void shell_home_rebuild(void)
 {
     lv_async_call(home_rebuild_do, NULL);
+}
+
+/* repaint the procedural wallpaper after ui_theme_init() changed the
+ * palette (live theme switch); screens keep pointing at the same image */
+void shell_theme_refresh(void)
+{
+    backdrop_init();
+    lv_obj_invalidate(lv_scr_act());
 }
 
 lv_color_t shell_icon_grad(int i)
