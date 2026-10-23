@@ -73,6 +73,7 @@ typedef struct
     /* ---- opacities ---------------------------------------------------- */
     uint8_t card_opa;          /* glass card bg           (95)  */
     uint8_t card_border_opa;   /* glass card border       (220) */
+    uint8_t glass_shadow_opa;  /* glass drop shadow       (40)  */
     uint8_t menu_card_opa;     /* overlay card bg         (150) */
     uint8_t menu_border_opa;   /* overlay card border     (200) */
     uint8_t menu_row_opa;      /* overlay row bg          (70)  */

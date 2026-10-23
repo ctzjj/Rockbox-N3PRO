@@ -611,6 +611,7 @@ struct user_settings
     int scrollbar_width;
     int ui_font_size; /* LVGL UI CJK font size: 0=14 1=16 2=20 */
     bool ui_dark_mode; /* LVGL UI dark theme */
+    int ui_backdrop;  /* LVGL UI backdrop preset: 0=follow theme */
 
 #ifdef HAVE_TOUCHSCREEN
     int list_line_padding;

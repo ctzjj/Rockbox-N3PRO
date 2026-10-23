@@ -1515,6 +1515,8 @@ const struct settings_list settings[] = {
     INT_SETTING(0, ui_font_size, LANG_CUSTOM_FONT, 1, "ui font size", UNIT_INT,
                 0, 2, 1, NULL, NULL, NULL),
     OFFON_SETTING(0, ui_dark_mode, LANG_CUSTOM_FONT, false, "ui dark mode", NULL),
+    INT_SETTING(0, ui_backdrop, LANG_N3_BACKDROP, 0, "ui backdrop", UNIT_INT,
+                0, 7, 1, NULL, NULL, NULL),
     OFFON_SETTING(0,show_icons, LANG_SHOW_ICONS ,true,"show icons", NULL),
     /* system */
     INT_SETTING(F_TIME_SETTING, poweroff, LANG_POWEROFF_IDLE, 10,

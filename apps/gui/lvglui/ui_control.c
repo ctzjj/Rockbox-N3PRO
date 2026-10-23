@@ -434,16 +434,20 @@ static lv_obj_t *ctl_mod(lv_obj_t *parent, int x, int y, int w, int h)
     lv_obj_set_size(c, w, h);
     lv_obj_set_pos(c, x, y);
     lv_obj_set_style_radius(c, 32, 0);
+    /* same thin-glass material as the shell panes */
     lv_obj_set_style_bg_color(c, lv_color_white(), 0);
-    lv_obj_set_style_bg_opa(c, global_settings.ui_dark_mode ? 80 : 120, 0);
-    lv_obj_set_style_bg_grad_color(c, lv_color_hex(0xdce8fa), 0);
-    lv_obj_set_style_bg_grad_dir(c, LV_GRAD_DIR_VER, 0);
+    lv_obj_set_style_bg_opa(c, th->card_opa, 0);
     lv_obj_set_style_border_width(c, 1, 0);
     lv_obj_set_style_border_color(c, lv_color_white(), 0);
-    lv_obj_set_style_border_opa(c, 215, 0);
+    lv_obj_set_style_border_opa(c, th->card_border_opa, 0);
     lv_obj_set_style_pad_all(c, 0, 0);
     lv_obj_clear_flag(c, LV_OBJ_FLAG_SCROLLABLE);
-    shell_style_shadow_off(c);
+    lv_obj_set_style_shadow_width(c, 24, 0);
+    lv_obj_set_style_shadow_spread(c, 0, 0);
+    lv_obj_set_style_shadow_ofs_x(c, 0, 0);
+    lv_obj_set_style_shadow_ofs_y(c, 4, 0);
+    lv_obj_set_style_shadow_color(c, th->sh_dark, 0);
+    lv_obj_set_style_shadow_opa(c, th->glass_shadow_opa, 0);
 
     return c;
 }
@@ -456,7 +460,7 @@ static lv_obj_t *ctl_round(lv_obj_t *parent, int x, int y,
     lv_obj_set_pos(b, x, y);
     lv_obj_set_style_radius(b, 24, 0);
     lv_obj_set_style_bg_color(b, on ? th->accent_blue : lv_color_white(), 0);
-    lv_obj_set_style_bg_opa(b, on ? 235 : 120, 0);
+    lv_obj_set_style_bg_opa(b, on ? 220 : th->card_opa, 0);
     lv_obj_set_style_border_color(b, th->border_white, 0);
     lv_obj_set_style_border_opa(b, 150, 0);
     lv_obj_set_style_border_width(b, 1, 0);
@@ -511,7 +515,7 @@ static lv_obj_t *ctl_round_bulb(lv_obj_t *parent, int x, int y, bool on,
     lv_obj_set_pos(b, x, y);
     lv_obj_set_style_radius(b, 24, 0);
     lv_obj_set_style_bg_color(b, on ? th->accent_blue : lv_color_white(), 0);
-    lv_obj_set_style_bg_opa(b, on ? 235 : 120, 0);
+    lv_obj_set_style_bg_opa(b, on ? 220 : th->card_opa, 0);
     lv_obj_set_style_border_color(b, th->border_white, 0);
     lv_obj_set_style_border_opa(b, 150, 0);
     lv_obj_set_style_border_width(b, 1, 0);
@@ -606,22 +610,12 @@ static void ctl_build(void)
     lv_obj_t *frost = lv_obj_create(g_ctl);
     lv_obj_set_size(frost, 360, 480);
     lv_obj_set_pos(frost, 0, 0);
-    lv_obj_set_style_bg_color(frost, th->glass_bg, 0);
-    lv_obj_set_style_bg_opa(frost, 120, 0);
-    lv_obj_set_style_bg_grad_color(frost, lv_color_darken(th->glass_bg, 55), 0);
-    lv_obj_set_style_bg_grad_dir(frost, LV_GRAD_DIR_VER, 0);
+    /* the panel is a fresh glass page: paint the pre-blurred wallpaper so
+     * the page underneath never shows through the controls */
+    shell_backdrop_apply(frost);
     lv_obj_set_style_border_width(frost, 0, 0);
     lv_obj_set_style_pad_all(frost, 0, 0);
     lv_obj_clear_flag(frost, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
-
-    /* specular sweep across the top third */
-    lv_obj_t *veil = lv_obj_create(frost);
-    lv_obj_set_size(veil, 360, 200);
-    lv_obj_set_pos(veil, 0, 0);
-    lv_obj_set_style_bg_color(veil, lv_color_white(), 0);
-    lv_obj_set_style_bg_opa(veil, 30, 0);
-    lv_obj_set_style_border_width(veil, 0, 0);
-    lv_obj_clear_flag(veil, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
     /* left: one card holding both sliders */
     lv_obj_t *slc = ctl_mod(frost, 12, 16, 166, 216);
@@ -715,7 +709,7 @@ static void ctl_build(void)
         lv_obj_align(g, LV_ALIGN_CENTER, 0, -12);
         lv_obj_t *l = lv_label_create(med);
         lv_label_set_text(l, str(LANG_N3_NOTHING_PLAYING));
-        lv_obj_set_style_text_color(l, th->fg_dim, 0);
+        lv_obj_set_style_text_color(l, th->fg_text, 0);
         lv_obj_align(l, LV_ALIGN_CENTER, 0, 30);
         lv_obj_add_flag(med, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_add_event_cb(med, ctl_open_player_cb, LV_EVENT_CLICKED, NULL);
@@ -753,7 +747,7 @@ static void ctl_build(void)
             lv_obj_t *l = lv_label_create(strip);
             lv_label_set_text(l, caps[i]);
             lv_obj_set_style_text_font(l, th->font_small, 0);
-            lv_obj_set_style_text_color(l, th->fg_dim, 0);
+            lv_obj_set_style_text_color(l, th->fg_text, 0);
             lv_obj_set_width(l, 72);
             lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
             lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
@@ -783,7 +777,7 @@ static void ctl_build(void)
             lv_obj_t *l = lv_label_create(row2);
             lv_label_set_text(l, caps2[i]);
             lv_obj_set_style_text_font(l, th->font_small, 0);
-            lv_obj_set_style_text_color(l, th->fg_dim, 0);
+            lv_obj_set_style_text_color(l, th->fg_text, 0);
             lv_obj_set_width(l, 72);
             lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
             lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);

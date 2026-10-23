@@ -65,7 +65,7 @@ static int clear_main_backdrop(void)
 MENUITEM_FUNCTION(clear_main_bd, 0, ID2P(LANG_CLEAR_BACKDROP),
                   clear_main_backdrop, NULL, Icon_NOICON);
 #endif
-#ifdef HAVE_LCD_COLOR
+#if defined(HAVE_LCD_COLOR) && !defined(HAVE_LVGL_UI)
 
 enum Colors {
     COLOR_FG = 0,
@@ -166,6 +166,7 @@ MAKE_MENU(colors_settings, ID2P(LANG_COLORS_MENU),
 /*    BARS MENU                     */
 /*                                  */
 
+#ifndef HAVE_LVGL_UI
 static int statusbar_callback_ex(int action,const struct menu_item_ex *this_item,
                                 enum screen_type screen)
 {
@@ -225,6 +226,7 @@ MAKE_MENU(bars_menu, ID2P(LANG_BARS_MENU), 0, Icon_NOICON,
           , &battery_display
 #endif
           );
+#endif /* !HAVE_LVGL_UI */
 
 /*                                  */
 /*    BARS MENU                     */
@@ -362,6 +364,9 @@ MENUITEM_FUNCTION_W_PARAM(browse_fonts, 0, ID2P(LANG_CUSTOM_FONT),
 int lvgui_theme_pick(void);
 MENUITEM_FUNCTION(ui_theme_item, 0, ID2P(LANG_CUSTOM_THEME),
                   lvgui_theme_pick, NULL, Icon_Config);
+int lvgui_backdrop_pick(void);
+MENUITEM_FUNCTION(ui_backdrop_item, 0, ID2P(LANG_N3_BACKDROP),
+                  lvgui_backdrop_pick, NULL, Icon_Config);
 #endif
 
 #ifndef HAVE_LVGL_UI
@@ -417,6 +422,7 @@ MAKE_MENU(theme_menu, ID2P(LANG_THEME_MENU),
             NULL, Icon_Wps,
 #ifdef HAVE_LVGL_UI
             &ui_theme_item,
+            &ui_backdrop_item,
 #endif
 #ifndef HAVE_LVGL_UI
             &browse_themes,
@@ -442,14 +448,14 @@ MAKE_MENU(theme_menu, ID2P(LANG_THEME_MENU),
 #if defined(HAVE_BACKDROP_IMAGE) && !defined(HAVE_LVGL_UI)
             &clear_main_bd,
 #endif
-            &bars_menu,
 #ifndef HAVE_LVGL_UI
+            &bars_menu,
             &cursor_style,
 #if LCD_DEPTH > 1
             &sep_menu,
 #endif
 #endif /* !HAVE_LVGL_UI */
-#ifdef HAVE_LCD_COLOR
+#if defined(HAVE_LCD_COLOR) && !defined(HAVE_LVGL_UI)
             &colors_settings,
 #endif
 );

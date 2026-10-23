@@ -12,6 +12,7 @@ void lvgui_shell_start(void);
 
 /* shell building blocks (ui_shell.c) -- include lvgl.h first */
 lv_obj_t *shell_screen_new(void);
+void shell_backdrop_apply(lv_obj_t *o);
 void shell_nav_push(lv_obj_t *scr);
 void shell_nav_pop(void);
 void shell_nav_pop_now(void);

@@ -62,8 +62,9 @@ __attribute__((weak)) void ui_theme_fill(ui_theme_t *t)
         t->border_white   = lv_color_hex(0xffffff);
         t->row_icon_muted = lv_color_hex(0x5f6b85);
 
-        t->bd_grad_top = lv_color_hex(0x141a2e);
-        t->bd_grad_bot = lv_color_hex(0x0d1122);
+        /* dark variant: plain black backdrop, glass panes supply the depth */
+        t->bd_grad_top = lv_color_hex(0x0b0b0d);
+        t->bd_grad_bot = lv_color_hex(0x000000);
         t->bd_blob[0].col = lv_color_hex(0xff4fa3);
         t->bd_blob[0].x = 310; t->bd_blob[0].y = 30;
         t->bd_blob[0].r = 220; t->bd_blob[0].str = 30;
@@ -80,6 +81,10 @@ __attribute__((weak)) void ui_theme_fill(ui_theme_t *t)
         t->bd_blob[4].x = 180; t->bd_blob[4].y = 240;
         t->bd_blob[4].r = 250; t->bd_blob[4].str = 16;
 
+        /* no colour glow on the black wallpaper */
+        for (unsigned i = 0; i < TH_BLOBS; i++)
+            t->bd_blob[i].r = 0;
+
         t->sh_dark    = lv_color_hex(0x000000);
         t->sh_dark_opa[0]  = 8;   t->sh_dark_opa[1]  = 12; t->sh_dark_opa[2]  = 18;
         t->sh_spread[0]    = 8;   t->sh_spread[1]    = 5;  t->sh_spread[2]    = 3;
@@ -87,11 +92,12 @@ __attribute__((weak)) void ui_theme_fill(ui_theme_t *t)
         t->sh_halo_opa[0]  = 6;   t->sh_halo_opa[1]  = 9;  t->sh_halo_opa[2]  = 14;
         t->sh_halo_spread[0] = 6; t->sh_halo_spread[1] = 4; t->sh_halo_spread[2] = 3;
 
-        t->card_opa          = 180;
-        t->card_border_opa   = 70;
+        t->card_opa          = 56;      /* white @ 22%: still mostly clear */
+        t->card_border_opa   = 110;     /* 1px rgba(255,255,255,.43) */
+        t->glass_shadow_opa  = 70;
         t->menu_card_opa     = LV_OPA_COVER;
         t->menu_border_opa   = 110;
-        t->menu_row_opa      = 110;
+        t->menu_row_opa      = 56;
         t->scrim_opa         = 185;
         t->scrim_input_opa   = 190;
         t->btn_secondary_opa = 220;
@@ -166,11 +172,12 @@ __attribute__((weak)) void ui_theme_fill(ui_theme_t *t)
         t->sh_halo_opa[0]  = 12;  t->sh_halo_opa[1]  = 18; t->sh_halo_opa[2]  = 26;
         t->sh_halo_spread[0] = 6; t->sh_halo_spread[1] = 4; t->sh_halo_spread[2] = 3;
 
-        t->card_opa          = 140;     /* liquid glass: brighter pane */
-        t->card_border_opa   = 175;     /* crisp specular rim */
+        t->card_opa          = 31;      /* white @ 12%: clear frost */
+        t->card_border_opa   = 97;      /* 1px rgba(255,255,255,.38) */
+        t->glass_shadow_opa  = 45;
         t->menu_card_opa     = LV_OPA_COVER; /* overlay cards must be readable */
         t->menu_border_opa   = 200;
-        t->menu_row_opa      = 110;
+        t->menu_row_opa      = 31;
         t->scrim_opa         = 165;     /* dark dimmer */
         t->scrim_input_opa   = 175;
         t->btn_secondary_opa = 140;

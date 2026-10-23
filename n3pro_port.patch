@@ -543261,10 +543261,10 @@ index 0000000000..dd7b329b93
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..eb43af4032
+index 0000000000..4f95d27f6a
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,159 @@
+@@ -0,0 +1,160 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543279,6 +543279,7 @@ index 0000000000..eb43af4032
 +
 +/* shell building blocks (ui_shell.c) -- include lvgl.h first */
 +lv_obj_t *shell_screen_new(void);
++void shell_backdrop_apply(lv_obj_t *o);
 +void shell_nav_push(lv_obj_t *scr);
 +void shell_nav_pop(void);
 +void shell_nav_pop_now(void);
@@ -545739,10 +545740,10 @@ index 0000000000..911b5faaf7
 +}
 diff --git a/apps/gui/lvglui/ui_control.c b/apps/gui/lvglui/ui_control.c
 new file mode 100755
-index 0000000000..9379511994
+index 0000000000..d4dabc6878
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_control.c
-@@ -0,0 +1,810 @@
+@@ -0,0 +1,804 @@
 +#include "config.h"
 +#ifdef HAVE_LVGL_UI
 +
@@ -546179,16 +546180,20 @@ index 0000000000..9379511994
 +    lv_obj_set_size(c, w, h);
 +    lv_obj_set_pos(c, x, y);
 +    lv_obj_set_style_radius(c, 32, 0);
++    /* same thin-glass material as the shell panes */
 +    lv_obj_set_style_bg_color(c, lv_color_white(), 0);
-+    lv_obj_set_style_bg_opa(c, global_settings.ui_dark_mode ? 80 : 120, 0);
-+    lv_obj_set_style_bg_grad_color(c, lv_color_hex(0xdce8fa), 0);
-+    lv_obj_set_style_bg_grad_dir(c, LV_GRAD_DIR_VER, 0);
++    lv_obj_set_style_bg_opa(c, th->card_opa, 0);
 +    lv_obj_set_style_border_width(c, 1, 0);
 +    lv_obj_set_style_border_color(c, lv_color_white(), 0);
-+    lv_obj_set_style_border_opa(c, 215, 0);
++    lv_obj_set_style_border_opa(c, th->card_border_opa, 0);
 +    lv_obj_set_style_pad_all(c, 0, 0);
 +    lv_obj_clear_flag(c, LV_OBJ_FLAG_SCROLLABLE);
-+    shell_style_shadow_off(c);
++    lv_obj_set_style_shadow_width(c, 24, 0);
++    lv_obj_set_style_shadow_spread(c, 0, 0);
++    lv_obj_set_style_shadow_ofs_x(c, 0, 0);
++    lv_obj_set_style_shadow_ofs_y(c, 4, 0);
++    lv_obj_set_style_shadow_color(c, th->sh_dark, 0);
++    lv_obj_set_style_shadow_opa(c, th->glass_shadow_opa, 0);
 +
 +    return c;
 +}
@@ -546201,7 +546206,7 @@ index 0000000000..9379511994
 +    lv_obj_set_pos(b, x, y);
 +    lv_obj_set_style_radius(b, 24, 0);
 +    lv_obj_set_style_bg_color(b, on ? th->accent_blue : lv_color_white(), 0);
-+    lv_obj_set_style_bg_opa(b, on ? 235 : 120, 0);
++    lv_obj_set_style_bg_opa(b, on ? 220 : th->card_opa, 0);
 +    lv_obj_set_style_border_color(b, th->border_white, 0);
 +    lv_obj_set_style_border_opa(b, 150, 0);
 +    lv_obj_set_style_border_width(b, 1, 0);
@@ -546256,7 +546261,7 @@ index 0000000000..9379511994
 +    lv_obj_set_pos(b, x, y);
 +    lv_obj_set_style_radius(b, 24, 0);
 +    lv_obj_set_style_bg_color(b, on ? th->accent_blue : lv_color_white(), 0);
-+    lv_obj_set_style_bg_opa(b, on ? 235 : 120, 0);
++    lv_obj_set_style_bg_opa(b, on ? 220 : th->card_opa, 0);
 +    lv_obj_set_style_border_color(b, th->border_white, 0);
 +    lv_obj_set_style_border_opa(b, 150, 0);
 +    lv_obj_set_style_border_width(b, 1, 0);
@@ -546351,22 +546356,12 @@ index 0000000000..9379511994
 +    lv_obj_t *frost = lv_obj_create(g_ctl);
 +    lv_obj_set_size(frost, 360, 480);
 +    lv_obj_set_pos(frost, 0, 0);
-+    lv_obj_set_style_bg_color(frost, th->glass_bg, 0);
-+    lv_obj_set_style_bg_opa(frost, 120, 0);
-+    lv_obj_set_style_bg_grad_color(frost, lv_color_darken(th->glass_bg, 55), 0);
-+    lv_obj_set_style_bg_grad_dir(frost, LV_GRAD_DIR_VER, 0);
++    /* the panel is a fresh glass page: paint the pre-blurred wallpaper so
++     * the page underneath never shows through the controls */
++    shell_backdrop_apply(frost);
 +    lv_obj_set_style_border_width(frost, 0, 0);
 +    lv_obj_set_style_pad_all(frost, 0, 0);
 +    lv_obj_clear_flag(frost, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
-+
-+    /* specular sweep across the top third */
-+    lv_obj_t *veil = lv_obj_create(frost);
-+    lv_obj_set_size(veil, 360, 200);
-+    lv_obj_set_pos(veil, 0, 0);
-+    lv_obj_set_style_bg_color(veil, lv_color_white(), 0);
-+    lv_obj_set_style_bg_opa(veil, 30, 0);
-+    lv_obj_set_style_border_width(veil, 0, 0);
-+    lv_obj_clear_flag(veil, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 +
 +    /* left: one card holding both sliders */
 +    lv_obj_t *slc = ctl_mod(frost, 12, 16, 166, 216);
@@ -546460,7 +546455,7 @@ index 0000000000..9379511994
 +        lv_obj_align(g, LV_ALIGN_CENTER, 0, -12);
 +        lv_obj_t *l = lv_label_create(med);
 +        lv_label_set_text(l, str(LANG_N3_NOTHING_PLAYING));
-+        lv_obj_set_style_text_color(l, th->fg_dim, 0);
++        lv_obj_set_style_text_color(l, th->fg_text, 0);
 +        lv_obj_align(l, LV_ALIGN_CENTER, 0, 30);
 +        lv_obj_add_flag(med, LV_OBJ_FLAG_CLICKABLE);
 +        lv_obj_add_event_cb(med, ctl_open_player_cb, LV_EVENT_CLICKED, NULL);
@@ -546498,7 +546493,7 @@ index 0000000000..9379511994
 +            lv_obj_t *l = lv_label_create(strip);
 +            lv_label_set_text(l, caps[i]);
 +            lv_obj_set_style_text_font(l, th->font_small, 0);
-+            lv_obj_set_style_text_color(l, th->fg_dim, 0);
++            lv_obj_set_style_text_color(l, th->fg_text, 0);
 +            lv_obj_set_width(l, 72);
 +            lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
 +            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
@@ -546528,7 +546523,7 @@ index 0000000000..9379511994
 +            lv_obj_t *l = lv_label_create(row2);
 +            lv_label_set_text(l, caps2[i]);
 +            lv_obj_set_style_text_font(l, th->font_small, 0);
-+            lv_obj_set_style_text_color(l, th->fg_dim, 0);
++            lv_obj_set_style_text_color(l, th->fg_text, 0);
 +            lv_obj_set_width(l, 72);
 +            lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
 +            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
@@ -549773,10 +549768,10 @@ index 0000000000..63ad93fef7
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..15a147db40
+index 0000000000..9b7b725855
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2828 @@
+@@ -0,0 +1,2862 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -551733,6 +551728,40 @@ index 0000000000..15a147db40
 +        settings_save();
 +        /* live switch: refill the palette and rebuild the UI (no reboot) */
 +        ui_theme_init();
++        shell_theme_refresh();
++        shell_home_rebuild();
++        shell_nav_home();
++        g_menu_abort = true;
++    }
++    return GO_TO_PREVIOUS;
++}
++
++/* ---- native backdrop picker (theme_menu 背景, persisted setting) --------- */
++int lvgui_backdrop_pick(void)
++{
++    static char bufs[8][24];
++    static const char *lbl[8];
++    static const int ids[8] = {
++        LANG_N3_BD_THEME, LANG_N3_BD_AURORA, LANG_N3_BD_SUNSET,
++        LANG_N3_BD_FOREST, LANG_N3_BD_MIDNIGHT, LANG_N3_BD_DUNE,
++        LANG_N3_BD_GRAPHITE, LANG_N3_BD_BLACK,
++    };
++    int cur = global_settings.ui_backdrop;
++
++    if (cur < 0 || cur > 7)
++        cur = 0;
++    for (int i = 0; i < 8; i++)
++    {
++        snprintf(bufs[i], sizeof bufs[i], "%s", str(ids[i]));
++        lbl[i] = bufs[i];
++    }
++
++    int sel = shell_list_pick(str(LANG_N3_BACKDROP), lbl, 8, cur);
++    if (sel >= 0 && sel != cur)
++    {
++        global_settings.ui_backdrop = sel;
++        settings_save();
++        /* regenerate the wallpaper and rebuild Home in place */
 +        shell_theme_refresh();
 +        shell_home_rebuild();
 +        shell_nav_home();
@@ -553803,10 +553832,10 @@ index 0000000000..f6ed4e4a3c
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..6645b43e65
+index 0000000000..eac8a0101c
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2388 @@
+@@ -0,0 +1,2483 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -553879,10 +553908,44 @@ index 0000000000..6645b43e65
 + * translucent white over it, which reads as frosted glass everywhere. */
 +#define BK_W 360
 +#define BK_H 480
-+#define BLUR_R 8          /* box blur radius; 2x H+V passes = heavy fog */
++#define BLUR_R 14         /* box blur radius; 2x H+V passes = heavy fog */
 +
 +static lv_img_dsc_t backdrop_dsc;
 +static uint16_t *backdrop_buf;
++
++/* ---- backdrop presets (Theme settings -> Backdrop) -------------------- */
++/* index 0 follows the theme; the rest are fixed palettes drawn by the same
++ * gradient + glow blob generator as the theme wallpaper. */
++typedef struct
++{
++    uint32_t top, bot;
++    struct { int x, y, r, str; uint32_t col; } blob[TH_BLOBS];
++} bd_preset_t;
++
++static const bd_preset_t bd_presets[] =
++{
++    { 0, 0, {{{0}}} },                                        /* follow theme */
++    { 0x2E7FA8, 0x3E5FB8, { { 120,  90, 170, 75, 0x4FE8C0 },
++                            { 285, 300, 180, 60, 0x9F86FF },
++                            { 300, 440, 150, 50, 0x66E0FF } } }, /* aurora */
++    { 0xE08A5C, 0xC85A86, { { 250, 110, 165, 75, 0xFFC48A },
++                            {  90, 300, 175, 65, 0xFF8FB4 },
++                            { 300, 440, 150, 55, 0xB08CFF } } }, /* sunset */
++    { 0x4E8A54, 0x2F6E5A, { { 105, 120, 165, 65, 0xA8E87A },
++                            { 285, 330, 175, 60, 0x4FC8B0 },
++                            { 180, 450, 140, 45, 0xE8D28A } } }, /* forest */
++    { 0x3A5A8C, 0x4A3C8C, { { 110, 140, 170, 55, 0x6A9CFF },
++                            { 300, 300, 180, 50, 0x8A6CFF },
++                            { 200, 450, 150, 45, 0x5AD0E8 } } }, /* midnight */
++    { 0xB08A5C, 0x8A6A4A, { { 120, 130, 165, 60, 0xE8C48A },
++                            { 300, 320, 175, 55, 0xC08A5C },
++                            { 200, 450, 145, 45, 0xF2E0B8 } } }, /* dune */
++    { 0x8A8A92, 0x6E6E78, { { 120, 140, 165, 50, 0xB8B8C0 },
++                            { 300, 320, 175, 45, 0xD0D0D8 },
++                            { 200, 450, 140, 35, 0xE8E8EE } } }, /* graphite */
++    { 0x0B0B0D, 0x000000, { { 0, 0, 0, 0, 0 } } },             /* black */
++};
++#define BD_PRESET_COUNT ((int)(sizeof(bd_presets) / sizeof(bd_presets[0])))
 +
 +static void box_blur_h(uint8_t *src, uint8_t *dst, int w, int h, int r)
 +{
@@ -553950,15 +554013,32 @@ index 0000000000..6645b43e65
 +        return;   /* screens fall back to plain gradient */
 +    }
 +
-+    /* base vertical gradient from the theme (vivid iOS-style base so the
-+     * frosted panes visibly tint the colour behind them).  LV_COLOR_GET_*
-+     * return the packed-depth components (5/6/5) -- expand to 8 bits. */
-+    uint8_t tr = LV_COLOR_GET_R(th->bd_grad_top), tg = LV_COLOR_GET_G(th->bd_grad_top),
-+            tb = LV_COLOR_GET_B(th->bd_grad_top);
-+    uint8_t br = LV_COLOR_GET_R(th->bd_grad_bot), bg_ = LV_COLOR_GET_G(th->bd_grad_bot),
-+            bb = LV_COLOR_GET_B(th->bd_grad_bot);
-+    tr = (tr << 3) | (tr >> 2);  tg = (tg << 2) | (tg >> 4);  tb = (tb << 3) | (tb >> 2);
-+    br = (br << 3) | (br >> 2);  bg_ = (bg_ << 2) | (bg_ >> 4);  bb = (bb << 3) | (bb >> 2);
++    /* base vertical gradient: the theme's, or the chosen preset's 24-bit
++     * palette.  Theme colours come packed at 5/6/5 -- expand to 8 bits. */
++    int preset = global_settings.ui_backdrop;
++    const bd_preset_t *bp = (preset > 0 && preset < BD_PRESET_COUNT)
++                            ? &bd_presets[preset] : NULL;
++    uint8_t tr, tg, tb, br, bg_, bb;
++    if (bp)
++    {
++        tr = (bp->top >> 16) & 0xff; tg = (bp->top >> 8) & 0xff; tb = bp->top & 0xff;
++        br = (bp->bot >> 16) & 0xff; bg_ = (bp->bot >> 8) & 0xff; bb = bp->bot & 0xff;
++        if (global_settings.ui_dark_mode)
++        {
++            /* dark theme: same presets, night-time palette */
++            tr /= 4; tg /= 4; tb /= 4;
++            br /= 4; bg_ /= 4; bb /= 4;
++        }
++    }
++    else
++    {
++        tr = LV_COLOR_GET_R(th->bd_grad_top); tg = LV_COLOR_GET_G(th->bd_grad_top);
++        tb = LV_COLOR_GET_B(th->bd_grad_top);
++        br = LV_COLOR_GET_R(th->bd_grad_bot); bg_ = LV_COLOR_GET_G(th->bd_grad_bot);
++        bb = LV_COLOR_GET_B(th->bd_grad_bot);
++        tr = (tr << 3) | (tr >> 2);  tg = (tg << 2) | (tg >> 4);  tb = (tb << 3) | (tb >> 2);
++        br = (br << 3) | (br >> 2);  bg_ = (bg_ << 2) | (bg_ >> 4);  bb = (bb << 3) | (bb >> 2);
++    }
 +    for (int y = 0; y < BK_H; y++)
 +    {
 +        int t = y * 256 / (BK_H - 1);
@@ -553975,15 +554055,35 @@ index 0000000000..6645b43e65
 +    /* glow blobs: lerp toward the blob colour (never clips to white) */
 +    for (unsigned i = 0; i < TH_BLOBS; i++)
 +    {
-+        int rad = th->bd_blob[i].r, r2 = rad * rad;
-+        int cx = th->bd_blob[i].x, cy = th->bd_blob[i].y;
-+        uint8_t cr = LV_COLOR_GET_R(th->bd_blob[i].col);
-+        uint8_t cg = LV_COLOR_GET_G(th->bd_blob[i].col);
-+        uint8_t cb = LV_COLOR_GET_B(th->bd_blob[i].col);
-+        cr = (cr << 3) | (cr >> 2);
-+        cg = (cg << 2) | (cg >> 4);
-+        cb = (cb << 3) | (cb >> 2);
-+        float str = th->bd_blob[i].str / 100.0f;
++        int rad, cx, cy, strv;
++        uint8_t cr, cg, cb;
++        if (bp)
++        {
++            rad = bp->blob[i].r; cx = bp->blob[i].x; cy = bp->blob[i].y;
++            strv = bp->blob[i].str;
++            cr = (bp->blob[i].col >> 16) & 0xff;
++            cg = (bp->blob[i].col >> 8) & 0xff;
++            cb = bp->blob[i].col & 0xff;
++            if (global_settings.ui_dark_mode)
++            {
++                cr /= 3; cg /= 3; cb /= 3; strv /= 2;
++            }
++        }
++        else
++        {
++            rad = th->bd_blob[i].r; cx = th->bd_blob[i].x; cy = th->bd_blob[i].y;
++            strv = th->bd_blob[i].str;
++            cr = LV_COLOR_GET_R(th->bd_blob[i].col);
++            cg = LV_COLOR_GET_G(th->bd_blob[i].col);
++            cb = LV_COLOR_GET_B(th->bd_blob[i].col);
++            cr = (cr << 3) | (cr >> 2);
++            cg = (cg << 2) | (cg >> 4);
++            cb = (cb << 3) | (cb >> 2);
++        }
++        if (rad <= 0)
++            continue;
++        int r2 = rad * rad;
++        float str = strv / 100.0f;
 +        int x0 = cx - rad, x1 = cx + rad;
 +        int y0 = cy - rad, y1 = cy + rad;
 +        if (x0 < 0) x0 = 0;
@@ -554011,12 +554111,19 @@ index 0000000000..6645b43e65
 +    box_blur_h(work, tmp, BK_W, BK_H, BLUR_R);
 +    box_blur_v(tmp, work, BK_W, BK_H, BLUR_R);
 +
-+    /* pack to RGB565 */
++    /* pack to RGB565 with noise dither: a heavily blurred 565 gradient bands
++     * into visible contour rings ("moiré"); random grain hides them without
++     * the cross-hatch look an ordered (Bayer) matrix leaves on flat areas */
++    uint32_t seed = 0x1234567u;
 +    for (int i = 0; i < BK_W * BK_H; i++)
 +    {
-+        uint8_t r = work[i * 3], g = work[i * 3 + 1], b = work[i * 3 + 2];
-+        lv_color_t c = lv_color_make(r, g, b);
-+        backdrop_buf[i] = c.full;
++        seed = seed * 1664525u + 1013904223u;
++        int d = (int)((seed >> 16) & 7) - 4;                     /* -4..3 */
++        int r = work[i * 3] + d, g = work[i * 3 + 1] + d, b = work[i * 3 + 2] + d;
++        if (r < 0) r = 0; else if (r > 255) r = 255;
++        if (g < 0) g = 0; else if (g > 255) g = 255;
++        if (b < 0) b = 0; else if (b > 255) b = 255;
++        backdrop_buf[i] = lv_color_make(r, g, b).full;
 +    }
 +    free(work); free(tmp);
 +
@@ -554044,6 +554151,15 @@ index 0000000000..6645b43e65
 +     * follows the 界面字体大小 setting); symbol labels override locally */
 +    lv_obj_set_style_text_font(scr, th->font_cjk, 0);
 +    return scr;
++}
++
++/* paint the pre-blurred wallpaper on any object (full-screen overlays) */
++void shell_backdrop_apply(lv_obj_t *o)
++{
++    lv_obj_set_style_bg_color(o, COL_BG_TOP, 0);
++    lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
++    if (backdrop_buf)
++        lv_obj_set_style_bg_img_src(o, &backdrop_dsc, 0);
 +}
 +
 +void shell_nav_push(lv_obj_t *scr)
@@ -555164,13 +555280,13 @@ index 0000000000..6645b43e65
 +    lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
 +    if (sel)
 +    {
-+        /* sapphire crystal: bright top -> deep bottom + bright rim */
++        /* sapphire crystal: translucent blue so the frost still shows */
 +        lv_obj_set_style_bg_color(row, lv_color_mix(lv_color_white(),
 +                                  th->accent_blue, 40), 0);
 +        lv_obj_set_style_bg_grad_color(row,
-+            lv_color_darken(th->accent_blue, 60), 0);
++            lv_color_darken(th->accent_blue, 30), 0);
 +        lv_obj_set_style_bg_grad_dir(row, LV_GRAD_DIR_VER, 0);
-+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
++        lv_obj_set_style_bg_opa(row, global_settings.ui_dark_mode ? 150 : 128, 0);
 +        lv_obj_set_style_border_color(row,
 +            lv_color_lighten(th->accent_blue, 100), 0);
 +        lv_obj_set_style_border_opa(row, LV_OPA_60, 0);
@@ -555571,17 +555687,25 @@ index 0000000000..6645b43e65
 +{
 +    lv_obj_t *g = lv_obj_create(parent);
 +    lv_obj_set_style_bg_opa(g, th->card_opa, 0);
-+    lv_obj_set_style_bg_color(g, th->glass_bg, 0);
-+    lv_obj_set_style_bg_grad_color(g, lv_color_darken(th->glass_bg, 16), 0);
-+    lv_obj_set_style_bg_grad_dir(g, LV_GRAD_DIR_VER, 0);
++    /* glassmorphism recipe: almost clear fill (white @ ~12%), the frost
++     * comes from the pre-blurred wallpaper showing through, not from a
++     * tinted pane.  1px light rim + soft drop shadow give it the edge. */
++    lv_obj_set_style_bg_color(g, lv_color_white(), 0);
 +    lv_obj_set_style_border_width(g, 1, 0);
 +    lv_obj_set_style_border_color(g, th->border_white, 0);
 +    lv_obj_set_style_border_opa(g, th->card_border_opa, 0);
 +    lv_obj_set_style_radius(g, th->radius, 0);
-+    shell_style_shadow_off(g);
++    /* lift the pane off the wallpaper: soft shadow (0 8 32 rgba(0,0,0,.25)) */
++    lv_obj_set_style_shadow_width(g, 24, 0);
++    lv_obj_set_style_shadow_spread(g, 0, 0);
++    lv_obj_set_style_shadow_ofs_x(g, 0, 0);
++    lv_obj_set_style_shadow_ofs_y(g, 4, 0);
++    lv_obj_set_style_shadow_color(g, th->sh_dark, 0);
++    lv_obj_set_style_shadow_opa(g, th->glass_shadow_opa, 0);
 +    lv_obj_set_style_pad_all(g, 0, 0);
 +    lv_obj_set_style_text_font(g, th->font_cjk, 0);
 +    lv_obj_clear_flag(g, LV_OBJ_FLAG_SCROLLABLE);
++    lv_obj_set_style_clip_corner(g, true, 0);
 +    return g;
 +}
 +
@@ -556197,10 +556321,10 @@ index 0000000000..6645b43e65
 +}
 diff --git a/apps/gui/lvglui/ui_theme.c b/apps/gui/lvglui/ui_theme.c
 new file mode 100644
-index 0000000000..356d2dd145
+index 0000000000..531d4c2d1f
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_theme.c
-@@ -0,0 +1,214 @@
+@@ -0,0 +1,221 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *
@@ -556265,8 +556389,9 @@ index 0000000000..356d2dd145
 +        t->border_white   = lv_color_hex(0xffffff);
 +        t->row_icon_muted = lv_color_hex(0x5f6b85);
 +
-+        t->bd_grad_top = lv_color_hex(0x141a2e);
-+        t->bd_grad_bot = lv_color_hex(0x0d1122);
++        /* dark variant: plain black backdrop, glass panes supply the depth */
++        t->bd_grad_top = lv_color_hex(0x0b0b0d);
++        t->bd_grad_bot = lv_color_hex(0x000000);
 +        t->bd_blob[0].col = lv_color_hex(0xff4fa3);
 +        t->bd_blob[0].x = 310; t->bd_blob[0].y = 30;
 +        t->bd_blob[0].r = 220; t->bd_blob[0].str = 30;
@@ -556283,6 +556408,10 @@ index 0000000000..356d2dd145
 +        t->bd_blob[4].x = 180; t->bd_blob[4].y = 240;
 +        t->bd_blob[4].r = 250; t->bd_blob[4].str = 16;
 +
++        /* no colour glow on the black wallpaper */
++        for (unsigned i = 0; i < TH_BLOBS; i++)
++            t->bd_blob[i].r = 0;
++
 +        t->sh_dark    = lv_color_hex(0x000000);
 +        t->sh_dark_opa[0]  = 8;   t->sh_dark_opa[1]  = 12; t->sh_dark_opa[2]  = 18;
 +        t->sh_spread[0]    = 8;   t->sh_spread[1]    = 5;  t->sh_spread[2]    = 3;
@@ -556290,11 +556419,12 @@ index 0000000000..356d2dd145
 +        t->sh_halo_opa[0]  = 6;   t->sh_halo_opa[1]  = 9;  t->sh_halo_opa[2]  = 14;
 +        t->sh_halo_spread[0] = 6; t->sh_halo_spread[1] = 4; t->sh_halo_spread[2] = 3;
 +
-+        t->card_opa          = 180;
-+        t->card_border_opa   = 70;
++        t->card_opa          = 56;      /* white @ 22%: still mostly clear */
++        t->card_border_opa   = 110;     /* 1px rgba(255,255,255,.43) */
++        t->glass_shadow_opa  = 70;
 +        t->menu_card_opa     = LV_OPA_COVER;
 +        t->menu_border_opa   = 110;
-+        t->menu_row_opa      = 110;
++        t->menu_row_opa      = 56;
 +        t->scrim_opa         = 185;
 +        t->scrim_input_opa   = 190;
 +        t->btn_secondary_opa = 220;
@@ -556369,11 +556499,12 @@ index 0000000000..356d2dd145
 +        t->sh_halo_opa[0]  = 12;  t->sh_halo_opa[1]  = 18; t->sh_halo_opa[2]  = 26;
 +        t->sh_halo_spread[0] = 6; t->sh_halo_spread[1] = 4; t->sh_halo_spread[2] = 3;
 +
-+        t->card_opa          = 140;     /* liquid glass: brighter pane */
-+        t->card_border_opa   = 175;     /* crisp specular rim */
++        t->card_opa          = 31;      /* white @ 12%: clear frost */
++        t->card_border_opa   = 97;      /* 1px rgba(255,255,255,.38) */
++        t->glass_shadow_opa  = 45;
 +        t->menu_card_opa     = LV_OPA_COVER; /* overlay cards must be readable */
 +        t->menu_border_opa   = 200;
-+        t->menu_row_opa      = 110;
++        t->menu_row_opa      = 31;
 +        t->scrim_opa         = 165;     /* dark dimmer */
 +        t->scrim_input_opa   = 175;
 +        t->btn_secondary_opa = 140;
@@ -556417,10 +556548,10 @@ index 0000000000..356d2dd145
 +}
 diff --git a/apps/gui/lvglui/ui_theme.h b/apps/gui/lvglui/ui_theme.h
 new file mode 100644
-index 0000000000..8ee5db5f1a
+index 0000000000..0a16244d34
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_theme.h
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,114 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *
@@ -556496,6 +556627,7 @@ index 0000000000..8ee5db5f1a
 +    /* ---- opacities ---------------------------------------------------- */
 +    uint8_t card_opa;          /* glass card bg           (95)  */
 +    uint8_t card_border_opa;   /* glass card border       (220) */
++    uint8_t glass_shadow_opa;  /* glass drop shadow       (40)  */
 +    uint8_t menu_card_opa;     /* overlay card bg         (150) */
 +    uint8_t menu_border_opa;   /* overlay card border     (200) */
 +    uint8_t menu_row_opa;      /* overlay row bg          (70)  */
@@ -568788,10 +568920,10 @@ index 3d046e9351..f226abbd7e 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..8de88e61e5 100644
+index 3c8be16c72..e2d1a1b40c 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,2514 @@
+@@ -17168,3 +17168,2640 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -571301,6 +571433,132 @@ index 3c8be16c72..8de88e61e5 100644
 +  </source>
 +  <dest>
 +    *: "选项"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BACKDROP
++  desc: LVGL theme menu item
++  user: core
++  <source>
++    *: "Backdrop"
++  </source>
++  <dest>
++    *: "背景"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_THEME
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Follow theme"
++  </source>
++  <dest>
++    *: "跟随主题"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_AURORA
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Aurora"
++  </source>
++  <dest>
++    *: "极光"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_SUNSET
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Sunset"
++  </source>
++  <dest>
++    *: "晚霞"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_FOREST
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Forest"
++  </source>
++  <dest>
++    *: "森林"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_MIDNIGHT
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Midnight"
++  </source>
++  <dest>
++    *: "午夜"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_DUNE
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Dune"
++  </source>
++  <dest>
++    *: "沙丘"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_GRAPHITE
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Graphite"
++  </source>
++  <dest>
++    *: "石墨"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_BLACK
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Black"
++  </source>
++  <dest>
++    *: "黑色"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -575478,7 +575736,7 @@ index 55028062cd..d37625122d 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..0d87120e93 100644
+index 4c2f0d58b0..8913c64857 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -575544,7 +575802,7 @@ index 4c2f0d58b0..0d87120e93 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,2458 @@
+@@ -17231,3 +17287,2584 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -577998,6 +578256,132 @@ index 4c2f0d58b0..0d87120e93 100644
 +  </source>
 +  <dest>
 +    *: "Option"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BACKDROP
++  desc: LVGL theme menu item
++  user: core
++  <source>
++    *: "Backdrop"
++  </source>
++  <dest>
++    *: "Backdrop"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_THEME
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Follow theme"
++  </source>
++  <dest>
++    *: "Follow theme"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_AURORA
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Aurora"
++  </source>
++  <dest>
++    *: "Aurora"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_SUNSET
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Sunset"
++  </source>
++  <dest>
++    *: "Sunset"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_FOREST
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Forest"
++  </source>
++  <dest>
++    *: "Forest"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_MIDNIGHT
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Midnight"
++  </source>
++  <dest>
++    *: "Midnight"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_DUNE
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Dune"
++  </source>
++  <dest>
++    *: "Dune"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_GRAPHITE
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Graphite"
++  </source>
++  <dest>
++    *: "Graphite"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BD_BLACK
++  desc: LVGL backdrop preset
++  user: core
++  <source>
++    *: "Black"
++  </source>
++  <dest>
++    *: "Black"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -594422,7 +594806,7 @@ index 61d16f4cb1..841844be06 100644
  #ifdef HAVE_PITCHCONTROL
            ,&timestretch_enabled
 diff --git a/apps/menus/theme_menu.c b/apps/menus/theme_menu.c
-index 03ddfc2a3a..7d92e58585 100644
+index 03ddfc2a3a..d6dfa990b7 100644
 --- a/apps/menus/theme_menu.c
 +++ b/apps/menus/theme_menu.c
 @@ -48,7 +48,7 @@
@@ -594434,7 +594818,31 @@ index 03ddfc2a3a..7d92e58585 100644
  /**
  * Menu to clear the backdrop image
   */
-@@ -231,6 +231,7 @@ MAKE_MENU(bars_menu, ID2P(LANG_BARS_MENU), 0, Icon_NOICON,
+@@ -65,7 +65,7 @@ static int clear_main_backdrop(void)
+ MENUITEM_FUNCTION(clear_main_bd, 0, ID2P(LANG_CLEAR_BACKDROP),
+                   clear_main_backdrop, NULL, Icon_NOICON);
+ #endif
+-#ifdef HAVE_LCD_COLOR
++#if defined(HAVE_LCD_COLOR) && !defined(HAVE_LVGL_UI)
+ 
+ enum Colors {
+     COLOR_FG = 0,
+@@ -166,6 +166,7 @@ MAKE_MENU(colors_settings, ID2P(LANG_COLORS_MENU),
+ /*    BARS MENU                     */
+ /*                                  */
+ 
++#ifndef HAVE_LVGL_UI
+ static int statusbar_callback_ex(int action,const struct menu_item_ex *this_item,
+                                 enum screen_type screen)
+ {
+@@ -225,12 +226,14 @@ MAKE_MENU(bars_menu, ID2P(LANG_BARS_MENU), 0, Icon_NOICON,
+           , &battery_display
+ #endif
+           );
++#endif /* !HAVE_LVGL_UI */
+ 
+ /*                                  */
+ /*    BARS MENU                     */
  /************************************/
  
  static struct browse_folder_info fonts = {FONT_DIR, SHOW_FONT};
@@ -594442,7 +594850,7 @@ index 03ddfc2a3a..7d92e58585 100644
  static struct browse_folder_info sbs   = {SBS_DIR, SHOW_SBS};
  #if CONFIG_TUNER
  static struct browse_folder_info fms   = {WPS_DIR, SHOW_FMS};
-@@ -244,6 +245,12 @@ static struct browse_folder_info rfms   = {WPS_DIR, SHOW_RFMS};
+@@ -244,6 +247,12 @@ static struct browse_folder_info rfms   = {WPS_DIR, SHOW_RFMS};
  #endif
  #endif
  static struct browse_folder_info themes = {THEME_DIR, SHOW_CFG};
@@ -594455,7 +594863,7 @@ index 03ddfc2a3a..7d92e58585 100644
  
  int browse_folder(void *param)
  {
-@@ -253,6 +260,15 @@ int browse_folder(void *param)
+@@ -253,6 +262,15 @@ int browse_folder(void *param)
      const struct browse_folder_info *info =
          (const struct browse_folder_info*)param;
  
@@ -594471,7 +594879,7 @@ index 03ddfc2a3a..7d92e58585 100644
      struct browse_context browse = {
          .dirfilter = info->show_options,
          .icon = Icon_NOICON,
-@@ -331,6 +347,10 @@ int browse_folder(void *param)
+@@ -331,6 +349,10 @@ int browse_folder(void *param)
          browse.title = str(lang_id);
      }
  
@@ -594482,7 +594890,7 @@ index 03ddfc2a3a..7d92e58585 100644
      tree_get_context()->browse = NULL;  /*bugfix - force root dir reload */
      return rockbox_browse(&browse);
  }
-@@ -338,6 +358,13 @@ int browse_folder(void *param)
+@@ -338,6 +360,16 @@ int browse_folder(void *param)
  MENUITEM_FUNCTION_W_PARAM(browse_fonts, 0, ID2P(LANG_CUSTOM_FONT),
                            browse_folder, (void*)&fonts, NULL, Icon_Font);
  
@@ -594490,13 +594898,16 @@ index 03ddfc2a3a..7d92e58585 100644
 +int lvgui_theme_pick(void);
 +MENUITEM_FUNCTION(ui_theme_item, 0, ID2P(LANG_CUSTOM_THEME),
 +                  lvgui_theme_pick, NULL, Icon_Config);
++int lvgui_backdrop_pick(void);
++MENUITEM_FUNCTION(ui_backdrop_item, 0, ID2P(LANG_N3_BACKDROP),
++                  lvgui_backdrop_pick, NULL, Icon_Config);
 +#endif
 +
 +#ifndef HAVE_LVGL_UI
  MENUITEM_FUNCTION_W_PARAM(browse_sbs, 0, ID2P(LANG_BASE_SKIN),
                            browse_folder, (void*)&sbs, NULL, Icon_Wps);
  #if CONFIG_TUNER
-@@ -384,11 +411,18 @@ MENUITEM_SETTING(cursor_style, &global_settings.cursor_style, NULL);
+@@ -384,11 +416,19 @@ MENUITEM_SETTING(cursor_style, &global_settings.cursor_style, NULL);
  #if LCD_DEPTH > 1
  MENUITEM_SETTING(sep_menu, &global_settings.list_separator_height, NULL);
  #endif
@@ -594506,6 +594917,7 @@ index 03ddfc2a3a..7d92e58585 100644
              NULL, Icon_Wps,
 +#ifdef HAVE_LVGL_UI
 +            &ui_theme_item,
++            &ui_backdrop_item,
 +#endif
 +#ifndef HAVE_LVGL_UI
              &browse_themes,
@@ -594515,7 +594927,7 @@ index 03ddfc2a3a..7d92e58585 100644
              &browse_wps,
  #ifdef HAVE_REMOTE_LCD
              &browse_rwps,
-@@ -404,14 +438,17 @@ MAKE_MENU(theme_menu, ID2P(LANG_THEME_MENU),
+@@ -404,15 +444,18 @@ MAKE_MENU(theme_menu, ID2P(LANG_THEME_MENU),
              &browse_rsbs,
  #endif
              &show_icons,
@@ -594524,16 +594936,18 @@ index 03ddfc2a3a..7d92e58585 100644
 +#if defined(HAVE_BACKDROP_IMAGE) && !defined(HAVE_LVGL_UI)
              &clear_main_bd,
  #endif
-             &bars_menu,
 +#ifndef HAVE_LVGL_UI
+             &bars_menu,
              &cursor_style,
  #if LCD_DEPTH > 1
              &sep_menu,
  #endif
+-#ifdef HAVE_LCD_COLOR
 +#endif /* !HAVE_LVGL_UI */
- #ifdef HAVE_LCD_COLOR
++#if defined(HAVE_LCD_COLOR) && !defined(HAVE_LVGL_UI)
              &colors_settings,
  #endif
+ );
 diff --git a/apps/menus/wifi_menu.c b/apps/menus/wifi_menu.c
 new file mode 100644
 index 0000000000..5a33fc4b2c
@@ -606658,7 +607072,7 @@ index f9b170a52d..e999825baa 100644
      dsp_eq_enable(global_settings.eq_enabled);
      dsp_set_eq_precut(global_settings.eq_precut);
 diff --git a/apps/settings.h b/apps/settings.h
-index 5a0f4f83e3..6d44c225de 100644
+index 5a0f4f83e3..1a06d5a0f5 100644
 --- a/apps/settings.h
 +++ b/apps/settings.h
 @@ -401,6 +401,27 @@ struct user_settings
@@ -606689,16 +607103,17 @@ index 5a0f4f83e3..6d44c225de 100644
      /* EQ */
      bool eq_enabled;            /* Enable equalizer */
      unsigned int eq_precut;     /* dB */
-@@ -588,6 +609,8 @@ struct user_settings
+@@ -588,6 +609,9 @@ struct user_settings
  
      int scrollbar;    /* SCROLLBAR_* enum values */
      int scrollbar_width;
 +    int ui_font_size; /* LVGL UI CJK font size: 0=14 1=16 2=20 */
 +    bool ui_dark_mode; /* LVGL UI dark theme */
++    int ui_backdrop;  /* LVGL UI backdrop preset: 0=follow theme */
  
  #ifdef HAVE_TOUCHSCREEN
      int list_line_padding;
-@@ -876,6 +899,10 @@ struct user_settings
+@@ -876,6 +900,10 @@ struct user_settings
      int power_mode;
  #endif
  
@@ -606709,7 +607124,7 @@ index 5a0f4f83e3..6d44c225de 100644
  #ifdef AUDIOHW_HAVE_EQ
      /** Hardware EQ tone controls **/
      struct hw_eq_band
-@@ -907,6 +934,22 @@ struct user_settings
+@@ -907,6 +935,22 @@ struct user_settings
      int play_frequency; /* core audio output frequency selection */
  #endif
      int volume_limit; /* maximum volume limit */
@@ -606733,7 +607148,7 @@ index 5a0f4f83e3..6d44c225de 100644
  #ifdef HAVE_PERCEPTUAL_VOLUME
      int volume_adjust_mode;
 diff --git a/apps/settings_list.c b/apps/settings_list.c
-index 24edac9bb7..e9ba691bb1 100644
+index 24edac9bb7..17b120ac4e 100644
 --- a/apps/settings_list.c
 +++ b/apps/settings_list.c
 @@ -645,7 +645,124 @@ static void crossfeed_cross_set(int val)
@@ -606911,17 +607326,19 @@ index 24edac9bb7..e9ba691bb1 100644
      /* playback */
      OFFON_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, playlist_shuffle,
                    LANG_SHUFFLE, false, "shuffle", shuffle_playlist_callback),
-@@ -1369,6 +1512,9 @@ const struct settings_list settings[] = {
+@@ -1369,6 +1512,11 @@ const struct settings_list settings[] = {
      CHOICE_SETTING(0, timeformat, LANG_TIMEFORMAT, 0,
          "time format", "24hour,12hour", NULL, 2,
          ID2P(LANG_24_HOUR_CLOCK), ID2P(LANG_12_HOUR_CLOCK)),
 +    INT_SETTING(0, ui_font_size, LANG_CUSTOM_FONT, 1, "ui font size", UNIT_INT,
 +                0, 2, 1, NULL, NULL, NULL),
 +    OFFON_SETTING(0, ui_dark_mode, LANG_CUSTOM_FONT, false, "ui dark mode", NULL),
++    INT_SETTING(0, ui_backdrop, LANG_N3_BACKDROP, 0, "ui backdrop", UNIT_INT,
++                0, 7, 1, NULL, NULL, NULL),
      OFFON_SETTING(0,show_icons, LANG_SHOW_ICONS ,true,"show icons", NULL),
      /* system */
      INT_SETTING(F_TIME_SETTING, poweroff, LANG_POWEROFF_IDLE, 10,
-@@ -1964,6 +2110,74 @@ const struct settings_list settings[] = {
+@@ -1964,6 +2112,74 @@ const struct settings_list settings[] = {
                         "crossfeed hf cutoff", UNIT_HERTZ, 500, 2000, 100,
                         NULL, NULL, crossfeed_cross_set),
  

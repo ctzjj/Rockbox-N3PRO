@@ -19679,3 +19679,129 @@
     *: ""
   </voice>
 </phrase>
+<phrase>
+  id: LANG_N3_BACKDROP
+  desc: LVGL theme menu item
+  user: core
+  <source>
+    *: "Backdrop"
+  </source>
+  <dest>
+    *: "背景"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BD_THEME
+  desc: LVGL backdrop preset
+  user: core
+  <source>
+    *: "Follow theme"
+  </source>
+  <dest>
+    *: "跟随主题"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BD_AURORA
+  desc: LVGL backdrop preset
+  user: core
+  <source>
+    *: "Aurora"
+  </source>
+  <dest>
+    *: "极光"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BD_SUNSET
+  desc: LVGL backdrop preset
+  user: core
+  <source>
+    *: "Sunset"
+  </source>
+  <dest>
+    *: "晚霞"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BD_FOREST
+  desc: LVGL backdrop preset
+  user: core
+  <source>
+    *: "Forest"
+  </source>
+  <dest>
+    *: "森林"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BD_MIDNIGHT
+  desc: LVGL backdrop preset
+  user: core
+  <source>
+    *: "Midnight"
+  </source>
+  <dest>
+    *: "午夜"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BD_DUNE
+  desc: LVGL backdrop preset
+  user: core
+  <source>
+    *: "Dune"
+  </source>
+  <dest>
+    *: "沙丘"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BD_GRAPHITE
+  desc: LVGL backdrop preset
+  user: core
+  <source>
+    *: "Graphite"
+  </source>
+  <dest>
+    *: "石墨"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BD_BLACK
+  desc: LVGL backdrop preset
+  user: core
+  <source>
+    *: "Black"
+  </source>
+  <dest>
+    *: "黑色"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>

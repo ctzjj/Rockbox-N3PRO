@@ -70,10 +70,44 @@ static const lv_color_t icon_grad[] =
  * translucent white over it, which reads as frosted glass everywhere. */
 #define BK_W 360
 #define BK_H 480
-#define BLUR_R 8          /* box blur radius; 2x H+V passes = heavy fog */
+#define BLUR_R 14         /* box blur radius; 2x H+V passes = heavy fog */
 
 static lv_img_dsc_t backdrop_dsc;
 static uint16_t *backdrop_buf;
+
+/* ---- backdrop presets (Theme settings -> Backdrop) -------------------- */
+/* index 0 follows the theme; the rest are fixed palettes drawn by the same
+ * gradient + glow blob generator as the theme wallpaper. */
+typedef struct
+{
+    uint32_t top, bot;
+    struct { int x, y, r, str; uint32_t col; } blob[TH_BLOBS];
+} bd_preset_t;
+
+static const bd_preset_t bd_presets[] =
+{
+    { 0, 0, {{{0}}} },                                        /* follow theme */
+    { 0x2E7FA8, 0x3E5FB8, { { 120,  90, 170, 75, 0x4FE8C0 },
+                            { 285, 300, 180, 60, 0x9F86FF },
+                            { 300, 440, 150, 50, 0x66E0FF } } }, /* aurora */
+    { 0xE08A5C, 0xC85A86, { { 250, 110, 165, 75, 0xFFC48A },
+                            {  90, 300, 175, 65, 0xFF8FB4 },
+                            { 300, 440, 150, 55, 0xB08CFF } } }, /* sunset */
+    { 0x4E8A54, 0x2F6E5A, { { 105, 120, 165, 65, 0xA8E87A },
+                            { 285, 330, 175, 60, 0x4FC8B0 },
+                            { 180, 450, 140, 45, 0xE8D28A } } }, /* forest */
+    { 0x3A5A8C, 0x4A3C8C, { { 110, 140, 170, 55, 0x6A9CFF },
+                            { 300, 300, 180, 50, 0x8A6CFF },
+                            { 200, 450, 150, 45, 0x5AD0E8 } } }, /* midnight */
+    { 0xB08A5C, 0x8A6A4A, { { 120, 130, 165, 60, 0xE8C48A },
+                            { 300, 320, 175, 55, 0xC08A5C },
+                            { 200, 450, 145, 45, 0xF2E0B8 } } }, /* dune */
+    { 0x8A8A92, 0x6E6E78, { { 120, 140, 165, 50, 0xB8B8C0 },
+                            { 300, 320, 175, 45, 0xD0D0D8 },
+                            { 200, 450, 140, 35, 0xE8E8EE } } }, /* graphite */
+    { 0x0B0B0D, 0x000000, { { 0, 0, 0, 0, 0 } } },             /* black */
+};
+#define BD_PRESET_COUNT ((int)(sizeof(bd_presets) / sizeof(bd_presets[0])))
 
 static void box_blur_h(uint8_t *src, uint8_t *dst, int w, int h, int r)
 {
@@ -141,15 +175,32 @@ static void backdrop_init(void)
         return;   /* screens fall back to plain gradient */
     }
 
-    /* base vertical gradient from the theme (vivid iOS-style base so the
-     * frosted panes visibly tint the colour behind them).  LV_COLOR_GET_*
-     * return the packed-depth components (5/6/5) -- expand to 8 bits. */
-    uint8_t tr = LV_COLOR_GET_R(th->bd_grad_top), tg = LV_COLOR_GET_G(th->bd_grad_top),
-            tb = LV_COLOR_GET_B(th->bd_grad_top);
-    uint8_t br = LV_COLOR_GET_R(th->bd_grad_bot), bg_ = LV_COLOR_GET_G(th->bd_grad_bot),
-            bb = LV_COLOR_GET_B(th->bd_grad_bot);
-    tr = (tr << 3) | (tr >> 2);  tg = (tg << 2) | (tg >> 4);  tb = (tb << 3) | (tb >> 2);
-    br = (br << 3) | (br >> 2);  bg_ = (bg_ << 2) | (bg_ >> 4);  bb = (bb << 3) | (bb >> 2);
+    /* base vertical gradient: the theme's, or the chosen preset's 24-bit
+     * palette.  Theme colours come packed at 5/6/5 -- expand to 8 bits. */
+    int preset = global_settings.ui_backdrop;
+    const bd_preset_t *bp = (preset > 0 && preset < BD_PRESET_COUNT)
+                            ? &bd_presets[preset] : NULL;
+    uint8_t tr, tg, tb, br, bg_, bb;
+    if (bp)
+    {
+        tr = (bp->top >> 16) & 0xff; tg = (bp->top >> 8) & 0xff; tb = bp->top & 0xff;
+        br = (bp->bot >> 16) & 0xff; bg_ = (bp->bot >> 8) & 0xff; bb = bp->bot & 0xff;
+        if (global_settings.ui_dark_mode)
+        {
+            /* dark theme: same presets, night-time palette */
+            tr /= 4; tg /= 4; tb /= 4;
+            br /= 4; bg_ /= 4; bb /= 4;
+        }
+    }
+    else
+    {
+        tr = LV_COLOR_GET_R(th->bd_grad_top); tg = LV_COLOR_GET_G(th->bd_grad_top);
+        tb = LV_COLOR_GET_B(th->bd_grad_top);
+        br = LV_COLOR_GET_R(th->bd_grad_bot); bg_ = LV_COLOR_GET_G(th->bd_grad_bot);
+        bb = LV_COLOR_GET_B(th->bd_grad_bot);
+        tr = (tr << 3) | (tr >> 2);  tg = (tg << 2) | (tg >> 4);  tb = (tb << 3) | (tb >> 2);
+        br = (br << 3) | (br >> 2);  bg_ = (bg_ << 2) | (bg_ >> 4);  bb = (bb << 3) | (bb >> 2);
+    }
     for (int y = 0; y < BK_H; y++)
     {
         int t = y * 256 / (BK_H - 1);
@@ -166,15 +217,35 @@ static void backdrop_init(void)
     /* glow blobs: lerp toward the blob colour (never clips to white) */
     for (unsigned i = 0; i < TH_BLOBS; i++)
     {
-        int rad = th->bd_blob[i].r, r2 = rad * rad;
-        int cx = th->bd_blob[i].x, cy = th->bd_blob[i].y;
-        uint8_t cr = LV_COLOR_GET_R(th->bd_blob[i].col);
-        uint8_t cg = LV_COLOR_GET_G(th->bd_blob[i].col);
-        uint8_t cb = LV_COLOR_GET_B(th->bd_blob[i].col);
-        cr = (cr << 3) | (cr >> 2);
-        cg = (cg << 2) | (cg >> 4);
-        cb = (cb << 3) | (cb >> 2);
-        float str = th->bd_blob[i].str / 100.0f;
+        int rad, cx, cy, strv;
+        uint8_t cr, cg, cb;
+        if (bp)
+        {
+            rad = bp->blob[i].r; cx = bp->blob[i].x; cy = bp->blob[i].y;
+            strv = bp->blob[i].str;
+            cr = (bp->blob[i].col >> 16) & 0xff;
+            cg = (bp->blob[i].col >> 8) & 0xff;
+            cb = bp->blob[i].col & 0xff;
+            if (global_settings.ui_dark_mode)
+            {
+                cr /= 3; cg /= 3; cb /= 3; strv /= 2;
+            }
+        }
+        else
+        {
+            rad = th->bd_blob[i].r; cx = th->bd_blob[i].x; cy = th->bd_blob[i].y;
+            strv = th->bd_blob[i].str;
+            cr = LV_COLOR_GET_R(th->bd_blob[i].col);
+            cg = LV_COLOR_GET_G(th->bd_blob[i].col);
+            cb = LV_COLOR_GET_B(th->bd_blob[i].col);
+            cr = (cr << 3) | (cr >> 2);
+            cg = (cg << 2) | (cg >> 4);
+            cb = (cb << 3) | (cb >> 2);
+        }
+        if (rad <= 0)
+            continue;
+        int r2 = rad * rad;
+        float str = strv / 100.0f;
         int x0 = cx - rad, x1 = cx + rad;
         int y0 = cy - rad, y1 = cy + rad;
         if (x0 < 0) x0 = 0;
@@ -202,12 +273,19 @@ static void backdrop_init(void)
     box_blur_h(work, tmp, BK_W, BK_H, BLUR_R);
     box_blur_v(tmp, work, BK_W, BK_H, BLUR_R);
 
-    /* pack to RGB565 */
+    /* pack to RGB565 with noise dither: a heavily blurred 565 gradient bands
+     * into visible contour rings ("moiré"); random grain hides them without
+     * the cross-hatch look an ordered (Bayer) matrix leaves on flat areas */
+    uint32_t seed = 0x1234567u;
     for (int i = 0; i < BK_W * BK_H; i++)
     {
-        uint8_t r = work[i * 3], g = work[i * 3 + 1], b = work[i * 3 + 2];
-        lv_color_t c = lv_color_make(r, g, b);
-        backdrop_buf[i] = c.full;
+        seed = seed * 1664525u + 1013904223u;
+        int d = (int)((seed >> 16) & 7) - 4;                     /* -4..3 */
+        int r = work[i * 3] + d, g = work[i * 3 + 1] + d, b = work[i * 3 + 2] + d;
+        if (r < 0) r = 0; else if (r > 255) r = 255;
+        if (g < 0) g = 0; else if (g > 255) g = 255;
+        if (b < 0) b = 0; else if (b > 255) b = 255;
+        backdrop_buf[i] = lv_color_make(r, g, b).full;
     }
     free(work); free(tmp);
 
@@ -235,6 +313,15 @@ lv_obj_t *shell_screen_new(void)
      * follows the 界面字体大小 setting); symbol labels override locally */
     lv_obj_set_style_text_font(scr, th->font_cjk, 0);
     return scr;
+}
+
+/* paint the pre-blurred wallpaper on any object (full-screen overlays) */
+void shell_backdrop_apply(lv_obj_t *o)
+{
+    lv_obj_set_style_bg_color(o, COL_BG_TOP, 0);
+    lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
+    if (backdrop_buf)
+        lv_obj_set_style_bg_img_src(o, &backdrop_dsc, 0);
 }
 
 void shell_nav_push(lv_obj_t *scr)
@@ -1355,13 +1442,13 @@ lv_obj_t *shell_menu_row_new(lv_obj_t *list, const char *icon, bool sym,
     lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
     if (sel)
     {
-        /* sapphire crystal: bright top -> deep bottom + bright rim */
+        /* sapphire crystal: translucent blue so the frost still shows */
         lv_obj_set_style_bg_color(row, lv_color_mix(lv_color_white(),
                                   th->accent_blue, 40), 0);
         lv_obj_set_style_bg_grad_color(row,
-            lv_color_darken(th->accent_blue, 60), 0);
+            lv_color_darken(th->accent_blue, 30), 0);
         lv_obj_set_style_bg_grad_dir(row, LV_GRAD_DIR_VER, 0);
-        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_bg_opa(row, global_settings.ui_dark_mode ? 150 : 128, 0);
         lv_obj_set_style_border_color(row,
             lv_color_lighten(th->accent_blue, 100), 0);
         lv_obj_set_style_border_opa(row, LV_OPA_60, 0);
@@ -1762,17 +1849,25 @@ lv_obj_t *shell_glass_new(lv_obj_t *parent)
 {
     lv_obj_t *g = lv_obj_create(parent);
     lv_obj_set_style_bg_opa(g, th->card_opa, 0);
-    lv_obj_set_style_bg_color(g, th->glass_bg, 0);
-    lv_obj_set_style_bg_grad_color(g, lv_color_darken(th->glass_bg, 16), 0);
-    lv_obj_set_style_bg_grad_dir(g, LV_GRAD_DIR_VER, 0);
+    /* glassmorphism recipe: almost clear fill (white @ ~12%), the frost
+     * comes from the pre-blurred wallpaper showing through, not from a
+     * tinted pane.  1px light rim + soft drop shadow give it the edge. */
+    lv_obj_set_style_bg_color(g, lv_color_white(), 0);
     lv_obj_set_style_border_width(g, 1, 0);
     lv_obj_set_style_border_color(g, th->border_white, 0);
     lv_obj_set_style_border_opa(g, th->card_border_opa, 0);
     lv_obj_set_style_radius(g, th->radius, 0);
-    shell_style_shadow_off(g);
+    /* lift the pane off the wallpaper: soft shadow (0 8 32 rgba(0,0,0,.25)) */
+    lv_obj_set_style_shadow_width(g, 24, 0);
+    lv_obj_set_style_shadow_spread(g, 0, 0);
+    lv_obj_set_style_shadow_ofs_x(g, 0, 0);
+    lv_obj_set_style_shadow_ofs_y(g, 4, 0);
+    lv_obj_set_style_shadow_color(g, th->sh_dark, 0);
+    lv_obj_set_style_shadow_opa(g, th->glass_shadow_opa, 0);
     lv_obj_set_style_pad_all(g, 0, 0);
     lv_obj_set_style_text_font(g, th->font_cjk, 0);
     lv_obj_clear_flag(g, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_clip_corner(g, true, 0);
     return g;
 }
 

@@ -1962,6 +1962,40 @@ int lvgui_theme_pick(void)
     return GO_TO_PREVIOUS;
 }
 
+/* ---- native backdrop picker (theme_menu 背景, persisted setting) --------- */
+int lvgui_backdrop_pick(void)
+{
+    static char bufs[8][24];
+    static const char *lbl[8];
+    static const int ids[8] = {
+        LANG_N3_BD_THEME, LANG_N3_BD_AURORA, LANG_N3_BD_SUNSET,
+        LANG_N3_BD_FOREST, LANG_N3_BD_MIDNIGHT, LANG_N3_BD_DUNE,
+        LANG_N3_BD_GRAPHITE, LANG_N3_BD_BLACK,
+    };
+    int cur = global_settings.ui_backdrop;
+
+    if (cur < 0 || cur > 7)
+        cur = 0;
+    for (int i = 0; i < 8; i++)
+    {
+        snprintf(bufs[i], sizeof bufs[i], "%s", str(ids[i]));
+        lbl[i] = bufs[i];
+    }
+
+    int sel = shell_list_pick(str(LANG_N3_BACKDROP), lbl, 8, cur);
+    if (sel >= 0 && sel != cur)
+    {
+        global_settings.ui_backdrop = sel;
+        settings_save();
+        /* regenerate the wallpaper and rebuild Home in place */
+        shell_theme_refresh();
+        shell_home_rebuild();
+        shell_nav_home();
+        g_menu_abort = true;
+    }
+    return GO_TO_PREVIOUS;
+}
+
 /* ---- network-source player screens (netfm / bt-rx / dlna) ---------------
  * Redesigned playback UI for the three stream sources: hero card (icon,
  * source name, live state pill), info card, optional progress/buffer bar
