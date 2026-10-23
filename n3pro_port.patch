@@ -542776,10 +542776,10 @@ index 0000000000..31d16da1f4
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/lv_conf.h b/apps/gui/lvglui/lv_conf.h
 new file mode 100644
-index 0000000000..4135a1436b
+index 0000000000..05a2c8da07
 --- /dev/null
 +++ b/apps/gui/lvglui/lv_conf.h
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,50 @@
 +#ifndef LV_CONF_H
 +#define LV_CONF_H
 +/* Minimal LVGL v8.4 config for the Rockbox N3Pro port. */
@@ -542811,6 +542811,7 @@ index 0000000000..4135a1436b
 +
 +#define LV_FONT_MONTSERRAT_16 1
 +#define LV_FONT_MONTSERRAT_28 1
++#define LV_FONT_MONTSERRAT_32 1
 +#define LV_FONT_MONTSERRAT_48 1
 +#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(notosans_sc_16);
 +#define LV_FONT_DEFAULT &notosans_sc_16
@@ -543421,10 +543422,10 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..5390a3e764
+index 0000000000..3bd30dcb60
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
-@@ -0,0 +1,1554 @@
+@@ -0,0 +1,1561 @@
 +/* ui_backend.c -- rockbox adapter implementation.
 + * Everything here talks to rockbox (tagcache, playlist, file tree,
 + * metadata, artwork); nothing here talks to LVGL. */
@@ -543465,6 +543466,8 @@ index 0000000000..5390a3e764
 +#include "bmp.h"
 +#include "string-extra.h"
 +#include "audio.h"
++#include "cuesheet.h"
++#include "wps.h"
 +#include "sound.h"
 +#include <fcntl.h>
 +#include <unistd.h>
@@ -544230,7 +544233,12 @@ index 0000000000..5390a3e764
 +}
 +
 +void be_player_next(void) { audio_next(); }
-+void be_player_prev(void) { audio_prev(); }
++void be_player_prev(void)
++{
++    /* same call the classic WPS made for its prev button */
++    extern void wps_prev_track(unsigned long skip_thresh);
++    wps_prev_track(DEFAULT_SKIP_THRESH);
++}
 +
 +void be_player_seek(long pos_ms)
 +{
@@ -545512,10 +545520,10 @@ index 0000000000..290cdd1b21
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_compat.c b/apps/gui/lvglui/ui_compat.c
 new file mode 100644
-index 0000000000..f5984888a8
+index 0000000000..911b5faaf7
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_compat.c
-@@ -0,0 +1,167 @@
+@@ -0,0 +1,200 @@
 +/* ui_compat.c - no-op stand-ins for classic-UI functions that the frozen
 + * plugin ABI and settings machinery still reference after the classic UI
 + * sources were dropped from the LVGL build. Compiled only when
@@ -545546,6 +545554,8 @@ index 0000000000..f5984888a8
 +#include "skin_engine/skin_engine.h"
 +#include "statusbar-skinned.h"
 +#include "list.h"
++#include "audio.h"
++#include "cuesheet.h"
 +
 +/* playback/misc code writes id3/ff-rewind info here for the (removed) WPS;
 + * the LVGL player reads audio_* APIs directly */
@@ -545683,12 +545693,43 @@ index 0000000000..f5984888a8
 +void wps_playlist_percent_prepare(void)
 +{
 +}
++
++/* classic WPS state: the LVGL player has the same id3 as the audio engine */
++struct wps_state *get_wps_state(void)
++{
++    wps_state.id3 = audio_current_track();
++    return &wps_state;
++}
++
++/* verbatim from the classic WPS (apps/gui/wps.c, not built here):
++ * restart the track unless we are still inside its first skip_thresh ms */
++void wps_prev_track(unsigned long skip_thresh)
++{
++    struct wps_state *state = get_wps_state();
++
++    if (!state->id3 || state->id3->elapsed < skip_thresh)
++    {
++        audio_prev();
++        return;
++    }
++    else
++    {
++        if (state->id3->cuesheet)
++        {
++            curr_cuesheet_skip(state->id3->cuesheet, -1, state->id3->elapsed);
++            return;
++        }
++
++        audio_pre_ff_rewind();
++        audio_ff_rewind(0);
++    }
++}
 diff --git a/apps/gui/lvglui/ui_control.c b/apps/gui/lvglui/ui_control.c
 new file mode 100755
-index 0000000000..25b6bc5129
+index 0000000000..88df8fa8a7
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_control.c
-@@ -0,0 +1,797 @@
+@@ -0,0 +1,798 @@
 +#include "config.h"
 +#ifdef HAVE_LVGL_UI
 +
@@ -546269,9 +546310,10 @@ index 0000000000..25b6bc5129
 +    {
 +        lv_obj_t *i = lv_label_create(parent);
 +        lv_label_set_text(i, icon);
-+        lv_obj_set_style_text_font(i, th->font_symbol, 0);
++        /* same visual size as the drawn sun on the brightness pill */
++        lv_obj_set_style_text_font(i, &lv_font_montserrat_32, 0);
 +        lv_obj_set_style_text_color(i, th->fg_text, 0);
-+        lv_obj_set_pos(i, x + 14, 176);
++        lv_obj_set_pos(i, x - 2, 173);
 +    }
 +    else
 +        ctl_sun(parent, x - 3, 172);

@@ -578,9 +578,10 @@ static void ctl_slider(lv_obj_t *parent, int x, int val, const char *icon,
     {
         lv_obj_t *i = lv_label_create(parent);
         lv_label_set_text(i, icon);
-        lv_obj_set_style_text_font(i, th->font_symbol, 0);
+        /* same visual size as the drawn sun on the brightness pill */
+        lv_obj_set_style_text_font(i, &lv_font_montserrat_32, 0);
         lv_obj_set_style_text_color(i, th->fg_text, 0);
-        lv_obj_set_pos(i, x + 14, 176);
+        lv_obj_set_pos(i, x - 2, 173);
     }
     else
         ctl_sun(parent, x - 3, 172);

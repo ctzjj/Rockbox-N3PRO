@@ -38,6 +38,8 @@
 #include "bmp.h"
 #include "string-extra.h"
 #include "audio.h"
+#include "cuesheet.h"
+#include "wps.h"
 #include "sound.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -803,7 +805,12 @@ void be_player_toggle_pause(void)
 }
 
 void be_player_next(void) { audio_next(); }
-void be_player_prev(void) { audio_prev(); }
+void be_player_prev(void)
+{
+    /* same call the classic WPS made for its prev button */
+    extern void wps_prev_track(unsigned long skip_thresh);
+    wps_prev_track(DEFAULT_SKIP_THRESH);
+}
 
 void be_player_seek(long pos_ms)
 {

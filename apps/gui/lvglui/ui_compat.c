@@ -28,6 +28,8 @@ enum playlist_viewer_result playlist_viewer_ex(const char *filename,
 #include "skin_engine/skin_engine.h"
 #include "statusbar-skinned.h"
 #include "list.h"
+#include "audio.h"
+#include "cuesheet.h"
 
 /* playback/misc code writes id3/ff-rewind info here for the (removed) WPS;
  * the LVGL player reads audio_* APIs directly */
@@ -164,4 +166,35 @@ void wps_do_action(enum wps_do_action_type action, bool updatewps)
 
 void wps_playlist_percent_prepare(void)
 {
+}
+
+/* classic WPS state: the LVGL player has the same id3 as the audio engine */
+struct wps_state *get_wps_state(void)
+{
+    wps_state.id3 = audio_current_track();
+    return &wps_state;
+}
+
+/* verbatim from the classic WPS (apps/gui/wps.c, not built here):
+ * restart the track unless we are still inside its first skip_thresh ms */
+void wps_prev_track(unsigned long skip_thresh)
+{
+    struct wps_state *state = get_wps_state();
+
+    if (!state->id3 || state->id3->elapsed < skip_thresh)
+    {
+        audio_prev();
+        return;
+    }
+    else
+    {
+        if (state->id3->cuesheet)
+        {
+            curr_cuesheet_skip(state->id3->cuesheet, -1, state->id3->elapsed);
+            return;
+        }
+
+        audio_pre_ff_rewind();
+        audio_ff_rewind(0);
+    }
 }
