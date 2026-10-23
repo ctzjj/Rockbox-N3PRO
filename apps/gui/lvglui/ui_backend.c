@@ -38,7 +38,6 @@
 #include "bmp.h"
 #include "string-extra.h"
 #include "audio.h"
-#include "cuesheet.h"
 #include "wps.h"
 #include "sound.h"
 #include <fcntl.h>
@@ -68,6 +67,8 @@ static bool be_playback_allowed(void);
 const char *shell_cs(char *dst, size_t dstsz, const char *src);
 /* toast shown while a blocking shutdown runs (ui_shell.c) */
 void shell_toast(int ticks, const char *msg, const char *icon);
+/* classic WPS prev helper carried over in ui_compat.c */
+void wps_prev_track(unsigned long skip_thresh);
 
 #define LIB_MAX_ITEMS  2000      /* query result guard */
 void be_list_free(be_list_t *t)
@@ -808,7 +809,6 @@ void be_player_next(void) { audio_next(); }
 void be_player_prev(void)
 {
     /* same call the classic WPS made for its prev button */
-    extern void wps_prev_track(unsigned long skip_thresh);
     wps_prev_track(DEFAULT_SKIP_THRESH);
 }
 

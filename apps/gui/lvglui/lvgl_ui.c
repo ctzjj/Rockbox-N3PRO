@@ -150,10 +150,6 @@ void lvgui_main(void)
     lvgui_port_input_init();
     lvgui_shell_start();
     add_event(LCD_EVENT_ACTIVATION, lvgui_lcd_activation_hook);
-    {
-        extern void lvgui_dbg_init(void);
-        lvgui_dbg_init();
-    }
 
     while (1)
     {

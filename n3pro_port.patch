@@ -543066,10 +543066,10 @@ index 0000000000..58eceeb449
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..0da085eb06
+index 0000000000..5aea596d21
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,180 @@
+@@ -0,0 +1,176 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543222,10 +543222,6 @@ index 0000000000..0da085eb06
 +    lvgui_port_input_init();
 +    lvgui_shell_start();
 +    add_event(LCD_EVENT_ACTIVATION, lvgui_lcd_activation_hook);
-+    {
-+        extern void lvgui_dbg_init(void);
-+        lvgui_dbg_init();
-+    }
 +
 +    while (1)
 +    {
@@ -543422,7 +543418,7 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..3bd30dcb60
+index 0000000000..204e3b0347
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
 @@ -0,0 +1,1561 @@
@@ -543466,7 +543462,6 @@ index 0000000000..3bd30dcb60
 +#include "bmp.h"
 +#include "string-extra.h"
 +#include "audio.h"
-+#include "cuesheet.h"
 +#include "wps.h"
 +#include "sound.h"
 +#include <fcntl.h>
@@ -543496,6 +543491,8 @@ index 0000000000..3bd30dcb60
 +const char *shell_cs(char *dst, size_t dstsz, const char *src);
 +/* toast shown while a blocking shutdown runs (ui_shell.c) */
 +void shell_toast(int ticks, const char *msg, const char *icon);
++/* classic WPS prev helper carried over in ui_compat.c */
++void wps_prev_track(unsigned long skip_thresh);
 +
 +#define LIB_MAX_ITEMS  2000      /* query result guard */
 +void be_list_free(be_list_t *t)
@@ -544236,7 +544233,6 @@ index 0000000000..3bd30dcb60
 +void be_player_prev(void)
 +{
 +    /* same call the classic WPS made for its prev button */
-+    extern void wps_prev_track(unsigned long skip_thresh);
 +    wps_prev_track(DEFAULT_SKIP_THRESH);
 +}
 +
@@ -549749,10 +549745,10 @@ index 0000000000..a7c361ba25
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..52a2817ee4
+index 0000000000..394da8460b
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2832 @@
+@@ -0,0 +1,2806 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -552556,32 +552552,6 @@ index 0000000000..52a2817ee4
 +    if (n <= 0)
 +        return -1;
 +    return shell_list_pick(title, labels, n, 0);
-+}
-+
-+
-+/* ---- temporary debug: open the bluetooth menu via /tmp/dbg_scr --------- */
-+static void dbg_job(void *p)
-+{
-+    (void)p;
-+    be_bluetooth_menu();
-+}
-+
-+static void dbg_timer_cb(lv_timer_t *t)
-+{
-+    (void)t;
-+    FILE *f = fopen("/tmp/dbg_scr", "r");
-+    if (!f)
-+        return;
-+    int c = fgetc(f);
-+    fclose(f);
-+    unlink("/tmp/dbg_scr");
-+    if (c == 'b')
-+        lvgui_run_job(dbg_job, NULL);
-+}
-+
-+void lvgui_dbg_init(void)
-+{
-+    lv_timer_create(dbg_timer_cb, 1500, NULL);
 +}
 +
 +#endif /* HAVE_LVGL_UI */

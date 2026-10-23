@@ -2803,30 +2803,4 @@ int lvgui_cuesheet_pick(struct cuesheet *cue, const char *title)
     return shell_list_pick(title, labels, n, 0);
 }
 
-
-/* ---- temporary debug: open the bluetooth menu via /tmp/dbg_scr --------- */
-static void dbg_job(void *p)
-{
-    (void)p;
-    be_bluetooth_menu();
-}
-
-static void dbg_timer_cb(lv_timer_t *t)
-{
-    (void)t;
-    FILE *f = fopen("/tmp/dbg_scr", "r");
-    if (!f)
-        return;
-    int c = fgetc(f);
-    fclose(f);
-    unlink("/tmp/dbg_scr");
-    if (c == 'b')
-        lvgui_run_job(dbg_job, NULL);
-}
-
-void lvgui_dbg_init(void)
-{
-    lv_timer_create(dbg_timer_cb, 1500, NULL);
-}
-
 #endif /* HAVE_LVGL_UI */
