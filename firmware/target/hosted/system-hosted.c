@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <stdio.h>
 #include <ucontext.h>
 #include <backtrace.h>
 
@@ -64,6 +65,13 @@ static void sig_handler(int sig, siginfo_t *siginfo, void *context)
     unsigned long sp = uc->uc_mcontext.gregs[29];
 
     lcd_putsf(0, line++, "%s at %08lx", strsignal(sig), pc);
+
+#if defined(CAYIN_N3PRO)
+    /* also leave the crash text in the log: the LCD panic page is white in
+     * this LVGL build, so stderr is the only readable record */
+    fprintf(stderr, "FATAL signal %d (%s) pc=%08lx sp=%08lx addr=%p\n",
+            sig, strsignal(sig), pc, sp, siginfo->si_addr);
+#endif
 
     if(sig == SIGILL || sig == SIGFPE || sig == SIGSEGV || sig == SIGBUS || sig == SIGTRAP) {
         lcd_putsf(0, line++, "address %p", siginfo->si_addr);

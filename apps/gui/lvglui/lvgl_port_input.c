@@ -83,13 +83,8 @@ void lvgui_input_feed(int button, intptr_t data)
             close_armed = lvgui_control_is_open();
             edge_start_x = g_last_touch.point.x;
             edge_start_y = g_last_touch.point.y;
-            /* open immediately on a touch in the top strip: the release then
-             * lands on the panel (never on the list below, never closing) */
-            if (top_armed && !close_armed)
-            {
-                lvgui_control_open();
-                top_armed = false;
-            }
+            /* the top strip only pulls the control centre down on a drag, so
+             * taps on the header (back button/title) still reach the screen */
         }
         else if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
                  edge_prev == LV_INDEV_STATE_PRESSED &&

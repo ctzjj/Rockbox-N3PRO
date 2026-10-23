@@ -213,6 +213,9 @@ gui/usb_screen.c
 #endif
 #ifdef HAVE_TAGCACHE
 tagcache.c
+#ifdef CAYIN_N3PRO
+pinyin.c
+#endif
 #endif
 #ifdef HAVE_TOUCHSCREEN
 keymaps/keymap-touchscreen.c

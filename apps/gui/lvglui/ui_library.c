@@ -213,6 +213,17 @@ static void pl_reload_async(void *p);
 /* Play a playlist file exactly like the file browser does (dir + name,
  * through the original ft_play_playlist: bookmarks, warnings, shuffle). */
 
+/* database row activation may open tagtree's runtime search (kbd_input),
+ * which blocks and pumps LVGL -- it must not run inside lv_timer_handler */
+static void db_enter_job(void *p)
+{
+    int idx = (int)(intptr_t)p;
+    if (be_db_enter(idx) == 0)
+        lib_db_push_level();
+    else
+        shell_player_show();
+}
+
 static void lib_activate(lib_data *d, int idx, int action)
 {
     if (!d)
@@ -220,10 +231,7 @@ static void lib_activate(lib_data *d, int idx, int action)
     switch (action)
     {
     case A_DB:        /* database row: descend a level or start playback */
-        if (be_db_enter(idx) == 0)
-            lib_db_push_level();
-        else
-            shell_player_show();
+        lvgui_run_job(db_enter_job, (void *)(intptr_t)idx);
         break;
     case A_PLAY:      /* track row -> play list from this index */
         be_play(&d->tk, idx);

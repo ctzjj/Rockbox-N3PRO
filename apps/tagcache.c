@@ -77,6 +77,9 @@
 #include "usb.h"
 #include "metadata.h"
 #include "tagcache.h"
+#if defined(CAYIN_N3PRO)
+#include "pinyin.h"
+#endif
 #include "yesno.h"
 #include "core_alloc.h"
 #include "crc32.h"
@@ -1385,6 +1388,25 @@ inline static bool str_begins_ends_oneof(const char *str, const char *list, bool
 {
     logf_clauses("%s %s (%s) %s", str, __func__, begins ? "begins" : "ends", list);
     const char *sep;
+
+#if defined(CAYIN_N3PRO)
+    /* "A".."Z" buckets also collect Chinese tags by pinyin initial */
+    if (begins)
+    {
+        char py = pinyin_first_letter(str);
+        if (py)
+        {
+            for (const char *p = list; *p; )
+            {
+                const char *s = strchr(p, '|');
+                int n = s ? (int)(s - p) : (int)strlen(p);
+                if (n == 1 && (p[0] | 0x20) == (py | 0x20))
+                    return true;
+                p += s ? n + 1 : n;
+            }
+        }
+    }
+#endif
     int l, p, len = strlen(str);
 
     while (*list)
@@ -1466,7 +1488,18 @@ static bool check_against_clause(long numeric, const char *str,
             case clause_not_contains:
                 return (strcasestr(str, clause->str) == NULL);
             case clause_begins_with:
-                return (strcasestr(str, clause->str) == str);
+                if (strcasestr(str, clause->str) == str)
+                    return true;
+#if defined(CAYIN_N3PRO)
+                /* single-letter bucket: match Chinese by pinyin initial */
+                if (clause->str[0] && !clause->str[1])
+                {
+                    char py = pinyin_first_letter(str);
+                    if (py && (py | 0x20) == (clause->str[0] | 0x20))
+                        return true;
+                }
+#endif
+                return false;
             case clause_not_begins_with:
                 return (strcasestr(str, clause->str) != str);
             case clause_ends_with:

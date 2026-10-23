@@ -628,6 +628,9 @@ void be_db_back(void)
     struct tree_context *c = be_db_tc();
     if (c->dirlevel > 0)
         tagtree_exit(c, true);
+    /* the entry cache still holds the level we just left; reload the
+     * parent's entries so indices from the parent list map correctly */
+    tagtree_load(c);
 }
 
 int be_read_text(const char *path, char *buf, int sz)

@@ -869,7 +869,9 @@ static void cand_hide(void)
 {
     if (g_kbd_cand)
     {
-        lv_obj_del(g_kbd_cand);
+        /* may run from a candidate tap: never delete the pressed row's
+         * parent synchronously */
+        lv_obj_del_async(g_kbd_cand);
         g_kbd_cand = NULL;
     }
 }
@@ -1146,18 +1148,18 @@ static void kbd_make_kb(void)
  * confirms or cancels. Returns 0 when confirmed (text copied back), -1 on
  * cancel -- the same convention as the original. Must run from a
  * lvgui_run_job() context, never inside an LVGL event callback. */
-int shell_kbd_input(char *text, int buflen)
-{
-    if (buflen <= 0)
-        return -1;
-    g_kbd_done = false;
-    g_kbd_ok = false;
+/* The keyboard overlay is built once and only shown/hidden afterwards: a
+ * modal that deletes its own widgets while a touch is still in flight is
+ * exactly the use-after-free LVGL cannot guard against (lv_obj_tree.c only
+ * resets the indev when the *deleted* object is the pressed one, not when
+ * it is a child). */
+static lv_obj_t *g_kbd_scrim;
 
+static void kbd_build(void)
+{
     /* parent the overlay to the persistent top layer, not the screen: the
      * stock handler may reopen folders (popping screens) underneath us */
-    lv_obj_t *scr = lv_layer_top();
-
-    lv_obj_t *scrim = lv_obj_create(scr);
+    lv_obj_t *scrim = lv_obj_create(lv_layer_top());
     lv_obj_set_size(scrim, 360, 480);
     lv_obj_set_pos(scrim, 0, 0);
     lv_obj_add_flag(scrim, LV_OBJ_FLAG_CLICKABLE);
@@ -1179,8 +1181,6 @@ int shell_kbd_input(char *text, int buflen)
     lv_obj_set_size(ta, 288, 42);
     lv_obj_align(ta, LV_ALIGN_TOP_MID, 0, 20);
     lv_textarea_set_one_line(ta, true);
-    lv_textarea_set_text(ta, text ? text : "");
-    lv_textarea_set_max_length(ta, buflen - 1);
     lv_obj_set_style_text_color(ta, shell_col_text(), 0);
     lv_obj_set_style_text_font(ta, th->font_cn, 0);
     lv_obj_set_style_bg_opa(ta, LV_OPA_20, 0);
@@ -1192,24 +1192,45 @@ int shell_kbd_input(char *text, int buflen)
     kbd_mkbtn(card, str(LANG_CANCEL), 8, kbd_cancel_cb, false);
     kbd_mkbtn(card, str(LANG_SET_BOOL_YES), 192, kbd_ok_cb, true);
 
-    /* parent the keyboard to the dialog scrim so closing the dialog takes
-     * the keyboard (and everything the IME creates) with it */
     g_kbd_scr = scrim;
     g_kbd_ta = ta;
     g_kbd_cn = false;
     g_pybuf[0] = '\0';
     kbd_make_kb();
+    g_kbd_scrim = scrim;
+}
+
+int shell_kbd_input(char *text, int buflen)
+{
+    if (buflen <= 0)
+        return -1;
+    if (!g_kbd_scrim)
+        kbd_build();
+
+    g_kbd_done = false;
+    g_kbd_ok = false;
+    g_kbd_cn = false;
+    g_kbd_symbols = false;
+    g_kbd_shift = 0;
+    g_pybuf[0] = '\0';
+    kbd_set_page(false, false);
+    lv_textarea_set_max_length(g_kbd_ta, buflen - 1);
+    lv_textarea_set_text(g_kbd_ta, text ? text : "");
+    lv_obj_add_state(g_kbd_ta, LV_STATE_FOCUSED);
+    lv_obj_clear_flag(g_kbd_scrim, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(g_kbd_scrim);
+
     while (!g_kbd_done)
         lvgui_pump();
 
     int ret = -1;
     if (g_kbd_ok)
     {
-        strlcpy(text, lv_textarea_get_text(ta), buflen);
+        strlcpy(text, lv_textarea_get_text(g_kbd_ta), buflen);
         ret = 0;
     }
     cand_hide();
-    lv_obj_del(scrim);            /* removes card, textarea and keyboard */
+    lv_obj_add_flag(g_kbd_scrim, LV_OBJ_FLAG_HIDDEN);
     return ret;
 }
 
@@ -1247,16 +1268,12 @@ static lv_obj_t *yesno_mkbtn(lv_obj_t *parent, const char *txt, int x,
 /* Shows the message and BLOCKS (pumping the UI loop) until answered:
  * 0 = yes, 1 = no (same numbering as enum yesno_res). Only call from a
  * lvgui_run_job() context. */
-int shell_yesno_run(const char *message)
+static lv_obj_t *g_yesno_scrim;
+static lv_obj_t *g_yesno_msg;
+
+static void yesno_build(void)
 {
-    if (!message)
-        message = "";
-
-    g_yesno_done = false;
-    g_yesno_res = 1;                   /* tapping outside means no */
-
-    lv_obj_t *scr = lv_layer_top();
-    lv_obj_t *scrim = lv_obj_create(scr);
+    lv_obj_t *scrim = lv_obj_create(lv_layer_top());
     lv_obj_set_size(scrim, 360, 480);
     lv_obj_set_pos(scrim, 0, 0);
     lv_obj_add_flag(scrim, LV_OBJ_FLAG_CLICKABLE);
@@ -1277,23 +1294,38 @@ int shell_yesno_run(const char *message)
     lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(card, th->radius, 0);
 
-    lv_obj_t *msg = lv_label_create(card);
-    lv_label_set_text(msg, message);
-    lv_obj_set_style_text_color(msg, th->fg_text, 0);
-    lv_label_set_long_mode(msg, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(msg, CW - 40);
-    lv_obj_align(msg, LV_ALIGN_TOP_MID, 0, 18);
+    g_yesno_msg = lv_label_create(card);
+    lv_obj_set_style_text_color(g_yesno_msg, th->fg_text, 0);
+    lv_label_set_long_mode(g_yesno_msg, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(g_yesno_msg, CW - 40);
+    lv_obj_align(g_yesno_msg, LV_ALIGN_TOP_MID, 0, 18);
 
     yesno_mkbtn(card, str(LANG_SET_BOOL_NO), 18, th->btn_secondary, th->btn_secondary_opa,
                 th->fg_text, 1);
     yesno_mkbtn(card, str(LANG_SET_BOOL_YES), CW - 138, th->accent_blue, LV_OPA_COVER,
                 th->fg_inverse, 0);
 
+    g_yesno_scrim = scrim;
+}
+
+int shell_yesno_run(const char *message)
+{
+    if (!message)
+        message = "";
+    if (!g_yesno_scrim)
+        yesno_build();
+
+    g_yesno_done = false;
+    g_yesno_res = 1;                   /* tapping outside means no */
+    lv_label_set_text(g_yesno_msg, message);
+    lv_obj_clear_flag(g_yesno_scrim, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(g_yesno_scrim);
+
     while (!g_yesno_done)
         lvgui_pump();
 
     int ret = g_yesno_res;
-    lv_obj_del(scrim);
+    lv_obj_add_flag(g_yesno_scrim, LV_OBJ_FLAG_HIDDEN);
     return ret;
 }
 
@@ -2404,14 +2436,35 @@ static void home_build(lv_obj_t *scr)
 }
 
 /* ---- shared blocks for feature screens (M2+) --------------------------- */
+static void hdr_back_cb(lv_event_t *e)
+{
+    (void)e;
+    shell_nav_pop();
+}
+
 void shell_header(lv_obj_t *scr, const char *title)
 {
-    /* no back button: the global edge-swipe gesture handles going back */
+    /* back button: the edge-swipe gesture still works, but a visible target
+     * is more discoverable (and testable) */
+    lv_obj_t *b = lv_btn_create(scr);
+    lv_obj_set_size(b, 40, 40);
+    lv_obj_set_pos(b, 4, 14);
+    lv_obj_set_style_radius(b, 20, 0);
+    lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(b, 0, 0);
+    lv_obj_set_style_shadow_width(b, 0, 0);
+    lv_obj_add_event_cb(b, hdr_back_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *bi = lv_label_create(b);
+    lv_label_set_text(bi, LV_SYMBOL_LEFT);
+    lv_obj_set_style_text_font(bi, th->font_symbol, 0);
+    lv_obj_set_style_text_color(bi, th->fg_text, 0);
+    lv_obj_center(bi);
+
     lv_obj_t *t = lv_label_create(scr);
     lv_label_set_text(t, title);
     lv_obj_set_style_text_color(t, COL_TEXT, 0);
     lv_obj_set_style_text_font(t, th->font_title, 0);
-    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 12, 26);
+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 50, 26);
 }
 
 lv_color_t shell_col_text(void) { return COL_TEXT; }
