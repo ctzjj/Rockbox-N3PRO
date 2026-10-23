@@ -18,6 +18,8 @@ void shell_nav_pop_now(void);
 void shell_nav_home(void);
 /* rebuild the home screen after a root-menu configuration change */
 void shell_home_rebuild(void);
+/* repaint the wallpaper after a live theme change (ui_theme_init()) */
+void shell_theme_refresh(void);
 bool shell_nav_full(void);
 void shell_statusbar_build(lv_obj_t *parent);
 void shell_header(lv_obj_t *scr, const char *title);
