@@ -19091,3 +19091,591 @@
     *: ""
   </voice>
 </phrase>
+<phrase>
+  id: LANG_N3_NOTHING_PLAYING
+  desc: LVGL home dock: no track
+  user: core
+  <source>
+    *: "Nothing playing"
+  </source>
+  <dest>
+    *: "未在播放"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_TAP_TO_OPEN
+  desc: LVGL home dock hint
+  user: core
+  <source>
+    *: "Tap to open the player"
+  </source>
+  <dest>
+    *: "点按进入播放页"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DOCK_SLOGAN
+  desc: LVGL home dock slogan
+  user: core
+  <source>
+    *: "Music, on the go"
+  </source>
+  <dest>
+    *: "音乐·随身"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_SWIPE_UNLOCK
+  desc: LVGL lock screen hint
+  user: core
+  <source>
+    *: "Swipe up to unlock"
+  </source>
+  <dest>
+    *: "上滑解锁"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_QUICK_SETTINGS
+  desc: LVGL player quick settings
+  user: core
+  <source>
+    *: "Quick settings"
+  </source>
+  <dest>
+    *: "快捷设置"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NO_LYRICS
+  desc: LVGL player lyrics
+  user: core
+  <source>
+    *: "No lyrics"
+  </source>
+  <dest>
+    *: "无歌词"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NET_RADIO
+  desc: LVGL media source
+  user: core
+  <source>
+    *: "Internet radio"
+  </source>
+  <dest>
+    *: "网络收音机"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LOCK
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Lock screen"
+  </source>
+  <dest>
+    *: "锁屏"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_POWER_OFF
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Power off"
+  </source>
+  <dest>
+    *: "关机"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_REBOOT
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Reboot"
+  </source>
+  <dest>
+    *: "重启"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_CONFIRM_POWER_OFF
+  desc: LVGL power off question
+  user: core
+  <source>
+    *: "Power off the player?"
+  </source>
+  <dest>
+    *: "确定关闭设备？"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_REBOOTING
+  desc: LVGL toast while rebooting
+  user: core
+  <source>
+    *: "Rebooting..."
+  </source>
+  <dest>
+    *: "正在重启…"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_TUBE
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Triode"
+  </source>
+  <dest>
+    *: "三极管"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_SUPERLINEAR
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Superlinear"
+  </source>
+  <dest>
+    *: "超线性"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LOADING_PLAYLIST
+  desc: LVGL toast
+  user: core
+  <source>
+    *: "Loading playlist..."
+  </source>
+  <dest>
+    *: "正在载入播放列表…"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_EMPTY_PLAYLIST
+  desc: LVGL playlist screen
+  user: core
+  <source>
+    *: "Playlist is empty"
+  </source>
+  <dest>
+    *: "播放列表为空"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NO_ENTRIES
+  desc: LVGL list placeholder
+  user: core
+  <source>
+    *: "No entries"
+  </source>
+  <dest>
+    *: "没有条目"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_EMPTY_FOLDER
+  desc: LVGL browser placeholder
+  user: core
+  <source>
+    *: "Empty folder"
+  </source>
+  <dest>
+    *: "空文件夹"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DB_PREPARING
+  desc: LVGL database progress
+  user: core
+  <source>
+    *: "Preparing database..."
+  </source>
+  <dest>
+    *: "数据库准备中…"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DB_SCANNING
+  desc: LVGL database progress
+  user: core
+  <source>
+    *: "Building database... %d files found (%s)"
+  </source>
+  <dest>
+    *: "正在建立数据库…已扫描 %d 个文件（%s）"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DB_COMMITTING
+  desc: LVGL database progress
+  user: core
+  <source>
+    *: "Committing database... %d / %d"
+  </source>
+  <dest>
+    *: "正在提交数据库…%d / %d"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BUILD_DB_Q
+  desc: LVGL database question
+  user: core
+  <source>
+    *: "Build the music database?"
+  </source>
+  <dest>
+    *: "建立音乐数据库？"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BUILD_DB_DESC
+  desc: LVGL database question
+  user: core
+  <source>
+    *: "The first run scans the storage card to index your music. It takes a few minutes and the player stays usable."
+  </source>
+  <dest>
+    *: "首次使用需要扫描存储卡为音乐建立索引，视文件数量约需数分钟，期间可返回正常使用。"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NOT_NOW
+  desc: LVGL confirm button
+  user: core
+  <source>
+    *: "Not now"
+  </source>
+  <dest>
+    *: "暂不"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_START
+  desc: LVGL confirm button
+  user: core
+  <source>
+    *: "Start"
+  </source>
+  <dest>
+    *: "开始建立"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DB_UPDATE_DELAYED
+  desc: LVGL database warning
+  user: core
+  <source>
+    *: "Database update deferred, reboot to finish it"
+  </source>
+  <dest>
+    *: "数据库更新已延迟，请重启设备完成更新"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_MOVE_HINT
+  desc: LVGL playlist move
+  user: core
+  <source>
+    *: "Moving: tap the target, tap the source to cancel"
+  </source>
+  <dest>
+    *: "移动中：点按目标位置，点按原位置取消"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_TYPE
+  desc: LVGL equalizer
+  user: core
+  <source>
+    *: "Type"
+  </source>
+  <dest>
+    *: "类型"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DONE
+  desc: LVGL button
+  user: core
+  <source>
+    *: "Done"
+  </source>
+  <dest>
+    *: "完成"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_APPLY
+  desc: LVGL button
+  user: core
+  <source>
+    *: "Apply"
+  </source>
+  <dest>
+    *: "应用"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_APPLIED
+  desc: LVGL toast
+  user: core
+  <source>
+    *: "Applied"
+  </source>
+  <dest>
+    *: "已应用"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_SMALL
+  desc: LVGL font size
+  user: core
+  <source>
+    *: "Small"
+  </source>
+  <dest>
+    *: "小"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LARGE
+  desc: LVGL font size
+  user: core
+  <source>
+    *: "Large"
+  </source>
+  <dest>
+    *: "大"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LIGHT
+  desc: LVGL theme
+  user: core
+  <source>
+    *: "Light"
+  </source>
+  <dest>
+    *: "浅色"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DARK
+  desc: LVGL theme
+  user: core
+  <source>
+    *: "Dark"
+  </source>
+  <dest>
+    *: "深色"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_FONT_SIZE
+  desc: LVGL font size menu title
+  user: core
+  <source>
+    *: "UI font size"
+  </source>
+  <dest>
+    *: "界面字体大小"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_UI_THEME
+  desc: LVGL theme menu title
+  user: core
+  <source>
+    *: "UI theme"
+  </source>
+  <dest>
+    *: "界面主题"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LICENSE
+  desc: LVGL about page
+  user: core
+  <source>
+    *: "Legal notice"
+  </source>
+  <dest>
+    *: "法律声明"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NO_TEXT
+  desc: LVGL text page
+  user: core
+  <source>
+    *: "Text file not found"
+  </source>
+  <dest>
+    *: "未找到相关文本文件"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_CALIBRATE_HINT
+  desc: LVGL calibration
+  user: core
+  <source>
+    *: "Tap the crosshairs in order"
+  </source>
+  <dest>
+    *: "请依次点按十字标记"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NOT_IMPLEMENTED
+  desc: LVGL placeholder page
+  user: core
+  <source>
+    *: "Not implemented yet"
+  </source>
+  <dest>
+    *: "待实现（后续里程碑）"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_OPTION
+  desc: LVGL list fallback title
+  user: core
+  <source>
+    *: "Option"
+  </source>
+  <dest>
+    *: "选项"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>

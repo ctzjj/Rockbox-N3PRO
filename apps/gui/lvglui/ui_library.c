@@ -821,7 +821,7 @@ void shell_playlist_show(void)
 
     if (n <= 0)
     {
-        lib_empty(scr, "播放列表为空");
+        lib_empty(scr, str(LANG_N3_EMPTY_PLAYLIST));
         return;
     }
     vlist_t *vl = vrows_new(scr, 74, 406, d, n, 48, 'T', A_PJUMP);
@@ -833,7 +833,7 @@ void shell_playlist_show(void)
     if (g_pl_moving_from >= 0)
     {
         lv_obj_t *h = lv_label_create(scr);
-        lv_label_set_text(h, "移动中：点按目标位置，点按原位置取消");
+        lv_label_set_text(h, str(LANG_N3_MOVE_HINT));
         lv_obj_set_style_text_color(h, shell_col_link(), 0);
         lv_obj_align(h, LV_ALIGN_TOP_LEFT, 12, 52);
     }
@@ -853,7 +853,7 @@ static void lib_db_build(lv_obj_t *scr)
     int n = be_db_scan(&names, &icons);
     if (n < 0)
     {
-        lib_empty(scr, "数据库忙，请稍后重试");
+        lib_empty(scr, str(LANG_TAGCACHE_BUSY));
         return;
     }
     lib_data *d = lib_data_new(scr);
@@ -866,7 +866,7 @@ static void lib_db_build(lv_obj_t *scr)
     d->fsym = icons;
     if (n <= 0)
     {
-        lib_empty(scr, "没有条目");
+        lib_empty(scr, str(LANG_N3_NO_ENTRIES));
         return;
     }
     vrows_new(scr, 74, 406, d, n, 48, 'F', A_DB);
@@ -969,7 +969,7 @@ static void lib_prog_tick(lv_timer_t *t)
             lv_obj_add_flag(lib_prog_bar, LV_OBJ_FLAG_HIDDEN);
         if (lib_prog_label)
             lv_label_set_text(lib_prog_label,
-                              "数据库更新已延迟\n请重启设备完成更新");
+                              str(LANG_N3_DB_UPDATE_DELAYED));
         lv_timer_del(t);
         lib_prog_timer = NULL;
         return;
@@ -978,7 +978,7 @@ static void lib_prog_tick(lv_timer_t *t)
     if (!st->readyvalid)
     {
         if (lib_prog_label)
-            lv_label_set_text(lib_prog_label, "数据库准备中…");
+            lv_label_set_text(lib_prog_label, str(LANG_N3_DB_PREPARING));
         if (lib_prog_bar)
             lv_obj_add_flag(lib_prog_bar, LV_OBJ_FLAG_HIDDEN);
         return;
@@ -990,7 +990,7 @@ static void lib_prog_tick(lv_timer_t *t)
         if (max < 1)
             max = 1;
         if (lib_prog_label)
-            lv_label_set_text_fmt(lib_prog_label, "正在提交数据库\n%d / %d",
+            lv_label_set_text_fmt(lib_prog_label, str(LANG_N3_DB_COMMITTING),
                                   st->commit_step, max);
         if (lib_prog_bar)
         {
@@ -1003,7 +1003,7 @@ static void lib_prog_tick(lv_timer_t *t)
     {
         if (lib_prog_label)
             lv_label_set_text_fmt(lib_prog_label,
-                                  "正在建立数据库\n已扫描 %d 个文件\n%s",
+                                  str(LANG_N3_DB_SCANNING),
                                   tc_scan_files,
                                   st->curentry ? st->curentry : "");
         if (lib_prog_bar)
@@ -1014,7 +1014,7 @@ static void lib_prog_tick(lv_timer_t *t)
 static void lib_start_progress(lv_obj_t *scr)
 {
     lib_prog_label = lv_label_create(scr);
-    lv_label_set_text(lib_prog_label, "正在建立数据库");
+    lv_label_set_text(lib_prog_label, str(LANG_N3_DB_PREPARING));
     lv_obj_set_style_text_color(lib_prog_label, shell_col_text(), 0);
     lv_obj_set_style_text_align(lib_prog_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(lib_prog_label, LV_LABEL_LONG_DOT);
@@ -1069,15 +1069,14 @@ static bool lib_need_ask(void)
 
 static void lib_build_confirm(void)
 {
-    static const shell_modal_btn_t btns[] =
+    const shell_modal_btn_t btns[] =
     {
-        { "暂不",     false, lib_confirm_cancel_cb, NULL },
-        { "开始建立", true,  lib_confirm_start_cb,  NULL },
-        { NULL,       false, NULL,                  NULL },
+        { str(LANG_N3_NOT_NOW), false, lib_confirm_cancel_cb, NULL },
+        { str(LANG_N3_START),   true,  lib_confirm_start_cb,  NULL },
+        { NULL,                 false, NULL,                  NULL },
     };
-    shell_modal_open("建立音乐数据库？",
-        "首次使用需要扫描存储卡为音乐建立索引，\n视文件数量约需数分钟。期间可返回正常使用。",
-        btns);
+    shell_modal_open(str(LANG_N3_BUILD_DB_Q), str(LANG_N3_BUILD_DB_DESC),
+                     btns);
 }
 
 /* ---- file browser -------------------------------------------------------- */
@@ -1122,7 +1121,7 @@ static void files_open_dir(const char *path)
     {
         /* let a long press anywhere in an empty folder bring up the
          * directory menu (so e.g. paste is reachable) */
-        lv_obj_t *em = lib_empty(scr, "空文件夹");
+        lv_obj_t *em = lib_empty(scr, str(LANG_N3_EMPTY_FOLDER));
         lv_obj_set_size(em, 340, 380);
         lv_obj_align(em, LV_ALIGN_TOP_MID, 0, 78);
         lv_obj_set_style_text_align(em, LV_TEXT_ALIGN_CENTER, 0);
@@ -1240,7 +1239,7 @@ static void ctx_open(const struct menu_item_ex *menu, lv_obj_t *parent)
     int count = MENU_GET_COUNT(menu->flags);
 
     const char *title = (menu->flags & MENU_HAS_DESC)
-        ? P2STR(menu->callback_and_desc->desc) : "选项";
+        ? P2STR(menu->callback_and_desc->desc) : str(LANG_N3_OPTION);
     lv_obj_t *list;
     lv_obj_t *scr = shell_menu_screen_push(title, &list, ctx_scrim_cb);
     if (!parent)
@@ -1609,7 +1608,7 @@ int shell_plcat_pick(char *out, size_t outsz)
     else
     {
         lv_obj_t *l = lv_label_create(list);
-        lv_label_set_text(l, "没有播放列表");
+        lv_label_set_text(l, str(LANG_CATALOG_NO_PLAYLISTS));
         lv_obj_set_style_text_color(l, th->fg_text, 0);
         lv_obj_set_style_pad_left(l, 16, 0);
     }
@@ -1820,7 +1819,7 @@ void shell_playlists_show(void)
         be_str_arrays_free(tt, pp, n);
         d->tk.title = NULL;
         d->tk.path = NULL;
-        lib_empty(scr, "没有播放列表");
+        lib_empty(scr, str(LANG_CATALOG_NO_PLAYLISTS));
     }
     else
         vrows_new(scr, 74, 406, d, n, 48, 'P', A_PLPLAY);
@@ -1861,7 +1860,7 @@ void library_open(void)
     {
         /* classic: commit was delayed, reboot needed */
         lv_obj_t *l = lv_label_create(lib_root_scr);
-        lv_label_set_text(l, "数据库更新已延迟\n请重启设备完成更新");
+        lv_label_set_text(l, str(LANG_N3_DB_UPDATE_DELAYED));
         lv_obj_set_style_text_color(l, shell_col_text(), 0);
         lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_width(l, 320);

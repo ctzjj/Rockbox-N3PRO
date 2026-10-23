@@ -917,10 +917,12 @@ int ft_exit(struct tree_context* c)
 /* native UI: run the stock browser "enter" action on an explicitly
  * picked file (theme/lang/cfg/font pickers reuse the whole logic) */
 extern int lvgui_plugin_run(void);
+extern void lvgui_lang_changed(void);
 
 int lvgui_ft_enter_path(const char *path)
 {
     int rc;
+    const char *ext = strrchr(path, '.');
 
     set_current_file(path);
     rc = ft_enter(tree_get_context());
@@ -928,6 +930,8 @@ int lvgui_ft_enter_path(const char *path)
      * screen loop to run it, so do it right here */
     if (rc == GO_TO_PLUGIN)
         rc = lvgui_plugin_run();
+    else if (ext && !strcasecmp(ext, ".lng"))
+        lvgui_lang_changed();
     return rc;
 }
 #endif

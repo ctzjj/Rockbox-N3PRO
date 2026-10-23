@@ -818,7 +818,7 @@ int lvgui_calibrate_sample(struct touchscreen_calibration *cal,
     lv_obj_add_event_cb(ov, cal_point_cb, LV_EVENT_PRESSED, NULL);
 
     lv_obj_t *hint = lv_label_create(ov);
-    lv_label_set_text(hint, "请依次点按十字标记");
+    lv_label_set_text(hint, str(LANG_N3_CALIBRATE_HINT));
     lv_obj_set_style_text_color(hint, lv_color_hex(0x909090), 0);
     lv_obj_align(hint, LV_ALIGN_TOP_MID, 0, 8);
 
@@ -1248,7 +1248,7 @@ static void eq_type_open_cb(lv_event_t *e)
     lv_obj_add_flag(sh, LV_OBJ_FLAG_CLICKABLE);
 
     lv_obj_t *t = lv_label_create(sh);
-    lv_label_set_text(t, "类型");
+    lv_label_set_text(t, str(LANG_N3_TYPE));
     lv_obj_set_style_text_font(t, th->font_title, 0);
     lv_obj_set_style_text_color(t, th->fg_text, 0);
     lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 14);
@@ -1373,7 +1373,7 @@ bool lvgui_eq_graphical(void)
     lv_obj_set_style_text_font(t, th->font_cjk, 0);
     lv_obj_set_style_text_color(t, th->fg_text, 0);
     lv_obj_set_pos(t, 14, 12);
-    eq_btn_new(panel, 282, 8, 64, 32, "完成", true, false,
+    eq_btn_new(panel, 282, 8, 64, 32, str(LANG_N3_DONE), true, false,
                eq_scrim_cb, NULL);
 
     /* curve grid: horizontal dB lines + labels, vertical decade lines */
@@ -1528,7 +1528,7 @@ bool lvgui_eq_graphical(void)
 
     /* selected-band steppers: frequency then Q */
     lv_obj_t *c1 = lv_label_create(panel);
-    lv_label_set_text(c1, "频率");
+    lv_label_set_text(c1, str(LANG_ID3_FREQUENCY));
     lv_obj_set_style_text_font(c1, th->font_cjk, 0);
     lv_obj_set_style_text_color(c1, th->fg_text, 0);
     lv_obj_set_pos(c1, 14, 406);
@@ -1564,7 +1564,7 @@ bool lvgui_eq_graphical(void)
 
     /* selected-band filter type row: 低架 / 峰值 / 高架 */
     lv_obj_t *c3 = lv_label_create(panel);
-    lv_label_set_text(c3, "类型");
+    lv_label_set_text(c3, str(LANG_N3_TYPE));
     lv_obj_set_style_text_font(c3, th->font_cjk, 0);
     lv_obj_set_style_text_color(c3, th->fg_text, 0);
     lv_obj_set_pos(c3, 14, 444);
@@ -1853,7 +1853,7 @@ static void rm_apply_cb(lv_event_t *e)
     be_root_apply(sel, k);
     settings_save();
     shell_home_rebuild();               /* apply immediately: no reboot */
-    shell_toast(300, "已应用", LV_SYMBOL_OK);
+    shell_toast(300, str(LANG_N3_APPLIED), LV_SYMBOL_OK);
     g_rm_done = true;
     shell_nav_pop();
 }
@@ -1895,7 +1895,7 @@ int lvgui_root_menu_edit(void)
     lv_obj_set_style_shadow_width(btn, 0, 0);
     lv_obj_add_event_cb(btn, rm_apply_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_t *bl = lv_label_create(btn);
-    lv_label_set_text(bl, "应用");
+    lv_label_set_text(bl, str(LANG_N3_APPLY));
     lv_obj_set_style_text_color(bl, th->fg_inverse, 0);
     lv_obj_center(bl);
 
@@ -1914,13 +1914,13 @@ int lvgui_font_pick(void)
 
     if (cur < 0 || cur > 2)
         cur = 1;
-    snprintf(bufs[0], sizeof bufs[0], "小");
-    snprintf(bufs[1], sizeof bufs[1], "默认");
-    snprintf(bufs[2], sizeof bufs[2], "大");
+    snprintf(bufs[0], sizeof bufs[0], "%s", str(LANG_N3_SMALL));
+    snprintf(bufs[1], sizeof bufs[1], "%s", str(LANG_NORMAL));
+    snprintf(bufs[2], sizeof bufs[2], "%s", str(LANG_N3_LARGE));
     for (int i = 0; i < 3; i++)
         lbl[i] = bufs[i];
 
-    int sel = shell_list_pick("界面字体大小", lbl, 3, cur);
+    int sel = shell_list_pick(str(LANG_N3_FONT_SIZE), lbl, 3, cur);
     if (sel >= 0 && sel != cur)
     {
         global_settings.ui_font_size = sel;
@@ -1942,12 +1942,12 @@ int lvgui_theme_pick(void)
     static const char *lbl[2];
     int cur = global_settings.ui_dark_mode ? 1 : 0;
 
-    snprintf(bufs[0], sizeof bufs[0], "浅色");
-    snprintf(bufs[1], sizeof bufs[1], "深色");
+    snprintf(bufs[0], sizeof bufs[0], "%s", str(LANG_N3_LIGHT));
+    snprintf(bufs[1], sizeof bufs[1], "%s", str(LANG_N3_DARK));
     lbl[0] = bufs[0];
     lbl[1] = bufs[1];
 
-    int sel = shell_list_pick("界面主题", lbl, 2, cur);
+    int sel = shell_list_pick(str(LANG_N3_UI_THEME), lbl, 2, cur);
     if (sel >= 0 && sel != cur)
     {
         global_settings.ui_dark_mode = (sel == 1);
@@ -2780,7 +2780,7 @@ static int page_from_files(const char *title, const char *const *paths, int n)
             return 0;
         }
     }
-    lvgui_text_page(title, 0, page_static_fill, "（未找到相关文本文件）");
+    lvgui_text_page(title, 0, page_static_fill, str(LANG_N3_NO_TEXT));
     return 0;
 }
 
@@ -2791,7 +2791,7 @@ int lvgui_credits_page(void)
         ROCKBOX_DIR "/docs/CREDITS",
         ROCKBOX_DIR "/CREDITS",
     };
-    return page_from_files("鸣谢", files, 2);
+    return page_from_files(str(LANG_CREDITS), files, 2);
 }
 
 int lvgui_legal_page(void)
@@ -2802,7 +2802,7 @@ int lvgui_legal_page(void)
         ROCKBOX_DIR "/docs/LICENSES.txt",
         ROCKBOX_DIR "/COPYING",
     };
-    return page_from_files("法律声明", files, 3);
+    return page_from_files(str(LANG_N3_LICENSE), files, 3);
 }
 
 /* ---- cuesheet track picker (replaces the classic synclist) -------------- */

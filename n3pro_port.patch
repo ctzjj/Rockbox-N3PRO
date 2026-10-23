@@ -10750,10 +10750,10 @@ index 0000000000..aa6a5627fc
 +
 +#endif /* _XMLESCAPE_H */
 diff --git a/apps/filetree.c b/apps/filetree.c
-index cbf2423ea0..0bc02cb7e2 100644
+index cbf2423ea0..2d5413cf2b 100644
 --- a/apps/filetree.c
 +++ b/apps/filetree.c
-@@ -912,3 +912,22 @@ int ft_exit(struct tree_context* c)
+@@ -912,3 +912,26 @@ int ft_exit(struct tree_context* c)
  
      return rc;
  }
@@ -10762,10 +10762,12 @@ index cbf2423ea0..0bc02cb7e2 100644
 +/* native UI: run the stock browser "enter" action on an explicitly
 + * picked file (theme/lang/cfg/font pickers reuse the whole logic) */
 +extern int lvgui_plugin_run(void);
++extern void lvgui_lang_changed(void);
 +
 +int lvgui_ft_enter_path(const char *path)
 +{
 +    int rc;
++    const char *ext = strrchr(path, '.');
 +
 +    set_current_file(path);
 +    rc = ft_enter(tree_get_context());
@@ -10773,6 +10775,8 @@ index cbf2423ea0..0bc02cb7e2 100644
 +     * screen loop to run it, so do it right here */
 +    if (rc == GO_TO_PLUGIN)
 +        rc = lvgui_plugin_run();
++    else if (ext && !strcasecmp(ext, ".lng"))
++        lvgui_lang_changed();
 +    return rc;
 +}
 +#endif
@@ -543066,10 +543070,10 @@ index 0000000000..58eceeb449
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..5aea596d21
+index 0000000000..dd7b329b93
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,176 @@
+@@ -0,0 +1,185 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543160,6 +543164,15 @@ index 0000000000..5aea596d21
 +    return rc;
 +}
 +
++/* A .lng was loaded through the browser: the screens behind still hold the
++ * old strings, so refill the wallpaper and rebuild Home; the menu loop
++ * rebuilds the open menu on its next pass. */
++void lvgui_lang_changed(void)
++{
++    shell_theme_refresh();
++    shell_home_rebuild();
++}
++
 +static void lvgui_home_key(void)
 +{
 +    extern int lvgl_shell_locked;
@@ -543248,10 +543261,10 @@ index 0000000000..5aea596d21
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..0f5a337592
+index 0000000000..eb43af4032
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,157 @@
+@@ -0,0 +1,159 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543274,6 +543287,8 @@ index 0000000000..0f5a337592
 +void shell_home_rebuild(void);
 +/* repaint the wallpaper after a live theme change (ui_theme_init()) */
 +void shell_theme_refresh(void);
++/* a .lng was loaded: rebuild the screens that were built with old strings */
++void lvgui_lang_changed(void);
 +bool shell_nav_full(void);
 +void shell_statusbar_build(lv_obj_t *parent);
 +void shell_header(lv_obj_t *scr, const char *title);
@@ -543420,7 +543435,7 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..204e3b0347
+index 0000000000..0dbc0547a6
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
 @@ -0,0 +1,1561 @@
@@ -543815,7 +543830,7 @@ index 0000000000..204e3b0347
 +
 +    /* Big lists take a while (tag reads): tell the user before we block. */
 +    if (t->count > 64)
-+        shell_toast(0, "正在载入播放列表…", NULL);
++        shell_toast(0, str(LANG_N3_LOADING_PLAYLIST), NULL);
 +
 +    playjob_t job;
 +    job.paths = t->path;                /* borrowed: valid for this call */
@@ -544527,13 +544542,13 @@ index 0000000000..204e3b0347
 +{
 +    /* sys_poweroff() only broadcasts SYS_POWEROFF, which is consumed by the
 +     * classic UI event loop that we never run under LVGL: shut down here. */
-+    shell_toast(0, "正在关机…", NULL);
++    shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
 +    power_off();
 +}
 +
 +void be_reboot(void)
 +{
-+    shell_toast(0, "正在重启…", NULL);
++    shell_toast(0, str(LANG_N3_REBOOTING), NULL);
 +    system_reboot();
 +}
 +
@@ -545724,10 +545739,10 @@ index 0000000000..911b5faaf7
 +}
 diff --git a/apps/gui/lvglui/ui_control.c b/apps/gui/lvglui/ui_control.c
 new file mode 100755
-index 0000000000..88df8fa8a7
+index 0000000000..9379511994
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_control.c
-@@ -0,0 +1,798 @@
+@@ -0,0 +1,810 @@
 +#include "config.h"
 +#ifdef HAVE_LVGL_UI
 +
@@ -545739,6 +545754,7 @@ index 0000000000..88df8fa8a7
 +#include "ui_widgets.h"
 +#include "ui_backend.h"
 +#include "settings.h"
++#include "lang.h"
 +
 +/* iOS26-style control centre: full-screen frosted panel, [connectivity 2x2]
 + * top-left, [now playing] top-right, volume/brightness pills below. */
@@ -545813,14 +545829,14 @@ index 0000000000..88df8fa8a7
 +        {
 +            char nb[128];
 +            be_netfm_name(nb, sizeof nb);
-+            lv_label_set_text(g_med_title, nb[0] ? nb : "网络收音机");
++            lv_label_set_text(g_med_title, nb[0] ? nb : str(LANG_N3_NET_RADIO));
 +        }
 +        else
 +        {
 +            const char *ttl = be_audio_track_title();
 +            lv_label_set_text(g_med_title,
 +                              shell_cs(cbuf, sizeof cbuf,
-+                                       (ttl && ttl[0]) ? ttl : "正在播放"));
++                                       (ttl && ttl[0]) ? ttl : str(LANG_NOW_PLAYING)));
 +        }
 +    }
 +    if (g_med_dsc)
@@ -545887,7 +545903,7 @@ index 0000000000..88df8fa8a7
 +static void ctl_power_job(void *p)
 +{
 +    (void)p;
-+    if (shell_yesno_run("确定关闭设备？") == 0)
++    if (shell_yesno_run(str(LANG_N3_CONFIRM_POWER_OFF)) == 0)
 +        be_power_off();
 +}
 +
@@ -545901,7 +545917,7 @@ index 0000000000..88df8fa8a7
 +static void ctl_reboot_job(void *p)
 +{
 +    (void)p;
-+    if (shell_yesno_run("确定重启设备？") == 0)
++    if (shell_yesno_run(str(LANG_REBOOT_NOW)) == 0)
 +        be_reboot();
 +}
 +
@@ -545930,7 +545946,7 @@ index 0000000000..88df8fa8a7
 +    {
 +        /* DLNA stopped / local playback ended: leave nothing stale behind */
 +        if (g_med_title)
-+            lv_label_set_text(g_med_title, "未在播放");
++            lv_label_set_text(g_med_title, str(LANG_N3_NOTHING_PLAYING));
 +        g_med_path[0] = '\0';
 +        if (g_med_img)
 +        {
@@ -546377,7 +546393,7 @@ index 0000000000..88df8fa8a7
 +        lv_obj_center(ag);
 +
 +        lv_obj_t *l = lv_label_create(med);
-+        lv_label_set_text(l, be_media_is_radio() ? "网络收音机" : "正在播放");
++        lv_label_set_text(l, str(be_media_is_radio() ? LANG_N3_NET_RADIO : LANG_NOW_PLAYING));
 +        lv_obj_set_style_text_color(l, th->fg_text, 0);
 +        lv_label_set_long_mode(l, LV_LABEL_LONG_SCROLL_CIRCULAR);
 +        lv_obj_set_width(l, 116);
@@ -546443,7 +546459,7 @@ index 0000000000..88df8fa8a7
 +        lv_obj_set_style_text_color(g, th->fg_dim, 0);
 +        lv_obj_align(g, LV_ALIGN_CENTER, 0, -12);
 +        lv_obj_t *l = lv_label_create(med);
-+        lv_label_set_text(l, "未在播放");
++        lv_label_set_text(l, str(LANG_N3_NOTHING_PLAYING));
 +        lv_obj_set_style_text_color(l, th->fg_dim, 0);
 +        lv_obj_align(l, LV_ALIGN_CENTER, 0, 30);
 +        lv_obj_add_flag(med, LV_OBJ_FLAG_CLICKABLE);
@@ -546471,17 +546487,22 @@ index 0000000000..88df8fa8a7
 +        lv_obj_add_event_cb(b, ctl_btn_pressed, LV_EVENT_PRESSED, (void *)3);
 +        lv_obj_add_event_cb(b, ctl_btn_released, LV_EVENT_RELEASED, (void *)3);
 +
-+        static const char *caps[4] = { "WiFi", "蓝牙", "三极管", "超线性" };
++        static const char *caps[4];
 +        static const int bx[4] = { 36, 108, 180, 252 };
++        caps[0] = "WiFi";
++        caps[1] = str(LANG_BLUETOOTH);
++        caps[2] = str(LANG_N3_TUBE);
++        caps[3] = str(LANG_N3_SUPERLINEAR);
 +        for (int i = 0; i < 4; i++)
 +        {
 +            lv_obj_t *l = lv_label_create(strip);
 +            lv_label_set_text(l, caps[i]);
-+            lv_obj_set_style_text_font(l, th->font_cjk, 0);
++            lv_obj_set_style_text_font(l, th->font_small, 0);
 +            lv_obj_set_style_text_color(l, th->fg_dim, 0);
-+            lv_obj_set_width(l, 64);
++            lv_obj_set_width(l, 72);
++            lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
 +            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-+            lv_obj_set_pos(l, bx[i] - 8, 64);
++            lv_obj_set_pos(l, bx[i] - 12, 64);
 +        }
 +        ctl_toggles_paint();   /* reflect states that were already on */
 +    }
@@ -546489,8 +546510,13 @@ index 0000000000..88df8fa8a7
 +    /* second row: lock / settings / power off / restart */
 +    lv_obj_t *row2 = ctl_mod(frost, 12, 350, 336, 94);
 +    {
-+        static const char *caps2[4] = { "锁屏", "设置", "关机", "重启" };
++        static const char *caps2[4];
 +        static const int bx2[4] = { 36, 108, 180, 252 };
++
++        caps2[0] = str(LANG_N3_LOCK);
++        caps2[1] = str(LANG_SETTINGS);
++        caps2[2] = str(LANG_N3_POWER_OFF);
++        caps2[3] = str(LANG_N3_REBOOT);
 +
 +        ctl_round(row2, 36, 10, LV_SYMBOL_EYE_CLOSE, false, ctl_lock_cb);
 +        ctl_round(row2, 108, 10, LV_SYMBOL_SETTINGS, false, ctl_settings_cb);
@@ -546501,11 +546527,12 @@ index 0000000000..88df8fa8a7
 +        {
 +            lv_obj_t *l = lv_label_create(row2);
 +            lv_label_set_text(l, caps2[i]);
-+            lv_obj_set_style_text_font(l, th->font_cjk, 0);
++            lv_obj_set_style_text_font(l, th->font_small, 0);
 +            lv_obj_set_style_text_color(l, th->fg_dim, 0);
-+            lv_obj_set_width(l, 64);
++            lv_obj_set_width(l, 72);
++            lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
 +            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-+            lv_obj_set_pos(l, bx2[i] - 8, 64);
++            lv_obj_set_pos(l, bx2[i] - 12, 64);
 +        }
 +    }
 +
@@ -547867,10 +547894,10 @@ index 0000000000..1f2b1a0705
 +};
 diff --git a/apps/gui/lvglui/ui_library.c b/apps/gui/lvglui/ui_library.c
 new file mode 100644
-index 0000000000..a7c361ba25
+index 0000000000..63ad93fef7
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_library.c
-@@ -0,0 +1,1874 @@
+@@ -0,0 +1,1873 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -548694,7 +548721,7 @@ index 0000000000..a7c361ba25
 +
 +    if (n <= 0)
 +    {
-+        lib_empty(scr, "播放列表为空");
++        lib_empty(scr, str(LANG_N3_EMPTY_PLAYLIST));
 +        return;
 +    }
 +    vlist_t *vl = vrows_new(scr, 74, 406, d, n, 48, 'T', A_PJUMP);
@@ -548706,7 +548733,7 @@ index 0000000000..a7c361ba25
 +    if (g_pl_moving_from >= 0)
 +    {
 +        lv_obj_t *h = lv_label_create(scr);
-+        lv_label_set_text(h, "移动中：点按目标位置，点按原位置取消");
++        lv_label_set_text(h, str(LANG_N3_MOVE_HINT));
 +        lv_obj_set_style_text_color(h, shell_col_link(), 0);
 +        lv_obj_align(h, LV_ALIGN_TOP_LEFT, 12, 52);
 +    }
@@ -548726,7 +548753,7 @@ index 0000000000..a7c361ba25
 +    int n = be_db_scan(&names, &icons);
 +    if (n < 0)
 +    {
-+        lib_empty(scr, "数据库忙，请稍后重试");
++        lib_empty(scr, str(LANG_TAGCACHE_BUSY));
 +        return;
 +    }
 +    lib_data *d = lib_data_new(scr);
@@ -548739,7 +548766,7 @@ index 0000000000..a7c361ba25
 +    d->fsym = icons;
 +    if (n <= 0)
 +    {
-+        lib_empty(scr, "没有条目");
++        lib_empty(scr, str(LANG_N3_NO_ENTRIES));
 +        return;
 +    }
 +    vrows_new(scr, 74, 406, d, n, 48, 'F', A_DB);
@@ -548842,7 +548869,7 @@ index 0000000000..a7c361ba25
 +            lv_obj_add_flag(lib_prog_bar, LV_OBJ_FLAG_HIDDEN);
 +        if (lib_prog_label)
 +            lv_label_set_text(lib_prog_label,
-+                              "数据库更新已延迟\n请重启设备完成更新");
++                              str(LANG_N3_DB_UPDATE_DELAYED));
 +        lv_timer_del(t);
 +        lib_prog_timer = NULL;
 +        return;
@@ -548851,7 +548878,7 @@ index 0000000000..a7c361ba25
 +    if (!st->readyvalid)
 +    {
 +        if (lib_prog_label)
-+            lv_label_set_text(lib_prog_label, "数据库准备中…");
++            lv_label_set_text(lib_prog_label, str(LANG_N3_DB_PREPARING));
 +        if (lib_prog_bar)
 +            lv_obj_add_flag(lib_prog_bar, LV_OBJ_FLAG_HIDDEN);
 +        return;
@@ -548863,7 +548890,7 @@ index 0000000000..a7c361ba25
 +        if (max < 1)
 +            max = 1;
 +        if (lib_prog_label)
-+            lv_label_set_text_fmt(lib_prog_label, "正在提交数据库\n%d / %d",
++            lv_label_set_text_fmt(lib_prog_label, str(LANG_N3_DB_COMMITTING),
 +                                  st->commit_step, max);
 +        if (lib_prog_bar)
 +        {
@@ -548876,7 +548903,7 @@ index 0000000000..a7c361ba25
 +    {
 +        if (lib_prog_label)
 +            lv_label_set_text_fmt(lib_prog_label,
-+                                  "正在建立数据库\n已扫描 %d 个文件\n%s",
++                                  str(LANG_N3_DB_SCANNING),
 +                                  tc_scan_files,
 +                                  st->curentry ? st->curentry : "");
 +        if (lib_prog_bar)
@@ -548887,7 +548914,7 @@ index 0000000000..a7c361ba25
 +static void lib_start_progress(lv_obj_t *scr)
 +{
 +    lib_prog_label = lv_label_create(scr);
-+    lv_label_set_text(lib_prog_label, "正在建立数据库");
++    lv_label_set_text(lib_prog_label, str(LANG_N3_DB_PREPARING));
 +    lv_obj_set_style_text_color(lib_prog_label, shell_col_text(), 0);
 +    lv_obj_set_style_text_align(lib_prog_label, LV_TEXT_ALIGN_CENTER, 0);
 +    lv_label_set_long_mode(lib_prog_label, LV_LABEL_LONG_DOT);
@@ -548942,15 +548969,14 @@ index 0000000000..a7c361ba25
 +
 +static void lib_build_confirm(void)
 +{
-+    static const shell_modal_btn_t btns[] =
++    const shell_modal_btn_t btns[] =
 +    {
-+        { "暂不",     false, lib_confirm_cancel_cb, NULL },
-+        { "开始建立", true,  lib_confirm_start_cb,  NULL },
-+        { NULL,       false, NULL,                  NULL },
++        { str(LANG_N3_NOT_NOW), false, lib_confirm_cancel_cb, NULL },
++        { str(LANG_N3_START),   true,  lib_confirm_start_cb,  NULL },
++        { NULL,                 false, NULL,                  NULL },
 +    };
-+    shell_modal_open("建立音乐数据库？",
-+        "首次使用需要扫描存储卡为音乐建立索引，\n视文件数量约需数分钟。期间可返回正常使用。",
-+        btns);
++    shell_modal_open(str(LANG_N3_BUILD_DB_Q), str(LANG_N3_BUILD_DB_DESC),
++                     btns);
 +}
 +
 +/* ---- file browser -------------------------------------------------------- */
@@ -548995,7 +549021,7 @@ index 0000000000..a7c361ba25
 +    {
 +        /* let a long press anywhere in an empty folder bring up the
 +         * directory menu (so e.g. paste is reachable) */
-+        lv_obj_t *em = lib_empty(scr, "空文件夹");
++        lv_obj_t *em = lib_empty(scr, str(LANG_N3_EMPTY_FOLDER));
 +        lv_obj_set_size(em, 340, 380);
 +        lv_obj_align(em, LV_ALIGN_TOP_MID, 0, 78);
 +        lv_obj_set_style_text_align(em, LV_TEXT_ALIGN_CENTER, 0);
@@ -549113,7 +549139,7 @@ index 0000000000..a7c361ba25
 +    int count = MENU_GET_COUNT(menu->flags);
 +
 +    const char *title = (menu->flags & MENU_HAS_DESC)
-+        ? P2STR(menu->callback_and_desc->desc) : "选项";
++        ? P2STR(menu->callback_and_desc->desc) : str(LANG_N3_OPTION);
 +    lv_obj_t *list;
 +    lv_obj_t *scr = shell_menu_screen_push(title, &list, ctx_scrim_cb);
 +    if (!parent)
@@ -549482,7 +549508,7 @@ index 0000000000..a7c361ba25
 +    else
 +    {
 +        lv_obj_t *l = lv_label_create(list);
-+        lv_label_set_text(l, "没有播放列表");
++        lv_label_set_text(l, str(LANG_CATALOG_NO_PLAYLISTS));
 +        lv_obj_set_style_text_color(l, th->fg_text, 0);
 +        lv_obj_set_style_pad_left(l, 16, 0);
 +    }
@@ -549693,7 +549719,7 @@ index 0000000000..a7c361ba25
 +        be_str_arrays_free(tt, pp, n);
 +        d->tk.title = NULL;
 +        d->tk.path = NULL;
-+        lib_empty(scr, "没有播放列表");
++        lib_empty(scr, str(LANG_CATALOG_NO_PLAYLISTS));
 +    }
 +    else
 +        vrows_new(scr, 74, 406, d, n, 48, 'P', A_PLPLAY);
@@ -549734,7 +549760,7 @@ index 0000000000..a7c361ba25
 +    {
 +        /* classic: commit was delayed, reboot needed */
 +        lv_obj_t *l = lv_label_create(lib_root_scr);
-+        lv_label_set_text(l, "数据库更新已延迟\n请重启设备完成更新");
++        lv_label_set_text(l, str(LANG_N3_DB_UPDATE_DELAYED));
 +        lv_obj_set_style_text_color(l, shell_col_text(), 0);
 +        lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
 +        lv_obj_set_width(l, 320);
@@ -549747,7 +549773,7 @@ index 0000000000..a7c361ba25
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..f094fb1d0e
+index 0000000000..15a147db40
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
 @@ -0,0 +1,2828 @@
@@ -550571,7 +550597,7 @@ index 0000000000..f094fb1d0e
 +    lv_obj_add_event_cb(ov, cal_point_cb, LV_EVENT_PRESSED, NULL);
 +
 +    lv_obj_t *hint = lv_label_create(ov);
-+    lv_label_set_text(hint, "请依次点按十字标记");
++    lv_label_set_text(hint, str(LANG_N3_CALIBRATE_HINT));
 +    lv_obj_set_style_text_color(hint, lv_color_hex(0x909090), 0);
 +    lv_obj_align(hint, LV_ALIGN_TOP_MID, 0, 8);
 +
@@ -551001,7 +551027,7 @@ index 0000000000..f094fb1d0e
 +    lv_obj_add_flag(sh, LV_OBJ_FLAG_CLICKABLE);
 +
 +    lv_obj_t *t = lv_label_create(sh);
-+    lv_label_set_text(t, "类型");
++    lv_label_set_text(t, str(LANG_N3_TYPE));
 +    lv_obj_set_style_text_font(t, th->font_title, 0);
 +    lv_obj_set_style_text_color(t, th->fg_text, 0);
 +    lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 14);
@@ -551126,7 +551152,7 @@ index 0000000000..f094fb1d0e
 +    lv_obj_set_style_text_font(t, th->font_cjk, 0);
 +    lv_obj_set_style_text_color(t, th->fg_text, 0);
 +    lv_obj_set_pos(t, 14, 12);
-+    eq_btn_new(panel, 282, 8, 64, 32, "完成", true, false,
++    eq_btn_new(panel, 282, 8, 64, 32, str(LANG_N3_DONE), true, false,
 +               eq_scrim_cb, NULL);
 +
 +    /* curve grid: horizontal dB lines + labels, vertical decade lines */
@@ -551281,7 +551307,7 @@ index 0000000000..f094fb1d0e
 +
 +    /* selected-band steppers: frequency then Q */
 +    lv_obj_t *c1 = lv_label_create(panel);
-+    lv_label_set_text(c1, "频率");
++    lv_label_set_text(c1, str(LANG_ID3_FREQUENCY));
 +    lv_obj_set_style_text_font(c1, th->font_cjk, 0);
 +    lv_obj_set_style_text_color(c1, th->fg_text, 0);
 +    lv_obj_set_pos(c1, 14, 406);
@@ -551317,7 +551343,7 @@ index 0000000000..f094fb1d0e
 +
 +    /* selected-band filter type row: 低架 / 峰值 / 高架 */
 +    lv_obj_t *c3 = lv_label_create(panel);
-+    lv_label_set_text(c3, "类型");
++    lv_label_set_text(c3, str(LANG_N3_TYPE));
 +    lv_obj_set_style_text_font(c3, th->font_cjk, 0);
 +    lv_obj_set_style_text_color(c3, th->fg_text, 0);
 +    lv_obj_set_pos(c3, 14, 444);
@@ -551606,7 +551632,7 @@ index 0000000000..f094fb1d0e
 +    be_root_apply(sel, k);
 +    settings_save();
 +    shell_home_rebuild();               /* apply immediately: no reboot */
-+    shell_toast(300, "已应用", LV_SYMBOL_OK);
++    shell_toast(300, str(LANG_N3_APPLIED), LV_SYMBOL_OK);
 +    g_rm_done = true;
 +    shell_nav_pop();
 +}
@@ -551648,7 +551674,7 @@ index 0000000000..f094fb1d0e
 +    lv_obj_set_style_shadow_width(btn, 0, 0);
 +    lv_obj_add_event_cb(btn, rm_apply_cb, LV_EVENT_CLICKED, NULL);
 +    lv_obj_t *bl = lv_label_create(btn);
-+    lv_label_set_text(bl, "应用");
++    lv_label_set_text(bl, str(LANG_N3_APPLY));
 +    lv_obj_set_style_text_color(bl, th->fg_inverse, 0);
 +    lv_obj_center(bl);
 +
@@ -551667,13 +551693,13 @@ index 0000000000..f094fb1d0e
 +
 +    if (cur < 0 || cur > 2)
 +        cur = 1;
-+    snprintf(bufs[0], sizeof bufs[0], "小");
-+    snprintf(bufs[1], sizeof bufs[1], "默认");
-+    snprintf(bufs[2], sizeof bufs[2], "大");
++    snprintf(bufs[0], sizeof bufs[0], "%s", str(LANG_N3_SMALL));
++    snprintf(bufs[1], sizeof bufs[1], "%s", str(LANG_NORMAL));
++    snprintf(bufs[2], sizeof bufs[2], "%s", str(LANG_N3_LARGE));
 +    for (int i = 0; i < 3; i++)
 +        lbl[i] = bufs[i];
 +
-+    int sel = shell_list_pick("界面字体大小", lbl, 3, cur);
++    int sel = shell_list_pick(str(LANG_N3_FONT_SIZE), lbl, 3, cur);
 +    if (sel >= 0 && sel != cur)
 +    {
 +        global_settings.ui_font_size = sel;
@@ -551695,12 +551721,12 @@ index 0000000000..f094fb1d0e
 +    static const char *lbl[2];
 +    int cur = global_settings.ui_dark_mode ? 1 : 0;
 +
-+    snprintf(bufs[0], sizeof bufs[0], "浅色");
-+    snprintf(bufs[1], sizeof bufs[1], "深色");
++    snprintf(bufs[0], sizeof bufs[0], "%s", str(LANG_N3_LIGHT));
++    snprintf(bufs[1], sizeof bufs[1], "%s", str(LANG_N3_DARK));
 +    lbl[0] = bufs[0];
 +    lbl[1] = bufs[1];
 +
-+    int sel = shell_list_pick("界面主题", lbl, 2, cur);
++    int sel = shell_list_pick(str(LANG_N3_UI_THEME), lbl, 2, cur);
 +    if (sel >= 0 && sel != cur)
 +    {
 +        global_settings.ui_dark_mode = (sel == 1);
@@ -552533,7 +552559,7 @@ index 0000000000..f094fb1d0e
 +            return 0;
 +        }
 +    }
-+    lvgui_text_page(title, 0, page_static_fill, "（未找到相关文本文件）");
++    lvgui_text_page(title, 0, page_static_fill, str(LANG_N3_NO_TEXT));
 +    return 0;
 +}
 +
@@ -552544,7 +552570,7 @@ index 0000000000..f094fb1d0e
 +        ROCKBOX_DIR "/docs/CREDITS",
 +        ROCKBOX_DIR "/CREDITS",
 +    };
-+    return page_from_files("鸣谢", files, 2);
++    return page_from_files(str(LANG_CREDITS), files, 2);
 +}
 +
 +int lvgui_legal_page(void)
@@ -552555,7 +552581,7 @@ index 0000000000..f094fb1d0e
 +        ROCKBOX_DIR "/docs/LICENSES.txt",
 +        ROCKBOX_DIR "/COPYING",
 +    };
-+    return page_from_files("法律声明", files, 3);
++    return page_from_files(str(LANG_N3_LICENSE), files, 3);
 +}
 +
 +/* ---- cuesheet track picker (replaces the classic synclist) -------------- */
@@ -552581,7 +552607,7 @@ index 0000000000..f094fb1d0e
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_player.c b/apps/gui/lvglui/ui_player.c
 new file mode 100644
-index 0000000000..0b8ce9115a
+index 0000000000..f6ed4e4a3c
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_player.c
 @@ -0,0 +1,1190 @@
@@ -553079,7 +553105,7 @@ index 0000000000..0b8ce9115a
 +    lv_obj_clear_flag(hd, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 +
 +    lv_obj_t *t = lv_label_create(d);
-+    lv_label_set_text(t, "快捷设置");
++    lv_label_set_text(t, str(LANG_N3_QUICK_SETTINGS));
 +    lv_obj_set_style_text_color(t, th->fg_text, 0);
 +    lv_obj_set_pos(t, 16, 22);
 +
@@ -553203,7 +553229,7 @@ index 0000000000..0b8ce9115a
 +
 +    if (!pi.active)
 +    {
-+        lv_label_set_text(p->title, "未在播放");
++        lv_label_set_text(p->title, str(LANG_N3_NOTHING_PLAYING));
 +        lv_label_set_text(p->sub, "");
 +        lv_label_set_text(p->tt, "");
 +        lv_obj_clear_flag(p->ph, LV_OBJ_FLAG_HIDDEN);
@@ -553442,9 +553468,9 @@ index 0000000000..0b8ce9115a
 +    };
 +    /* i18n: rows with a stock LANG token show translated */
 +    static int key_lang[INFO_ROWS] = {
-+        LANG_ID3_TITLE, LANG_ID3_ARTIST, LANG_ID3_ALBUM, 0,
-+        LANG_ID3_FREQUENCY, LANG_ID3_BITRATE, LANG_ID3_LENGTH, 0,
-+        LANG_PROPERTIES_PATH
++        LANG_ID3_TITLE, LANG_ID3_ARTIST, LANG_ID3_ALBUM, LANG_FORMAT,
++        LANG_ID3_FREQUENCY, LANG_ID3_BITRATE, LANG_ID3_LENGTH, LANG_FILESIZE,
++        LANG_ID3_PATH
 +    };
 +    const char *kstr[INFO_ROWS];
 +    for (int i = 0; i < INFO_ROWS; i++)
@@ -553616,7 +553642,7 @@ index 0000000000..0b8ce9115a
 +        p->lr_lbl[i] = lb;
 +    }
 +    lv_obj_t *lnone = lv_label_create(lrc);
-+    lv_label_set_text(lnone, "无歌词");
++    lv_label_set_text(lnone, str(LANG_N3_NO_LYRICS));
 +    lv_obj_set_style_text_color(lnone, th->fg_dim, 0);
 +    lv_obj_set_style_text_opa(lnone, 150, 0);
 +    lv_obj_align(lnone, LV_ALIGN_CENTER, 0, 0);
@@ -553655,7 +553681,7 @@ index 0000000000..0b8ce9115a
 +
 +    /* ---- title block (belongs to page 0, hides with the cover) ----------- */
 +    lv_obj_t *t = lv_label_create(ap);
-+    lv_label_set_text(t, "未在播放");
++    lv_label_set_text(t, str(LANG_N3_NOTHING_PLAYING));
 +    lv_obj_set_style_text_color(t, th->fg_text, 0);
 +    lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_CENTER, 0);
 +    lv_label_set_long_mode(t, LV_LABEL_LONG_DOT);
@@ -553777,7 +553803,7 @@ index 0000000000..0b8ce9115a
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..0c3f18b3b1
+index 0000000000..6645b43e65
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
 @@ -0,0 +1,2388 @@
@@ -555622,7 +555648,7 @@ index 0000000000..0c3f18b3b1
 +    lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 70);
 +
 +    lv_obj_t *note = lv_label_create(scr);
-+    lv_label_set_text(note, "待实现（后续里程碑）");
++    lv_label_set_text(note, str(LANG_N3_NOT_IMPLEMENTED));
 +    lv_obj_set_style_text_color(note, COL_TEXT_DIM, 0);
 +    lv_obj_align(note, LV_ALIGN_TOP_MID, 0, 100);
 +
@@ -555842,7 +555868,7 @@ index 0000000000..0c3f18b3b1
 +    lv_obj_align(lock_time_l, LV_ALIGN_CENTER, 0, -20);
 +
 +    h = lv_label_create(scr);
-+    lv_label_set_text(h, "上滑解锁");
++    lv_label_set_text(h, str(LANG_N3_SWIPE_UNLOCK));
 +    lv_obj_set_style_text_font(h, th->font_cjk, 0);
 +    lv_obj_set_style_text_color(h, lv_color_hex(0x8899aa), 0);
 +    lv_obj_align(h, LV_ALIGN_BOTTOM_MID, 0, -40);
@@ -555870,8 +555896,8 @@ index 0000000000..0c3f18b3b1
 +    if (be_netfm_active())
 +    {
 +        be_netfm_name(tb, sizeof tb);
-+        title = tb[0] ? tb : "网络收音机";
-+        sub = "网络收音机";
++        title = tb[0] ? tb : str(LANG_N3_NET_RADIO);
++        sub = str(LANG_N3_NET_RADIO);
 +    }
 +    else if (be_dlna_active())
 +    {
@@ -555888,8 +555914,8 @@ index 0000000000..0c3f18b3b1
 +    else if (be_bt_rx_active())
 +    {
 +        be_bt_rx_peer(tb, sizeof tb);
-+        title = tb[0] ? tb : "蓝牙接收";
-+        sub = "蓝牙接收";
++        title = tb[0] ? tb : str(LANG_BT_RX);
++        sub = str(LANG_BT_RX);
 +    }
 +    else if (trk && trk[0] && (st & (AUDIO_STATUS_PLAY | AUDIO_STATUS_PAUSE)))
 +    {
@@ -555916,8 +555942,8 @@ index 0000000000..0c3f18b3b1
 +        if (dock_path[0])
 +        {
 +            dock_path[0] = '\0';
-+            lv_label_set_text(dock_l1, "未在播放");
-+            lv_label_set_text(dock_l2, "点按进入播放页");
++            lv_label_set_text(dock_l1, str(LANG_N3_NOTHING_PLAYING));
++            lv_label_set_text(dock_l2, str(LANG_N3_TAP_TO_OPEN));
 +            lv_label_set_text(dock_btn, LV_SYMBOL_PLAY);
 +        }
 +        return;
@@ -555954,7 +555980,7 @@ index 0000000000..0c3f18b3b1
 +    statusbar_build(scr);
 +
 +    lv_obj_t *heel = lv_label_create(scr);
-+    lv_label_set_text(heel, "音乐·随身");
++    lv_label_set_text(heel, str(LANG_N3_DOCK_SLOGAN));
 +    lv_obj_set_style_text_font(heel, th->font_title, 0);
 +    lv_obj_set_style_text_color(heel, COL_TEXT, 0);
 +    lv_obj_align(heel, LV_ALIGN_TOP_LEFT, 12, 26);
@@ -556053,7 +556079,7 @@ index 0000000000..0c3f18b3b1
 +    lv_obj_center(mglyph);
 +
 +    lv_obj_t *mt = lv_label_create(mini);
-+    lv_label_set_text(mt, "未在播放");
++    lv_label_set_text(mt, str(LANG_N3_NOTHING_PLAYING));
 +    lv_obj_set_style_text_color(mt, COL_TEXT, 0);
 +    lv_obj_align(mt, LV_ALIGN_LEFT_MID, 48, -12);
 +    lv_label_set_long_mode(mt, LV_LABEL_LONG_DOT);
@@ -556061,7 +556087,7 @@ index 0000000000..0c3f18b3b1
 +    dock_l1 = mt;
 +
 +    lv_obj_t *ms = lv_label_create(mini);
-+    lv_label_set_text(ms, "点按进入播放页");
++    lv_label_set_text(ms, str(LANG_N3_TAP_TO_OPEN));
 +    lv_obj_set_style_text_color(ms, COL_TEXT_DIM, 0);
 +    lv_obj_align(ms, LV_ALIGN_LEFT_MID, 48, 12);
 +    lv_label_set_long_mode(ms, LV_LABEL_LONG_DOT);
@@ -556171,10 +556197,10 @@ index 0000000000..0c3f18b3b1
 +}
 diff --git a/apps/gui/lvglui/ui_theme.c b/apps/gui/lvglui/ui_theme.c
 new file mode 100644
-index 0000000000..718b1e0b70
+index 0000000000..356d2dd145
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_theme.c
-@@ -0,0 +1,213 @@
+@@ -0,0 +1,214 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *
@@ -556371,6 +556397,7 @@ index 0000000000..718b1e0b70
 +
 +    /* fonts */
 +    t->font_cjk    = &notosans_sc_16;    t->font_symbol = &lv_font_montserrat_16;
++    t->font_small  = &notosans_sc_14;
 +    t->font_cn     = &notosans_sc_cn16;
 +    t->font_title  = &notosans_sc_20;
 +    t->font_mid    = &lv_font_montserrat_28;
@@ -556390,10 +556417,10 @@ index 0000000000..718b1e0b70
 +}
 diff --git a/apps/gui/lvglui/ui_theme.h b/apps/gui/lvglui/ui_theme.h
 new file mode 100644
-index 0000000000..80ca968944
+index 0000000000..8ee5db5f1a
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_theme.h
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,113 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *
@@ -556494,6 +556521,7 @@ index 0000000000..80ca968944
 +
 +    /* ---- fonts --------------------------------------------------------- */
 +    const lv_font_t *font_cjk;   /* body */
++    const lv_font_t *font_small; /* caption (notosans_sc_14) */
 +    const lv_font_t *font_cn;    /* full GB2312 (input + candidates) */
 +    const lv_font_t *font_title; /* large title */    /* notosans_sc_16       */
 +    const lv_font_t *font_symbol; /* montserrat_16        */
@@ -568760,10 +568788,10 @@ index 3d046e9351..f226abbd7e 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/chinese-simp.lang b/apps/lang/chinese-simp.lang
-index 3c8be16c72..7098aab2b3 100644
+index 3c8be16c72..8de88e61e5 100644
 --- a/apps/lang/chinese-simp.lang
 +++ b/apps/lang/chinese-simp.lang
-@@ -17168,3 +17168,1926 @@
+@@ -17168,3 +17168,2514 @@
      touchscreen: "触控滑动快捷方式"
    </voice>
  </phrase>
@@ -570685,6 +570713,594 @@ index 3c8be16c72..7098aab2b3 100644
 +  </source>
 +  <dest>
 +    *: "标准"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NOTHING_PLAYING
++  desc: LVGL home dock: no track
++  user: core
++  <source>
++    *: "Nothing playing"
++  </source>
++  <dest>
++    *: "未在播放"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_TAP_TO_OPEN
++  desc: LVGL home dock hint
++  user: core
++  <source>
++    *: "Tap to open the player"
++  </source>
++  <dest>
++    *: "点按进入播放页"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DOCK_SLOGAN
++  desc: LVGL home dock slogan
++  user: core
++  <source>
++    *: "Music, on the go"
++  </source>
++  <dest>
++    *: "音乐·随身"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_SWIPE_UNLOCK
++  desc: LVGL lock screen hint
++  user: core
++  <source>
++    *: "Swipe up to unlock"
++  </source>
++  <dest>
++    *: "上滑解锁"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_QUICK_SETTINGS
++  desc: LVGL player quick settings
++  user: core
++  <source>
++    *: "Quick settings"
++  </source>
++  <dest>
++    *: "快捷设置"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NO_LYRICS
++  desc: LVGL player lyrics
++  user: core
++  <source>
++    *: "No lyrics"
++  </source>
++  <dest>
++    *: "无歌词"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NET_RADIO
++  desc: LVGL media source
++  user: core
++  <source>
++    *: "Internet radio"
++  </source>
++  <dest>
++    *: "网络收音机"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LOCK
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Lock screen"
++  </source>
++  <dest>
++    *: "锁屏"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_POWER_OFF
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Power off"
++  </source>
++  <dest>
++    *: "关机"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_REBOOT
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Reboot"
++  </source>
++  <dest>
++    *: "重启"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_CONFIRM_POWER_OFF
++  desc: LVGL power off question
++  user: core
++  <source>
++    *: "Power off the player?"
++  </source>
++  <dest>
++    *: "确定关闭设备？"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_REBOOTING
++  desc: LVGL toast while rebooting
++  user: core
++  <source>
++    *: "Rebooting..."
++  </source>
++  <dest>
++    *: "正在重启…"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_TUBE
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Triode"
++  </source>
++  <dest>
++    *: "三极管"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_SUPERLINEAR
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Superlinear"
++  </source>
++  <dest>
++    *: "超线性"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LOADING_PLAYLIST
++  desc: LVGL toast
++  user: core
++  <source>
++    *: "Loading playlist..."
++  </source>
++  <dest>
++    *: "正在载入播放列表…"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_EMPTY_PLAYLIST
++  desc: LVGL playlist screen
++  user: core
++  <source>
++    *: "Playlist is empty"
++  </source>
++  <dest>
++    *: "播放列表为空"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NO_ENTRIES
++  desc: LVGL list placeholder
++  user: core
++  <source>
++    *: "No entries"
++  </source>
++  <dest>
++    *: "没有条目"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_EMPTY_FOLDER
++  desc: LVGL browser placeholder
++  user: core
++  <source>
++    *: "Empty folder"
++  </source>
++  <dest>
++    *: "空文件夹"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DB_PREPARING
++  desc: LVGL database progress
++  user: core
++  <source>
++    *: "Preparing database..."
++  </source>
++  <dest>
++    *: "数据库准备中…"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DB_SCANNING
++  desc: LVGL database progress
++  user: core
++  <source>
++    *: "Building database... %d files found (%s)"
++  </source>
++  <dest>
++    *: "正在建立数据库…已扫描 %d 个文件（%s）"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DB_COMMITTING
++  desc: LVGL database progress
++  user: core
++  <source>
++    *: "Committing database... %d / %d"
++  </source>
++  <dest>
++    *: "正在提交数据库…%d / %d"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BUILD_DB_Q
++  desc: LVGL database question
++  user: core
++  <source>
++    *: "Build the music database?"
++  </source>
++  <dest>
++    *: "建立音乐数据库？"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BUILD_DB_DESC
++  desc: LVGL database question
++  user: core
++  <source>
++    *: "The first run scans the storage card to index your music. It takes a few minutes and the player stays usable."
++  </source>
++  <dest>
++    *: "首次使用需要扫描存储卡为音乐建立索引，视文件数量约需数分钟，期间可返回正常使用。"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NOT_NOW
++  desc: LVGL confirm button
++  user: core
++  <source>
++    *: "Not now"
++  </source>
++  <dest>
++    *: "暂不"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_START
++  desc: LVGL confirm button
++  user: core
++  <source>
++    *: "Start"
++  </source>
++  <dest>
++    *: "开始建立"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DB_UPDATE_DELAYED
++  desc: LVGL database warning
++  user: core
++  <source>
++    *: "Database update deferred, reboot to finish it"
++  </source>
++  <dest>
++    *: "数据库更新已延迟，请重启设备完成更新"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_MOVE_HINT
++  desc: LVGL playlist move
++  user: core
++  <source>
++    *: "Moving: tap the target, tap the source to cancel"
++  </source>
++  <dest>
++    *: "移动中：点按目标位置，点按原位置取消"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_TYPE
++  desc: LVGL equalizer
++  user: core
++  <source>
++    *: "Type"
++  </source>
++  <dest>
++    *: "类型"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DONE
++  desc: LVGL button
++  user: core
++  <source>
++    *: "Done"
++  </source>
++  <dest>
++    *: "完成"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_APPLY
++  desc: LVGL button
++  user: core
++  <source>
++    *: "Apply"
++  </source>
++  <dest>
++    *: "应用"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_APPLIED
++  desc: LVGL toast
++  user: core
++  <source>
++    *: "Applied"
++  </source>
++  <dest>
++    *: "已应用"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_SMALL
++  desc: LVGL font size
++  user: core
++  <source>
++    *: "Small"
++  </source>
++  <dest>
++    *: "小"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LARGE
++  desc: LVGL font size
++  user: core
++  <source>
++    *: "Large"
++  </source>
++  <dest>
++    *: "大"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LIGHT
++  desc: LVGL theme
++  user: core
++  <source>
++    *: "Light"
++  </source>
++  <dest>
++    *: "浅色"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DARK
++  desc: LVGL theme
++  user: core
++  <source>
++    *: "Dark"
++  </source>
++  <dest>
++    *: "深色"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_FONT_SIZE
++  desc: LVGL font size menu title
++  user: core
++  <source>
++    *: "UI font size"
++  </source>
++  <dest>
++    *: "界面字体大小"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_UI_THEME
++  desc: LVGL theme menu title
++  user: core
++  <source>
++    *: "UI theme"
++  </source>
++  <dest>
++    *: "界面主题"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LICENSE
++  desc: LVGL about page
++  user: core
++  <source>
++    *: "Legal notice"
++  </source>
++  <dest>
++    *: "法律声明"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NO_TEXT
++  desc: LVGL text page
++  user: core
++  <source>
++    *: "Text file not found"
++  </source>
++  <dest>
++    *: "未找到相关文本文件"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_CALIBRATE_HINT
++  desc: LVGL calibration
++  user: core
++  <source>
++    *: "Tap the crosshairs in order"
++  </source>
++  <dest>
++    *: "请依次点按十字标记"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NOT_IMPLEMENTED
++  desc: LVGL placeholder page
++  user: core
++  <source>
++    *: "Not implemented yet"
++  </source>
++  <dest>
++    *: "待实现（后续里程碑）"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_OPTION
++  desc: LVGL list fallback title
++  user: core
++  <source>
++    *: "Option"
++  </source>
++  <dest>
++    *: "选项"
 +  </dest>
 +  <voice>
 +    *: ""
@@ -574862,7 +575478,7 @@ index 55028062cd..d37625122d 100644
 +  </voice>
 +</phrase>
 diff --git a/apps/lang/english.lang b/apps/lang/english.lang
-index 4c2f0d58b0..9e2d9804c1 100644
+index 4c2f0d58b0..0d87120e93 100644
 --- a/apps/lang/english.lang
 +++ b/apps/lang/english.lang
 @@ -12149,6 +12149,62 @@
@@ -574928,7 +575544,7 @@ index 4c2f0d58b0..9e2d9804c1 100644
  <phrase>
    id: LANG_VOLUME_LIMIT
    desc: in sound_settings
-@@ -17231,3 +17287,1870 @@
+@@ -17231,3 +17287,2458 @@
      touchscreen: "Touchscreen Flick Shortcuts"
    </voice>
  </phrase>
@@ -576794,6 +577410,594 @@ index 4c2f0d58b0..9e2d9804c1 100644
 +  </source>
 +  <dest>
 +    *: "Standard"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NOTHING_PLAYING
++  desc: LVGL home dock: no track
++  user: core
++  <source>
++    *: "Nothing playing"
++  </source>
++  <dest>
++    *: "Nothing playing"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_TAP_TO_OPEN
++  desc: LVGL home dock hint
++  user: core
++  <source>
++    *: "Tap to open the player"
++  </source>
++  <dest>
++    *: "Tap to open the player"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DOCK_SLOGAN
++  desc: LVGL home dock slogan
++  user: core
++  <source>
++    *: "Music, on the go"
++  </source>
++  <dest>
++    *: "Music, on the go"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_SWIPE_UNLOCK
++  desc: LVGL lock screen hint
++  user: core
++  <source>
++    *: "Swipe up to unlock"
++  </source>
++  <dest>
++    *: "Swipe up to unlock"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_QUICK_SETTINGS
++  desc: LVGL player quick settings
++  user: core
++  <source>
++    *: "Quick settings"
++  </source>
++  <dest>
++    *: "Quick settings"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NO_LYRICS
++  desc: LVGL player lyrics
++  user: core
++  <source>
++    *: "No lyrics"
++  </source>
++  <dest>
++    *: "No lyrics"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NET_RADIO
++  desc: LVGL media source
++  user: core
++  <source>
++    *: "Internet radio"
++  </source>
++  <dest>
++    *: "Internet radio"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LOCK
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Lock screen"
++  </source>
++  <dest>
++    *: "Lock screen"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_POWER_OFF
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Power off"
++  </source>
++  <dest>
++    *: "Power off"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_REBOOT
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Reboot"
++  </source>
++  <dest>
++    *: "Reboot"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_CONFIRM_POWER_OFF
++  desc: LVGL power off question
++  user: core
++  <source>
++    *: "Power off the player?"
++  </source>
++  <dest>
++    *: "Power off the player?"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_REBOOTING
++  desc: LVGL toast while rebooting
++  user: core
++  <source>
++    *: "Rebooting..."
++  </source>
++  <dest>
++    *: "Rebooting..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_TUBE
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "Triode"
++  </source>
++  <dest>
++    *: "Triode"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_SUPERLINEAR
++  desc: LVGL control centre button
++  user: core
++  <source>
++    *: "SuperLin"
++  </source>
++  <dest>
++    *: "SuperLin"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LOADING_PLAYLIST
++  desc: LVGL toast
++  user: core
++  <source>
++    *: "Loading playlist..."
++  </source>
++  <dest>
++    *: "Loading playlist..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_EMPTY_PLAYLIST
++  desc: LVGL playlist screen
++  user: core
++  <source>
++    *: "Playlist is empty"
++  </source>
++  <dest>
++    *: "Playlist is empty"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NO_ENTRIES
++  desc: LVGL list placeholder
++  user: core
++  <source>
++    *: "No entries"
++  </source>
++  <dest>
++    *: "No entries"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_EMPTY_FOLDER
++  desc: LVGL browser placeholder
++  user: core
++  <source>
++    *: "Empty folder"
++  </source>
++  <dest>
++    *: "Empty folder"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DB_PREPARING
++  desc: LVGL database progress
++  user: core
++  <source>
++    *: "Preparing database..."
++  </source>
++  <dest>
++    *: "Preparing database..."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DB_SCANNING
++  desc: LVGL database progress
++  user: core
++  <source>
++    *: "Building database... %d files found (%s)"
++  </source>
++  <dest>
++    *: "Building database... %d files found (%s)"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DB_COMMITTING
++  desc: LVGL database progress
++  user: core
++  <source>
++    *: "Committing database... %d / %d"
++  </source>
++  <dest>
++    *: "Committing database... %d / %d"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BUILD_DB_Q
++  desc: LVGL database question
++  user: core
++  <source>
++    *: "Build the music database?"
++  </source>
++  <dest>
++    *: "Build the music database?"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_BUILD_DB_DESC
++  desc: LVGL database question
++  user: core
++  <source>
++    *: "The first run scans the storage card to index your music. It takes a few minutes and the player stays usable."
++  </source>
++  <dest>
++    *: "The first run scans the storage card to index your music. It takes a few minutes and the player stays usable."
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NOT_NOW
++  desc: LVGL confirm button
++  user: core
++  <source>
++    *: "Not now"
++  </source>
++  <dest>
++    *: "Not now"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_START
++  desc: LVGL confirm button
++  user: core
++  <source>
++    *: "Start"
++  </source>
++  <dest>
++    *: "Start"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DB_UPDATE_DELAYED
++  desc: LVGL database warning
++  user: core
++  <source>
++    *: "Database update deferred, reboot to finish it"
++  </source>
++  <dest>
++    *: "Database update deferred, reboot to finish it"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_MOVE_HINT
++  desc: LVGL playlist move
++  user: core
++  <source>
++    *: "Moving: tap the target, tap the source to cancel"
++  </source>
++  <dest>
++    *: "Moving: tap the target, tap the source to cancel"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_TYPE
++  desc: LVGL equalizer
++  user: core
++  <source>
++    *: "Type"
++  </source>
++  <dest>
++    *: "Type"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DONE
++  desc: LVGL button
++  user: core
++  <source>
++    *: "Done"
++  </source>
++  <dest>
++    *: "Done"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_APPLY
++  desc: LVGL button
++  user: core
++  <source>
++    *: "Apply"
++  </source>
++  <dest>
++    *: "Apply"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_APPLIED
++  desc: LVGL toast
++  user: core
++  <source>
++    *: "Applied"
++  </source>
++  <dest>
++    *: "Applied"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_SMALL
++  desc: LVGL font size
++  user: core
++  <source>
++    *: "Small"
++  </source>
++  <dest>
++    *: "Small"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LARGE
++  desc: LVGL font size
++  user: core
++  <source>
++    *: "Large"
++  </source>
++  <dest>
++    *: "Large"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LIGHT
++  desc: LVGL theme
++  user: core
++  <source>
++    *: "Light"
++  </source>
++  <dest>
++    *: "Light"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_DARK
++  desc: LVGL theme
++  user: core
++  <source>
++    *: "Dark"
++  </source>
++  <dest>
++    *: "Dark"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_FONT_SIZE
++  desc: LVGL font size menu title
++  user: core
++  <source>
++    *: "UI font size"
++  </source>
++  <dest>
++    *: "UI font size"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_UI_THEME
++  desc: LVGL theme menu title
++  user: core
++  <source>
++    *: "UI theme"
++  </source>
++  <dest>
++    *: "UI theme"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_LICENSE
++  desc: LVGL about page
++  user: core
++  <source>
++    *: "Legal notice"
++  </source>
++  <dest>
++    *: "Legal notice"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NO_TEXT
++  desc: LVGL text page
++  user: core
++  <source>
++    *: "Text file not found"
++  </source>
++  <dest>
++    *: "Text file not found"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_CALIBRATE_HINT
++  desc: LVGL calibration
++  user: core
++  <source>
++    *: "Tap the crosshairs in order"
++  </source>
++  <dest>
++    *: "Tap the crosshairs in order"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_NOT_IMPLEMENTED
++  desc: LVGL placeholder page
++  user: core
++  <source>
++    *: "Not implemented yet"
++  </source>
++  <dest>
++    *: "Not implemented yet"
++  </dest>
++  <voice>
++    *: ""
++  </voice>
++</phrase>
++<phrase>
++  id: LANG_N3_OPTION
++  desc: LVGL list fallback title
++  user: core
++  <source>
++    *: "Option"
++  </source>
++  <dest>
++    *: "Option"
 +  </dest>
 +  <voice>
 +    *: ""

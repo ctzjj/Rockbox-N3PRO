@@ -67,36 +67,41 @@ jobs:
           # The base commit is recorded in the patch header by the
           # collection script, so rebasing the port only means
           # regenerating n3pro_port.patch.
+          #
+          # Keep the checkout at a short path: the generated make
+          # dependency rule passes every source file on one /bin/sh
+          # command line, and the runner's long workspace path pushes it
+          # over the kernel's 128k limit for a single argument.
           BASE=$(sed -n 's/^# rockbox-base: //p' n3pro_port.patch | head -1)
           [ -n "$BASE" ] || { echo "::error::no '# rockbox-base:' header in n3pro_port.patch"; exit 1; }
           echo "building against rockbox $BASE"
-          git clone --quiet https://github.com/Rockbox/rockbox rockbox
-          git -C rockbox checkout --quiet "$BASE"
+          git clone --quiet https://github.com/Rockbox/rockbox /tmp/rb
+          git -C /tmp/rb checkout --quiet "$BASE"
           # lib/lvgl is a submodule in the n3pro-lvgl line: the patch only
           # carries the gitlink, so stage the patch and fetch the pinned LVGL
           # sources (shallow: just that commit) before building.
-          git -C rockbox apply --check --binary ../n3pro_port.patch
-          git -C rockbox apply --index --binary ../n3pro_port.patch
-          git -C rockbox config submodule.lib/lvgl.shallow true
-          git -C rockbox submodule update --init lib/lvgl
-          test -f rockbox/lib/lvgl/lvgl.h || { echo "::error::lib/lvgl sources missing"; exit 1; }
+          git -C /tmp/rb apply --check --binary "$GITHUB_WORKSPACE/n3pro_port.patch"
+          git -C /tmp/rb apply --index --binary "$GITHUB_WORKSPACE/n3pro_port.patch"
+          git -C /tmp/rb config submodule.lib/lvgl.shallow true
+          git -C /tmp/rb submodule update --init lib/lvgl
+          test -f /tmp/rb/lib/lvgl/lvgl.h || { echo "::error::lib/lvgl sources missing"; exit 1; }
 
       - name: Build application and the SD payload zip
         run: |
-          mkdir build && cd build
-          ../rockbox/tools/configure --target=n3pro --type=N
+          mkdir -p /tmp/rb-build && cd /tmp/rb-build
+          /tmp/rb/tools/configure --target=n3pro --type=N
           make -j"$(nproc)" > /dev/null
           make fullzip
-          mv rockbox-full.zip ../rockbox-n3pro.zip
-          md5sum ../rockbox-n3pro.zip
+          mv rockbox-full.zip "$GITHUB_WORKSPACE/rockbox-n3pro.zip"
+          md5sum "$GITHUB_WORKSPACE/rockbox-n3pro.zip"
 
       - name: Build bootloader
         run: |
-          mkdir build-bl && cd build-bl
-          ../rockbox/tools/configure --target=n3pro --type=B
+          mkdir -p /tmp/rb-build-bl && cd /tmp/rb-build-bl
+          /tmp/rb/tools/configure --target=n3pro --type=B
           make -j"$(nproc)" > /dev/null
-          cp bootloader.n3pro ../bootloader.n3pro
-          md5sum ../bootloader.n3pro
+          cp bootloader.n3pro "$GITHUB_WORKSPACE/bootloader.n3pro"
+          md5sum "$GITHUB_WORKSPACE/bootloader.n3pro"
 
       - name: Build the flashable image (stock firmware)
         id: upt
@@ -119,7 +124,7 @@ jobs:
             export PATH="$HOME/.local/bin:$PATH"
             cd "$GITHUB_WORKSPACE"
             mv /tmp/stock.upt stock-update.upt
-            rockbox/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh \
+            /tmp/rb/firmware/target/hosted/cayin/n3pro/n3pro_patcher.sh \
                 stock-update.upt bootloader.n3pro
             mv stock-update_rb.upt n3pro_rockbox.upt
             rm stock-update.upt

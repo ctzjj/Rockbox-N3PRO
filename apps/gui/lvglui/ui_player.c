@@ -492,7 +492,7 @@ static void drawer_open(player_t *p)
     lv_obj_clear_flag(hd, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
     lv_obj_t *t = lv_label_create(d);
-    lv_label_set_text(t, "快捷设置");
+    lv_label_set_text(t, str(LANG_N3_QUICK_SETTINGS));
     lv_obj_set_style_text_color(t, th->fg_text, 0);
     lv_obj_set_pos(t, 16, 22);
 
@@ -616,7 +616,7 @@ static void player_tick_refresh(player_t *p)
 
     if (!pi.active)
     {
-        lv_label_set_text(p->title, "未在播放");
+        lv_label_set_text(p->title, str(LANG_N3_NOTHING_PLAYING));
         lv_label_set_text(p->sub, "");
         lv_label_set_text(p->tt, "");
         lv_obj_clear_flag(p->ph, LV_OBJ_FLAG_HIDDEN);
@@ -855,9 +855,9 @@ static void info_build(player_t *p)
     };
     /* i18n: rows with a stock LANG token show translated */
     static int key_lang[INFO_ROWS] = {
-        LANG_ID3_TITLE, LANG_ID3_ARTIST, LANG_ID3_ALBUM, 0,
-        LANG_ID3_FREQUENCY, LANG_ID3_BITRATE, LANG_ID3_LENGTH, 0,
-        LANG_PROPERTIES_PATH
+        LANG_ID3_TITLE, LANG_ID3_ARTIST, LANG_ID3_ALBUM, LANG_FORMAT,
+        LANG_ID3_FREQUENCY, LANG_ID3_BITRATE, LANG_ID3_LENGTH, LANG_FILESIZE,
+        LANG_ID3_PATH
     };
     const char *kstr[INFO_ROWS];
     for (int i = 0; i < INFO_ROWS; i++)
@@ -1029,7 +1029,7 @@ void shell_player_show(void)
         p->lr_lbl[i] = lb;
     }
     lv_obj_t *lnone = lv_label_create(lrc);
-    lv_label_set_text(lnone, "无歌词");
+    lv_label_set_text(lnone, str(LANG_N3_NO_LYRICS));
     lv_obj_set_style_text_color(lnone, th->fg_dim, 0);
     lv_obj_set_style_text_opa(lnone, 150, 0);
     lv_obj_align(lnone, LV_ALIGN_CENTER, 0, 0);
@@ -1068,7 +1068,7 @@ void shell_player_show(void)
 
     /* ---- title block (belongs to page 0, hides with the cover) ----------- */
     lv_obj_t *t = lv_label_create(ap);
-    lv_label_set_text(t, "未在播放");
+    lv_label_set_text(t, str(LANG_N3_NOTHING_PLAYING));
     lv_obj_set_style_text_color(t, th->fg_text, 0);
     lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(t, LV_LABEL_LONG_DOT);

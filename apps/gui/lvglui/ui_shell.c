@@ -1839,7 +1839,7 @@ static void open_placeholder(const char *title)
     lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 70);
 
     lv_obj_t *note = lv_label_create(scr);
-    lv_label_set_text(note, "待实现（后续里程碑）");
+    lv_label_set_text(note, str(LANG_N3_NOT_IMPLEMENTED));
     lv_obj_set_style_text_color(note, COL_TEXT_DIM, 0);
     lv_obj_align(note, LV_ALIGN_TOP_MID, 0, 100);
 
@@ -2059,7 +2059,7 @@ void shell_lock_show(void)
     lv_obj_align(lock_time_l, LV_ALIGN_CENTER, 0, -20);
 
     h = lv_label_create(scr);
-    lv_label_set_text(h, "上滑解锁");
+    lv_label_set_text(h, str(LANG_N3_SWIPE_UNLOCK));
     lv_obj_set_style_text_font(h, th->font_cjk, 0);
     lv_obj_set_style_text_color(h, lv_color_hex(0x8899aa), 0);
     lv_obj_align(h, LV_ALIGN_BOTTOM_MID, 0, -40);
@@ -2087,8 +2087,8 @@ static void dock_tick(lv_timer_t *t)
     if (be_netfm_active())
     {
         be_netfm_name(tb, sizeof tb);
-        title = tb[0] ? tb : "网络收音机";
-        sub = "网络收音机";
+        title = tb[0] ? tb : str(LANG_N3_NET_RADIO);
+        sub = str(LANG_N3_NET_RADIO);
     }
     else if (be_dlna_active())
     {
@@ -2105,8 +2105,8 @@ static void dock_tick(lv_timer_t *t)
     else if (be_bt_rx_active())
     {
         be_bt_rx_peer(tb, sizeof tb);
-        title = tb[0] ? tb : "蓝牙接收";
-        sub = "蓝牙接收";
+        title = tb[0] ? tb : str(LANG_BT_RX);
+        sub = str(LANG_BT_RX);
     }
     else if (trk && trk[0] && (st & (AUDIO_STATUS_PLAY | AUDIO_STATUS_PAUSE)))
     {
@@ -2133,8 +2133,8 @@ static void dock_tick(lv_timer_t *t)
         if (dock_path[0])
         {
             dock_path[0] = '\0';
-            lv_label_set_text(dock_l1, "未在播放");
-            lv_label_set_text(dock_l2, "点按进入播放页");
+            lv_label_set_text(dock_l1, str(LANG_N3_NOTHING_PLAYING));
+            lv_label_set_text(dock_l2, str(LANG_N3_TAP_TO_OPEN));
             lv_label_set_text(dock_btn, LV_SYMBOL_PLAY);
         }
         return;
@@ -2171,7 +2171,7 @@ static void home_build(lv_obj_t *scr)
     statusbar_build(scr);
 
     lv_obj_t *heel = lv_label_create(scr);
-    lv_label_set_text(heel, "音乐·随身");
+    lv_label_set_text(heel, str(LANG_N3_DOCK_SLOGAN));
     lv_obj_set_style_text_font(heel, th->font_title, 0);
     lv_obj_set_style_text_color(heel, COL_TEXT, 0);
     lv_obj_align(heel, LV_ALIGN_TOP_LEFT, 12, 26);
@@ -2270,7 +2270,7 @@ static void home_build(lv_obj_t *scr)
     lv_obj_center(mglyph);
 
     lv_obj_t *mt = lv_label_create(mini);
-    lv_label_set_text(mt, "未在播放");
+    lv_label_set_text(mt, str(LANG_N3_NOTHING_PLAYING));
     lv_obj_set_style_text_color(mt, COL_TEXT, 0);
     lv_obj_align(mt, LV_ALIGN_LEFT_MID, 48, -12);
     lv_label_set_long_mode(mt, LV_LABEL_LONG_DOT);
@@ -2278,7 +2278,7 @@ static void home_build(lv_obj_t *scr)
     dock_l1 = mt;
 
     lv_obj_t *ms = lv_label_create(mini);
-    lv_label_set_text(ms, "点按进入播放页");
+    lv_label_set_text(ms, str(LANG_N3_TAP_TO_OPEN));
     lv_obj_set_style_text_color(ms, COL_TEXT_DIM, 0);
     lv_obj_align(ms, LV_ALIGN_LEFT_MID, 48, 12);
     lv_label_set_long_mode(ms, LV_LABEL_LONG_DOT);

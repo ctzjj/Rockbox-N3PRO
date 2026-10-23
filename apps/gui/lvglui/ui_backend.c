@@ -389,7 +389,7 @@ void be_play(const be_list_t *t, int start)
 
     /* Big lists take a while (tag reads): tell the user before we block. */
     if (t->count > 64)
-        shell_toast(0, "正在载入播放列表…", NULL);
+        shell_toast(0, str(LANG_N3_LOADING_PLAYLIST), NULL);
 
     playjob_t job;
     job.paths = t->path;                /* borrowed: valid for this call */
@@ -1101,13 +1101,13 @@ void be_power_off(void)
 {
     /* sys_poweroff() only broadcasts SYS_POWEROFF, which is consumed by the
      * classic UI event loop that we never run under LVGL: shut down here. */
-    shell_toast(0, "正在关机…", NULL);
+    shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
     power_off();
 }
 
 void be_reboot(void)
 {
-    shell_toast(0, "正在重启…", NULL);
+    shell_toast(0, str(LANG_N3_REBOOTING), NULL);
     system_reboot();
 }
 

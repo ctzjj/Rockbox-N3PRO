@@ -20,6 +20,8 @@ void shell_nav_home(void);
 void shell_home_rebuild(void);
 /* repaint the wallpaper after a live theme change (ui_theme_init()) */
 void shell_theme_refresh(void);
+/* a .lng was loaded: rebuild the screens that were built with old strings */
+void lvgui_lang_changed(void);
 bool shell_nav_full(void);
 void shell_statusbar_build(lv_obj_t *parent);
 void shell_header(lv_obj_t *scr, const char *title);

@@ -194,6 +194,7 @@ __attribute__((weak)) void ui_theme_fill(ui_theme_t *t)
 
     /* fonts */
     t->font_cjk    = &notosans_sc_16;    t->font_symbol = &lv_font_montserrat_16;
+    t->font_small  = &notosans_sc_14;
     t->font_cn     = &notosans_sc_cn16;
     t->font_title  = &notosans_sc_20;
     t->font_mid    = &lv_font_montserrat_28;

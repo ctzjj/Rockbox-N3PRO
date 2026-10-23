@@ -9,6 +9,7 @@
 #include "ui_widgets.h"
 #include "ui_backend.h"
 #include "settings.h"
+#include "lang.h"
 
 /* iOS26-style control centre: full-screen frosted panel, [connectivity 2x2]
  * top-left, [now playing] top-right, volume/brightness pills below. */
@@ -83,14 +84,14 @@ static void ctl_media_refresh(void)
         {
             char nb[128];
             be_netfm_name(nb, sizeof nb);
-            lv_label_set_text(g_med_title, nb[0] ? nb : "网络收音机");
+            lv_label_set_text(g_med_title, nb[0] ? nb : str(LANG_N3_NET_RADIO));
         }
         else
         {
             const char *ttl = be_audio_track_title();
             lv_label_set_text(g_med_title,
                               shell_cs(cbuf, sizeof cbuf,
-                                       (ttl && ttl[0]) ? ttl : "正在播放"));
+                                       (ttl && ttl[0]) ? ttl : str(LANG_NOW_PLAYING)));
         }
     }
     if (g_med_dsc)
@@ -157,7 +158,7 @@ static void ctl_settings_cb(lv_event_t *e)
 static void ctl_power_job(void *p)
 {
     (void)p;
-    if (shell_yesno_run("确定关闭设备？") == 0)
+    if (shell_yesno_run(str(LANG_N3_CONFIRM_POWER_OFF)) == 0)
         be_power_off();
 }
 
@@ -171,7 +172,7 @@ static void ctl_power_cb(lv_event_t *e)
 static void ctl_reboot_job(void *p)
 {
     (void)p;
-    if (shell_yesno_run("确定重启设备？") == 0)
+    if (shell_yesno_run(str(LANG_REBOOT_NOW)) == 0)
         be_reboot();
 }
 
@@ -200,7 +201,7 @@ static void ctl_media_timer_cb(lv_timer_t *t)
     {
         /* DLNA stopped / local playback ended: leave nothing stale behind */
         if (g_med_title)
-            lv_label_set_text(g_med_title, "未在播放");
+            lv_label_set_text(g_med_title, str(LANG_N3_NOTHING_PLAYING));
         g_med_path[0] = '\0';
         if (g_med_img)
         {
@@ -647,7 +648,7 @@ static void ctl_build(void)
         lv_obj_center(ag);
 
         lv_obj_t *l = lv_label_create(med);
-        lv_label_set_text(l, be_media_is_radio() ? "网络收音机" : "正在播放");
+        lv_label_set_text(l, str(be_media_is_radio() ? LANG_N3_NET_RADIO : LANG_NOW_PLAYING));
         lv_obj_set_style_text_color(l, th->fg_text, 0);
         lv_label_set_long_mode(l, LV_LABEL_LONG_SCROLL_CIRCULAR);
         lv_obj_set_width(l, 116);
@@ -713,7 +714,7 @@ static void ctl_build(void)
         lv_obj_set_style_text_color(g, th->fg_dim, 0);
         lv_obj_align(g, LV_ALIGN_CENTER, 0, -12);
         lv_obj_t *l = lv_label_create(med);
-        lv_label_set_text(l, "未在播放");
+        lv_label_set_text(l, str(LANG_N3_NOTHING_PLAYING));
         lv_obj_set_style_text_color(l, th->fg_dim, 0);
         lv_obj_align(l, LV_ALIGN_CENTER, 0, 30);
         lv_obj_add_flag(med, LV_OBJ_FLAG_CLICKABLE);
@@ -741,17 +742,22 @@ static void ctl_build(void)
         lv_obj_add_event_cb(b, ctl_btn_pressed, LV_EVENT_PRESSED, (void *)3);
         lv_obj_add_event_cb(b, ctl_btn_released, LV_EVENT_RELEASED, (void *)3);
 
-        static const char *caps[4] = { "WiFi", "蓝牙", "三极管", "超线性" };
+        static const char *caps[4];
         static const int bx[4] = { 36, 108, 180, 252 };
+        caps[0] = "WiFi";
+        caps[1] = str(LANG_BLUETOOTH);
+        caps[2] = str(LANG_N3_TUBE);
+        caps[3] = str(LANG_N3_SUPERLINEAR);
         for (int i = 0; i < 4; i++)
         {
             lv_obj_t *l = lv_label_create(strip);
             lv_label_set_text(l, caps[i]);
-            lv_obj_set_style_text_font(l, th->font_cjk, 0);
+            lv_obj_set_style_text_font(l, th->font_small, 0);
             lv_obj_set_style_text_color(l, th->fg_dim, 0);
-            lv_obj_set_width(l, 64);
+            lv_obj_set_width(l, 72);
+            lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
             lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-            lv_obj_set_pos(l, bx[i] - 8, 64);
+            lv_obj_set_pos(l, bx[i] - 12, 64);
         }
         ctl_toggles_paint();   /* reflect states that were already on */
     }
@@ -759,8 +765,13 @@ static void ctl_build(void)
     /* second row: lock / settings / power off / restart */
     lv_obj_t *row2 = ctl_mod(frost, 12, 350, 336, 94);
     {
-        static const char *caps2[4] = { "锁屏", "设置", "关机", "重启" };
+        static const char *caps2[4];
         static const int bx2[4] = { 36, 108, 180, 252 };
+
+        caps2[0] = str(LANG_N3_LOCK);
+        caps2[1] = str(LANG_SETTINGS);
+        caps2[2] = str(LANG_N3_POWER_OFF);
+        caps2[3] = str(LANG_N3_REBOOT);
 
         ctl_round(row2, 36, 10, LV_SYMBOL_EYE_CLOSE, false, ctl_lock_cb);
         ctl_round(row2, 108, 10, LV_SYMBOL_SETTINGS, false, ctl_settings_cb);
@@ -771,11 +782,12 @@ static void ctl_build(void)
         {
             lv_obj_t *l = lv_label_create(row2);
             lv_label_set_text(l, caps2[i]);
-            lv_obj_set_style_text_font(l, th->font_cjk, 0);
+            lv_obj_set_style_text_font(l, th->font_small, 0);
             lv_obj_set_style_text_color(l, th->fg_dim, 0);
-            lv_obj_set_width(l, 64);
+            lv_obj_set_width(l, 72);
+            lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
             lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-            lv_obj_set_pos(l, bx2[i] - 8, 64);
+            lv_obj_set_pos(l, bx2[i] - 12, 64);
         }
     }
 

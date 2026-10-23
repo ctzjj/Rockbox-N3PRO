@@ -88,6 +88,15 @@ int lvgui_plugin_run(void)
     return rc;
 }
 
+/* A .lng was loaded through the browser: the screens behind still hold the
+ * old strings, so refill the wallpaper and rebuild Home; the menu loop
+ * rebuilds the open menu on its next pass. */
+void lvgui_lang_changed(void)
+{
+    shell_theme_refresh();
+    shell_home_rebuild();
+}
+
 static void lvgui_home_key(void)
 {
     extern int lvgl_shell_locked;

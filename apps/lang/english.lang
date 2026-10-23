@@ -19154,3 +19154,591 @@
     *: ""
   </voice>
 </phrase>
+<phrase>
+  id: LANG_N3_NOTHING_PLAYING
+  desc: LVGL home dock: no track
+  user: core
+  <source>
+    *: "Nothing playing"
+  </source>
+  <dest>
+    *: "Nothing playing"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_TAP_TO_OPEN
+  desc: LVGL home dock hint
+  user: core
+  <source>
+    *: "Tap to open the player"
+  </source>
+  <dest>
+    *: "Tap to open the player"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DOCK_SLOGAN
+  desc: LVGL home dock slogan
+  user: core
+  <source>
+    *: "Music, on the go"
+  </source>
+  <dest>
+    *: "Music, on the go"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_SWIPE_UNLOCK
+  desc: LVGL lock screen hint
+  user: core
+  <source>
+    *: "Swipe up to unlock"
+  </source>
+  <dest>
+    *: "Swipe up to unlock"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_QUICK_SETTINGS
+  desc: LVGL player quick settings
+  user: core
+  <source>
+    *: "Quick settings"
+  </source>
+  <dest>
+    *: "Quick settings"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NO_LYRICS
+  desc: LVGL player lyrics
+  user: core
+  <source>
+    *: "No lyrics"
+  </source>
+  <dest>
+    *: "No lyrics"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NET_RADIO
+  desc: LVGL media source
+  user: core
+  <source>
+    *: "Internet radio"
+  </source>
+  <dest>
+    *: "Internet radio"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LOCK
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Lock screen"
+  </source>
+  <dest>
+    *: "Lock screen"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_POWER_OFF
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Power off"
+  </source>
+  <dest>
+    *: "Power off"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_REBOOT
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Reboot"
+  </source>
+  <dest>
+    *: "Reboot"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_CONFIRM_POWER_OFF
+  desc: LVGL power off question
+  user: core
+  <source>
+    *: "Power off the player?"
+  </source>
+  <dest>
+    *: "Power off the player?"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_REBOOTING
+  desc: LVGL toast while rebooting
+  user: core
+  <source>
+    *: "Rebooting..."
+  </source>
+  <dest>
+    *: "Rebooting..."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_TUBE
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "Triode"
+  </source>
+  <dest>
+    *: "Triode"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_SUPERLINEAR
+  desc: LVGL control centre button
+  user: core
+  <source>
+    *: "SuperLin"
+  </source>
+  <dest>
+    *: "SuperLin"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LOADING_PLAYLIST
+  desc: LVGL toast
+  user: core
+  <source>
+    *: "Loading playlist..."
+  </source>
+  <dest>
+    *: "Loading playlist..."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_EMPTY_PLAYLIST
+  desc: LVGL playlist screen
+  user: core
+  <source>
+    *: "Playlist is empty"
+  </source>
+  <dest>
+    *: "Playlist is empty"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NO_ENTRIES
+  desc: LVGL list placeholder
+  user: core
+  <source>
+    *: "No entries"
+  </source>
+  <dest>
+    *: "No entries"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_EMPTY_FOLDER
+  desc: LVGL browser placeholder
+  user: core
+  <source>
+    *: "Empty folder"
+  </source>
+  <dest>
+    *: "Empty folder"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DB_PREPARING
+  desc: LVGL database progress
+  user: core
+  <source>
+    *: "Preparing database..."
+  </source>
+  <dest>
+    *: "Preparing database..."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DB_SCANNING
+  desc: LVGL database progress
+  user: core
+  <source>
+    *: "Building database... %d files found (%s)"
+  </source>
+  <dest>
+    *: "Building database... %d files found (%s)"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DB_COMMITTING
+  desc: LVGL database progress
+  user: core
+  <source>
+    *: "Committing database... %d / %d"
+  </source>
+  <dest>
+    *: "Committing database... %d / %d"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BUILD_DB_Q
+  desc: LVGL database question
+  user: core
+  <source>
+    *: "Build the music database?"
+  </source>
+  <dest>
+    *: "Build the music database?"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_BUILD_DB_DESC
+  desc: LVGL database question
+  user: core
+  <source>
+    *: "The first run scans the storage card to index your music. It takes a few minutes and the player stays usable."
+  </source>
+  <dest>
+    *: "The first run scans the storage card to index your music. It takes a few minutes and the player stays usable."
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NOT_NOW
+  desc: LVGL confirm button
+  user: core
+  <source>
+    *: "Not now"
+  </source>
+  <dest>
+    *: "Not now"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_START
+  desc: LVGL confirm button
+  user: core
+  <source>
+    *: "Start"
+  </source>
+  <dest>
+    *: "Start"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DB_UPDATE_DELAYED
+  desc: LVGL database warning
+  user: core
+  <source>
+    *: "Database update deferred, reboot to finish it"
+  </source>
+  <dest>
+    *: "Database update deferred, reboot to finish it"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_MOVE_HINT
+  desc: LVGL playlist move
+  user: core
+  <source>
+    *: "Moving: tap the target, tap the source to cancel"
+  </source>
+  <dest>
+    *: "Moving: tap the target, tap the source to cancel"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_TYPE
+  desc: LVGL equalizer
+  user: core
+  <source>
+    *: "Type"
+  </source>
+  <dest>
+    *: "Type"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DONE
+  desc: LVGL button
+  user: core
+  <source>
+    *: "Done"
+  </source>
+  <dest>
+    *: "Done"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_APPLY
+  desc: LVGL button
+  user: core
+  <source>
+    *: "Apply"
+  </source>
+  <dest>
+    *: "Apply"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_APPLIED
+  desc: LVGL toast
+  user: core
+  <source>
+    *: "Applied"
+  </source>
+  <dest>
+    *: "Applied"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_SMALL
+  desc: LVGL font size
+  user: core
+  <source>
+    *: "Small"
+  </source>
+  <dest>
+    *: "Small"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LARGE
+  desc: LVGL font size
+  user: core
+  <source>
+    *: "Large"
+  </source>
+  <dest>
+    *: "Large"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LIGHT
+  desc: LVGL theme
+  user: core
+  <source>
+    *: "Light"
+  </source>
+  <dest>
+    *: "Light"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_DARK
+  desc: LVGL theme
+  user: core
+  <source>
+    *: "Dark"
+  </source>
+  <dest>
+    *: "Dark"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_FONT_SIZE
+  desc: LVGL font size menu title
+  user: core
+  <source>
+    *: "UI font size"
+  </source>
+  <dest>
+    *: "UI font size"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_UI_THEME
+  desc: LVGL theme menu title
+  user: core
+  <source>
+    *: "UI theme"
+  </source>
+  <dest>
+    *: "UI theme"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_LICENSE
+  desc: LVGL about page
+  user: core
+  <source>
+    *: "Legal notice"
+  </source>
+  <dest>
+    *: "Legal notice"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NO_TEXT
+  desc: LVGL text page
+  user: core
+  <source>
+    *: "Text file not found"
+  </source>
+  <dest>
+    *: "Text file not found"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_CALIBRATE_HINT
+  desc: LVGL calibration
+  user: core
+  <source>
+    *: "Tap the crosshairs in order"
+  </source>
+  <dest>
+    *: "Tap the crosshairs in order"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_NOT_IMPLEMENTED
+  desc: LVGL placeholder page
+  user: core
+  <source>
+    *: "Not implemented yet"
+  </source>
+  <dest>
+    *: "Not implemented yet"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_N3_OPTION
+  desc: LVGL list fallback title
+  user: core
+  <source>
+    *: "Option"
+  </source>
+  <dest>
+    *: "Option"
+  </dest>
+  <voice>
+    *: ""
+  </voice>
+</phrase>

@@ -98,6 +98,7 @@ typedef struct
 
     /* ---- fonts --------------------------------------------------------- */
     const lv_font_t *font_cjk;   /* body */
+    const lv_font_t *font_small; /* caption (notosans_sc_14) */
     const lv_font_t *font_cn;    /* full GB2312 (input + candidates) */
     const lv_font_t *font_title; /* large title */    /* notosans_sc_16       */
     const lv_font_t *font_symbol; /* montserrat_16        */
