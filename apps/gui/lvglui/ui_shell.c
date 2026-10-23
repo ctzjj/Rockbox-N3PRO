@@ -2436,35 +2436,14 @@ static void home_build(lv_obj_t *scr)
 }
 
 /* ---- shared blocks for feature screens (M2+) --------------------------- */
-static void hdr_back_cb(lv_event_t *e)
-{
-    (void)e;
-    shell_nav_pop();
-}
-
 void shell_header(lv_obj_t *scr, const char *title)
 {
-    /* back button: the edge-swipe gesture still works, but a visible target
-     * is more discoverable (and testable) */
-    lv_obj_t *b = lv_btn_create(scr);
-    lv_obj_set_size(b, 40, 40);
-    lv_obj_set_pos(b, 4, 14);
-    lv_obj_set_style_radius(b, 20, 0);
-    lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(b, 0, 0);
-    lv_obj_set_style_shadow_width(b, 0, 0);
-    lv_obj_add_event_cb(b, hdr_back_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *bi = lv_label_create(b);
-    lv_label_set_text(bi, LV_SYMBOL_LEFT);
-    lv_obj_set_style_text_font(bi, th->font_symbol, 0);
-    lv_obj_set_style_text_color(bi, th->fg_text, 0);
-    lv_obj_center(bi);
-
+    /* no back button: the global edge-swipe gesture handles going back */
     lv_obj_t *t = lv_label_create(scr);
     lv_label_set_text(t, title);
     lv_obj_set_style_text_color(t, COL_TEXT, 0);
     lv_obj_set_style_text_font(t, th->font_title, 0);
-    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 50, 26);
+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 12, 26);
 }
 
 lv_color_t shell_col_text(void) { return COL_TEXT; }

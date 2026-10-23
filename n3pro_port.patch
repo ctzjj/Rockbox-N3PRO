@@ -542927,10 +542927,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..9d5e08ee35
+index 0000000000..58eceeb449
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,147 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543016,8 +543016,13 @@ index 0000000000..9d5e08ee35
 +            close_armed = lvgui_control_is_open();
 +            edge_start_x = g_last_touch.point.x;
 +            edge_start_y = g_last_touch.point.y;
-+            /* the top strip only pulls the control centre down on a drag, so
-+             * taps on the header (back button/title) still reach the screen */
++            /* open immediately on a touch in the top strip: the release then
++             * lands on the panel (never on the list below, never closing) */
++            if (top_armed && !close_armed)
++            {
++                lvgui_control_open();
++                top_armed = false;
++            }
 +        }
 +        else if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
 +                 edge_prev == LV_INDEV_STATE_PRESSED &&
@@ -549784,10 +549789,10 @@ index 0000000000..486e792aa6
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..9b7b725855
+index 0000000000..f3a905b44a
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2862 @@
+@@ -0,0 +1,2873 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -549863,6 +549868,8 @@ index 0000000000..9b7b725855
 +/* a settings change rebuilt the whole UI (theme/font size): unwind the menu
 + * stack without touching the screens that shell_nav_home() removed */
 +static bool g_menu_abort;
++/* a picker popped itself; rebuild this menu level once the pop lands */
++static bool g_menu_rebuild;
 +
 +static void menu_row_cb(lv_event_t *e)
 +{
@@ -550343,6 +550350,15 @@ index 0000000000..9b7b725855
 +            g_menu_scr = NULL;
 +            ret = GO_TO_PREVIOUS;
 +            break;
++        }
++        if (g_menu_rebuild)
++        {
++            /* a picker popped itself: wait for the deferred pop to land so
++             * the rebuild below refreshes this menu instead of pushing a
++             * second copy on top of the picker */
++            g_menu_rebuild = false;
++            for (int i = 0; i < 40 && g_menu_scr && lv_scr_act() != g_menu_scr; i++)
++                lvgui_pump();
 +        }
 +        char tbuf[80];
 +        const char *title = menu_title(menu, tbuf, sizeof tbuf);
@@ -551719,8 +551735,8 @@ index 0000000000..9b7b725855
 +        ui_theme_init();
 +        shell_theme_refresh();
 +        shell_home_rebuild();
-+        shell_nav_home();
-+        g_menu_abort = true;
++        shell_nav_pop();           /* come back to this menu, not to Home */
++        g_menu_rebuild = true;
 +    }
 +    return GO_TO_PREVIOUS;
 +}
@@ -551746,8 +551762,8 @@ index 0000000000..9b7b725855
 +        ui_theme_init();
 +        shell_theme_refresh();
 +        shell_home_rebuild();
-+        shell_nav_home();
-+        g_menu_abort = true;
++        shell_nav_pop();           /* come back to this menu, not to Home */
++        g_menu_rebuild = true;
 +    }
 +    return GO_TO_PREVIOUS;
 +}
@@ -551780,8 +551796,8 @@ index 0000000000..9b7b725855
 +        /* regenerate the wallpaper and rebuild Home in place */
 +        shell_theme_refresh();
 +        shell_home_rebuild();
-+        shell_nav_home();
-+        g_menu_abort = true;
++        shell_nav_pop();           /* come back to this menu, not to Home */
++        g_menu_rebuild = true;
 +    }
 +    return GO_TO_PREVIOUS;
 +}
@@ -553848,10 +553864,10 @@ index 0000000000..f6ed4e4a3c
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..60baa62bd7
+index 0000000000..ea18aa62d5
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2536 @@
+@@ -0,0 +1,2515 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -556290,35 +556306,14 @@ index 0000000000..60baa62bd7
 +}
 +
 +/* ---- shared blocks for feature screens (M2+) --------------------------- */
-+static void hdr_back_cb(lv_event_t *e)
-+{
-+    (void)e;
-+    shell_nav_pop();
-+}
-+
 +void shell_header(lv_obj_t *scr, const char *title)
 +{
-+    /* back button: the edge-swipe gesture still works, but a visible target
-+     * is more discoverable (and testable) */
-+    lv_obj_t *b = lv_btn_create(scr);
-+    lv_obj_set_size(b, 40, 40);
-+    lv_obj_set_pos(b, 4, 14);
-+    lv_obj_set_style_radius(b, 20, 0);
-+    lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
-+    lv_obj_set_style_border_width(b, 0, 0);
-+    lv_obj_set_style_shadow_width(b, 0, 0);
-+    lv_obj_add_event_cb(b, hdr_back_cb, LV_EVENT_CLICKED, NULL);
-+    lv_obj_t *bi = lv_label_create(b);
-+    lv_label_set_text(bi, LV_SYMBOL_LEFT);
-+    lv_obj_set_style_text_font(bi, th->font_symbol, 0);
-+    lv_obj_set_style_text_color(bi, th->fg_text, 0);
-+    lv_obj_center(bi);
-+
++    /* no back button: the global edge-swipe gesture handles going back */
 +    lv_obj_t *t = lv_label_create(scr);
 +    lv_label_set_text(t, title);
 +    lv_obj_set_style_text_color(t, COL_TEXT, 0);
 +    lv_obj_set_style_text_font(t, th->font_title, 0);
-+    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 50, 26);
++    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 12, 26);
 +}
 +
 +lv_color_t shell_col_text(void) { return COL_TEXT; }

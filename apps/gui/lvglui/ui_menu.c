@@ -73,6 +73,8 @@ static bool g_menu_cancel;   /* the scrim (outside the card) was tapped   */
 /* a settings change rebuilt the whole UI (theme/font size): unwind the menu
  * stack without touching the screens that shell_nav_home() removed */
 static bool g_menu_abort;
+/* a picker popped itself; rebuild this menu level once the pop lands */
+static bool g_menu_rebuild;
 
 static void menu_row_cb(lv_event_t *e)
 {
@@ -553,6 +555,15 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
             g_menu_scr = NULL;
             ret = GO_TO_PREVIOUS;
             break;
+        }
+        if (g_menu_rebuild)
+        {
+            /* a picker popped itself: wait for the deferred pop to land so
+             * the rebuild below refreshes this menu instead of pushing a
+             * second copy on top of the picker */
+            g_menu_rebuild = false;
+            for (int i = 0; i < 40 && g_menu_scr && lv_scr_act() != g_menu_scr; i++)
+                lvgui_pump();
         }
         char tbuf[80];
         const char *title = menu_title(menu, tbuf, sizeof tbuf);
@@ -1929,8 +1940,8 @@ int lvgui_font_pick(void)
         ui_theme_init();
         shell_theme_refresh();
         shell_home_rebuild();
-        shell_nav_home();
-        g_menu_abort = true;
+        shell_nav_pop();           /* come back to this menu, not to Home */
+        g_menu_rebuild = true;
     }
     return GO_TO_PREVIOUS;
 }
@@ -1956,8 +1967,8 @@ int lvgui_theme_pick(void)
         ui_theme_init();
         shell_theme_refresh();
         shell_home_rebuild();
-        shell_nav_home();
-        g_menu_abort = true;
+        shell_nav_pop();           /* come back to this menu, not to Home */
+        g_menu_rebuild = true;
     }
     return GO_TO_PREVIOUS;
 }
@@ -1990,8 +2001,8 @@ int lvgui_backdrop_pick(void)
         /* regenerate the wallpaper and rebuild Home in place */
         shell_theme_refresh();
         shell_home_rebuild();
-        shell_nav_home();
-        g_menu_abort = true;
+        shell_nav_pop();           /* come back to this menu, not to Home */
+        g_menu_rebuild = true;
     }
     return GO_TO_PREVIOUS;
 }
