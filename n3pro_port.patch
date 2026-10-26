@@ -607649,6 +607649,137 @@ index 3572320a3f..6b0b15f08a 100644
  /* use touchscreen */
  
  #elif CONFIG_KEYPAD == RG_NANO_PAD
+diff --git a/apps/plugins/pictureflow/pictureflow.c b/apps/plugins/pictureflow/pictureflow.c
+index bba1a5d70a..ae9830badd 100644
+--- a/apps/plugins/pictureflow/pictureflow.c
++++ b/apps/plugins/pictureflow/pictureflow.c
+@@ -2057,33 +2057,119 @@ bool retrieve_id3(struct mp3entry *id3, const char* file)
+     return rb->get_metadata(id3, -1, file);
+ }
+ 
++/**
++  Copy the embedded cover of a track into the plugin's cache directory and
++  return its file name in buf, so the normal image loader can use it.
++  Only JPEG and BMP are handled (read_image_file dispatches on .bmp).
++ */
++static bool dump_embedded_albumart(const char *track,
++                                   const struct mp3entry *id3,
++                                   char *buf, int buflen)
++{
++    const char *ext;
++    char tmp[4096];
++    int left, in, out;
++    bool ok = true;
++
++    if (!id3->has_embedded_albumart || id3->albumart.size <= 0)
++        return false;
++
++    switch (id3->albumart.type)
++    {
++    case AA_TYPE_JPG:
++        ext = "jpg";
++        break;
++    case AA_TYPE_BMP:
++        ext = "bmp";
++        break;
++    default:
++        return false;          /* no PNG decoder in the plugin */
++    }
++
++    rb->snprintf(buf, buflen, CACHE_PREFIX "/embart.%s", ext);
++
++    in = rb->open(track, O_RDONLY);
++    if (in < 0)
++        return false;
++    if (rb->lseek(in, id3->albumart.pos, SEEK_SET) != id3->albumart.pos)
++    {
++        rb->close(in);
++        return false;
++    }
++    out = rb->open(buf, O_WRONLY | O_CREAT | O_TRUNC, 0666);
++    if (out < 0)
++    {
++        rb->close(in);
++        return false;
++    }
++
++    left = id3->albumart.size;
++    while (left > 0 && ok)
++    {
++        int n = left > (int)sizeof(tmp) ? (int)sizeof(tmp) : left;
++        int r = rb->read(in, tmp, n);
++        if (r <= 0 || rb->write(out, tmp, r) != r)
++            ok = false;
++        else
++            left -= r;
++    }
++
++    rb->close(in);
++    rb->close(out);
++    if (!ok)
++        rb->remove(buf);
++    return ok;
++}
++
+ /**
+   Determine filename of the album art for the given slide_index and
+   store the result in buf.
+-  The algorithm looks for the first track of the given album uses
+-  find_albumart to find the filename.
++  Walk the album's tracks and use the first one that has a cover: a
++  folder/track art file first, then embedded art (written to the plugin
++  cache so the image loader can read it).
+  */
+ static bool get_albumart_for_index_from_db(const int slide_index, char *buf,
+                                     int buflen)
+ {
+-    bool ret;
+     char tcs_buf[TAGCACHE_BUFSZ];
+     const long tcs_bufsz = sizeof(tcs_buf);
++    char embedded[MAX_PATH];
++    bool ret = false;
++
+     if (tcs.valid || !rb->tagcache_search(&tcs, tag_filename))
+         return false;
+ 
+-    /* find the first track of the album */
+     rb->tagcache_search_add_filter(&tcs, tag_album,
+                                    pf_idx.album_index[slide_index].seek);
+ 
+     rb->tagcache_search_add_filter(&tcs, tag_albumartist,
+                                    pf_idx.album_index[slide_index].artist_seek);
+ 
+-    ret = rb->tagcache_get_next(&tcs, tcs_buf, tcs_bufsz) &&
+-          retrieve_id3(&id3, tcs.result) &&
+-          search_albumart_files(&id3, ":", buf, buflen);
++    embedded[0] = '\0';
++
++    while (rb->tagcache_get_next(&tcs, tcs_buf, tcs_bufsz))
++    {
++        struct mp3entry tid3;
++        if (!retrieve_id3(&tid3, tcs.result))
++            continue;
++
++        if (search_albumart_files(&tid3, ":", buf, buflen))
++        {
++            ret = true;
++            break;
++        }
++        if (!embedded[0] &&
++            dump_embedded_albumart(tcs.result, &tid3, embedded, sizeof(embedded)))
++            ;                        /* keep looking for a real file first */
++    }
+ 
+     rb->tagcache_search_finish(&tcs);
++
++    if (!ret && embedded[0])
++    {
++        rb->strlcpy(buf, embedded, buflen);
++        ret = true;
++    }
+     return ret;
+ }
+ 
 diff --git a/apps/plugins/pong.c b/apps/plugins/pong.c
 index d044563cd7..c2ca1f87da 100644
 --- a/apps/plugins/pong.c
