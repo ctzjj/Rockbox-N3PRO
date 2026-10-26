@@ -122,7 +122,12 @@ void lvgui_input_feed(int button, intptr_t data)
             else if ((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
                      (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX))
             {
-                shell_nav_pop();       /* deferred internally */
+                /* inside a menu job the swipe means "one menu level up":
+                 * popping the screen instead would flash Home while the
+                 * loop pushes the parent level again */
+                bool lvgui_menu_cancel(void);
+                if (!lvgui_menu_cancel())
+                    shell_nav_pop();   /* deferred internally */
             }
             edge_armed = false;
             top_armed = false;

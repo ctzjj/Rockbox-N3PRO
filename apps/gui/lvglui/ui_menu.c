@@ -75,6 +75,16 @@ static bool g_menu_cancel;   /* the scrim (outside the card) was tapped   */
 static bool g_menu_abort;
 /* a picker popped itself; rebuild this menu level once the pop lands */
 static bool g_menu_rebuild;
+/* a menu loop is waiting for input (edge-swipe back = cancel a level) */
+static bool g_menu_active;
+
+bool lvgui_menu_cancel(void)
+{
+    if (!g_menu_active)
+        return false;
+    g_menu_cancel = true;
+    return true;
+}
 
 static void menu_row_cb(lv_event_t *e)
 {
@@ -547,6 +557,7 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
     if (!start_menu)
         return GO_TO_PREVIOUS;
 
+    g_menu_active = true;
     while (!done)
     {
         if (g_menu_abort)
@@ -579,8 +590,8 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
 
         if (cancel)
         {
-            /* the edge-swipe gesture already popped our screen */
-            g_menu_scr = NULL;
+            /* keep the screen: the parent level is rebuilt in place so the
+             * user never sees Home flash between the two levels */
         }
         /* else: KEEP our screen on the stack — the item action pushes its
          * successor on top of us, so backing out reveals this menu again
@@ -685,6 +696,7 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
         }
     }
 
+    g_menu_active = false;
     if (g_menu_scr)
     {
         if (lv_scr_act() == g_menu_scr)

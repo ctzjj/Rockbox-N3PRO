@@ -808,11 +808,18 @@ void be_player_toggle_pause(void)
         audio_pause();
 }
 
-void be_player_next(void) { audio_next(); }
+void be_player_next(void)
+{
+    /* classic WPS next button: honours skip length / prevent skip */
+    extern void wps_play_hop(int direction);
+    wps_play_hop(1);
+}
+
 void be_player_prev(void)
 {
-    /* same call the classic WPS made for its prev button */
-    wps_prev_track(DEFAULT_SKIP_THRESH);
+    /* classic WPS prev button: same call, same settings */
+    extern void wps_play_hop(int direction);
+    wps_play_hop(-1);
 }
 
 void be_player_seek(long pos_ms)

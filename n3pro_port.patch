@@ -542927,10 +542927,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..58eceeb449
+index 0000000000..8d447ba35e
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,147 @@
+@@ -0,0 +1,152 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543055,7 +543055,12 @@ index 0000000000..58eceeb449
 +            else if ((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
 +                     (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX))
 +            {
-+                shell_nav_pop();       /* deferred internally */
++                /* inside a menu job the swipe means "one menu level up":
++                 * popping the screen instead would flash Home while the
++                 * loop pushes the parent level again */
++                bool lvgui_menu_cancel(void);
++                if (!lvgui_menu_cancel())
++                    shell_nav_pop();   /* deferred internally */
 +            }
 +            edge_armed = false;
 +            top_armed = false;
@@ -543446,10 +543451,10 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..d4d0ea0f98
+index 0000000000..e103cb6e51
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
-@@ -0,0 +1,1564 @@
+@@ -0,0 +1,1571 @@
 +/* ui_backend.c -- rockbox adapter implementation.
 + * Everything here talks to rockbox (tagcache, playlist, file tree,
 + * metadata, artwork); nothing here talks to LVGL. */
@@ -544260,11 +544265,18 @@ index 0000000000..d4d0ea0f98
 +        audio_pause();
 +}
 +
-+void be_player_next(void) { audio_next(); }
++void be_player_next(void)
++{
++    /* classic WPS next button: honours skip length / prevent skip */
++    extern void wps_play_hop(int direction);
++    wps_play_hop(1);
++}
++
 +void be_player_prev(void)
 +{
-+    /* same call the classic WPS made for its prev button */
-+    wps_prev_track(DEFAULT_SKIP_THRESH);
++    /* classic WPS prev button: same call, same settings */
++    extern void wps_play_hop(int direction);
++    wps_play_hop(-1);
 +}
 +
 +void be_player_seek(long pos_ms)
@@ -545547,10 +545559,10 @@ index 0000000000..290cdd1b21
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_compat.c b/apps/gui/lvglui/ui_compat.c
 new file mode 100644
-index 0000000000..911b5faaf7
+index 0000000000..72c9cc491d
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_compat.c
-@@ -0,0 +1,200 @@
+@@ -0,0 +1,298 @@
 +/* ui_compat.c - no-op stand-ins for classic-UI functions that the frozen
 + * plugin ABI and settings machinery still reference after the classic UI
 + * sources were dropped from the LVGL build. Compiled only when
@@ -545583,6 +545595,9 @@ index 0000000000..911b5faaf7
 +#include "list.h"
 +#include "audio.h"
 +#include "cuesheet.h"
++#include "misc.h"
++#include "playlist.h"
++#include "settings.h"
 +
 +/* playback/misc code writes id3/ff-rewind info here for the (removed) WPS;
 + * the LVGL player reads audio_* APIs directly */
@@ -545750,6 +545765,101 @@ index 0000000000..911b5faaf7
 +        audio_pre_ff_rewind();
 +        audio_ff_rewind(0);
 +    }
++}
++
++static void wps_next_track(void)
++{
++    struct wps_state *state = get_wps_state();
++
++    /* take care of if we're playing a cuesheet */
++    if (state->id3->cuesheet)
++    {
++        if (curr_cuesheet_skip(state->id3->cuesheet, 1, state->id3->elapsed))
++        {
++            /* if the result was false, then we really want
++               to skip to the next track */
++            return;
++        }
++    }
++
++    audio_next();
++}
++
++/* verbatim from the classic WPS: the prev/next buttons honour the
++ * skip-length, prevent-skip and rewind-across-tracks settings */
++void wps_play_hop(int direction)
++{
++    struct wps_state *state = get_wps_state();
++    struct cuesheet *cue = state->id3->cuesheet;
++    long step = global_settings.skip_length * 1000;
++    long elapsed = state->id3->elapsed;
++    long remaining = state->id3->length - elapsed;
++
++    /* if cuesheet is active, then we want the current tracks end instead of
++     * the total end */
++    if (cue && (cue->curr_track_idx + 1 < cue->track_count))
++    {
++        int next = cue->curr_track_idx + 1;
++        struct cue_track_info *t = &cue->tracks[next];
++        remaining = t->offset - elapsed;
++    }
++
++    if (step < 0)
++    {
++        if (direction < 0)
++        {
++            wps_prev_track(DEFAULT_SKIP_THRESH);
++            return;
++        }
++        else if (remaining < DEFAULT_SKIP_THRESH * 2)
++        {
++            wps_next_track();
++            return;
++        }
++        else
++            elapsed += (remaining - DEFAULT_SKIP_THRESH * 2);
++    }
++    else if (!global_settings.prevent_skip &&
++           (!step ||
++            (direction > 0 && step >= remaining) ||
++            (direction < 0 && elapsed < DEFAULT_SKIP_THRESH)))
++    {   /* Do normal track skipping */
++        if (direction > 0)
++            wps_next_track();
++        else if (direction < 0)
++        {
++            if (step > 0 && global_settings.rewind_across_tracks &&
++                elapsed < DEFAULT_SKIP_THRESH && playlist_check(-1))
++            {
++                bool audio_paused = (audio_status() & AUDIO_STATUS_PAUSE) ? true : false;
++                if (!audio_paused)
++                    audio_pause();
++                audio_prev();
++                audio_ff_rewind(-step);
++                if (!audio_paused)
++                    audio_resume();
++                return;
++            }
++
++            wps_prev_track(DEFAULT_SKIP_THRESH);
++        }
++        return;
++    }
++    else if (direction == 1 && step >= remaining)
++    {
++        system_sound_play(SOUND_TRACK_NO_MORE);
++        return;
++    }
++    else if (direction == -1 && elapsed < step)
++    {
++        elapsed = 0;
++    }
++    else
++    {
++        elapsed += step * direction;
++    }
++    audio_pre_ff_rewind();
++    audio_ff_rewind(elapsed);
 +}
 diff --git a/apps/gui/lvglui/ui_control.c b/apps/gui/lvglui/ui_control.c
 new file mode 100755
@@ -549789,10 +549899,10 @@ index 0000000000..486e792aa6
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..f3a905b44a
+index 0000000000..573dfd65d0
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2873 @@
+@@ -0,0 +1,2885 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -549870,6 +549980,16 @@ index 0000000000..f3a905b44a
 +static bool g_menu_abort;
 +/* a picker popped itself; rebuild this menu level once the pop lands */
 +static bool g_menu_rebuild;
++/* a menu loop is waiting for input (edge-swipe back = cancel a level) */
++static bool g_menu_active;
++
++bool lvgui_menu_cancel(void)
++{
++    if (!g_menu_active)
++        return false;
++    g_menu_cancel = true;
++    return true;
++}
 +
 +static void menu_row_cb(lv_event_t *e)
 +{
@@ -550342,6 +550462,7 @@ index 0000000000..f3a905b44a
 +    if (!start_menu)
 +        return GO_TO_PREVIOUS;
 +
++    g_menu_active = true;
 +    while (!done)
 +    {
 +        if (g_menu_abort)
@@ -550374,8 +550495,8 @@ index 0000000000..f3a905b44a
 +
 +        if (cancel)
 +        {
-+            /* the edge-swipe gesture already popped our screen */
-+            g_menu_scr = NULL;
++            /* keep the screen: the parent level is rebuilt in place so the
++             * user never sees Home flash between the two levels */
 +        }
 +        /* else: KEEP our screen on the stack — the item action pushes its
 +         * successor on top of us, so backing out reveals this menu again
@@ -550480,6 +550601,7 @@ index 0000000000..f3a905b44a
 +        }
 +    }
 +
++    g_menu_active = false;
 +    if (g_menu_scr)
 +    {
 +        if (lv_scr_act() == g_menu_scr)
@@ -594660,6 +594782,69 @@ index 0000000000..fb90f0168c
 +                  bluetooth_menu, NULL, Icon_Submenu);
 +
 +#endif /* HAVE_BT_AUDIO */
+diff --git a/apps/menus/display_menu.c b/apps/menus/display_menu.c
+index 99b1ad5f1e..ab2314307c 100644
+--- a/apps/menus/display_menu.c
++++ b/apps/menus/display_menu.c
+@@ -310,6 +310,7 @@ MAKE_MENU(lcd_remote_settings, ID2P(LANG_LCD_REMOTE_MENU),
+ /********************************/
+ 
+ /***********************************/
++#ifndef HAVE_LVGL_UI
+ /*    SCROLL MENU                  */
+ MENUITEM_SETTING_W_TEXT(scroll_speed, &global_settings.scroll_speed,
+                          ID2P(LANG_SCROLL), NULL);
+@@ -360,12 +361,14 @@ MAKE_MENU(scroll_settings_menu, ID2P(LANG_SCROLL_MENU), 0, Icon_NOICON,
+           &list_accel_start_delay, &list_accel_wait
+ #endif
+           );
++#endif /* !HAVE_LVGL_UI */
+ /*    SCROLL MENU                  */
+ /***********************************/
+ 
+ /***********************************/
+ /*    PEAK METER MENU              */
+ 
++#ifndef HAVE_LVGL_UI
+ static int peakmeter_callback(int action,
+                               const struct menu_item_ex *this_item,
+                               struct gui_synclist *this_list)
+@@ -548,6 +551,7 @@ MAKE_MENU(peak_meter_menu, ID2P(LANG_PM_MENU), NULL, Icon_NOICON,
+           &histogram,
+ #endif
+           &peak_meter_scale_item, &peak_meter_min_item, &peak_meter_max_item);
++#endif /* !HAVE_LVGL_UI */
+ /*    PEAK METER MENU              */
+ /***********************************/
+ 
+@@ -598,6 +602,7 @@ MAKE_MENU(touchscreen_menu, ID2P(LANG_TOUCHSCREEN_SETTINGS), NULL, Icon_NOICON,
+           &touchscreen_menu_reset_calibration);
+ #endif
+ 
++#ifndef HAVE_LVGL_UI
+ static int codepage_callback(int action,
+                              const struct menu_item_ex *this_item,
+                              struct gui_synclist *this_list)
+@@ -620,6 +625,7 @@ static int codepage_callback(int action,
+ }
+ 
+ MENUITEM_SETTING(codepage_setting, &global_settings.default_codepage, codepage_callback);
++#endif /* !HAVE_LVGL_UI */
+ 
+ 
+ MAKE_MENU(display_menu, ID2P(LANG_DISPLAY),
+@@ -628,9 +634,11 @@ MAKE_MENU(display_menu, ID2P(LANG_DISPLAY),
+ #ifdef HAVE_REMOTE_LCD
+             &lcd_remote_settings,
+ #endif
++#ifndef HAVE_LVGL_UI
+             &scroll_settings_menu,
+             &peak_meter_menu,
+             &codepage_setting,
++#endif /* !HAVE_LVGL_UI */
+ #ifdef HAVE_TOUCHSCREEN
+             &touchscreen_menu,
+ #endif
 diff --git a/apps/menus/eq_menu.c b/apps/menus/eq_menu.c
 index 370f8bcad2..0fe5c7c2c0 100644
 --- a/apps/menus/eq_menu.c
@@ -594776,6 +594961,55 @@ index a09d81de3d..aeb20c79c0 100644
      plugin_load(PLUGIN_APPS_DIR "/main_menu_config.rock", NULL);
      return 0;
  }
+diff --git a/apps/menus/playback_menu.c b/apps/menus/playback_menu.c
+index c359161734..503f0013d9 100644
+--- a/apps/menus/playback_menu.c
++++ b/apps/menus/playback_menu.c
+@@ -63,10 +63,13 @@ MENUITEM_SETTING(shuffle_item, &global_settings.playlist_shuffle, NULL);
+ MENUITEM_SETTING(repeat_mode, &global_settings.repeat_mode, NULL);
+ MENUITEM_SETTING(play_selected, &global_settings.play_selected, NULL);
+ 
++#ifndef HAVE_LVGL_UI
++/* wind/rewind acceleration only drives the classic WPS seek buttons */
+ MENUITEM_SETTING(ff_rewind_accel, &global_settings.ff_rewind_accel, NULL);
+ MENUITEM_SETTING(ff_rewind_min_step, &global_settings.ff_rewind_min_step, NULL);
+ MAKE_MENU(ff_rewind_settings_menu, ID2P(LANG_WIND_MENU), 0, Icon_NOICON,
+           &ff_rewind_min_step, &ff_rewind_accel);
++#endif /* !HAVE_LVGL_UI */
+ #ifdef HAVE_DISK_STORAGE
+ static int buffermargin_callback(int action,
+                                  const struct menu_item_ex *this_item,
+@@ -171,7 +174,10 @@ MENUITEM_SETTING(skip_length, &global_settings.skip_length, NULL);
+ MENUITEM_SETTING(prevent_skip, &global_settings.prevent_skip, NULL);
+ MENUITEM_SETTING(rewind_across_tracks, &global_settings.rewind_across_tracks, NULL);
+ MENUITEM_SETTING(resume_rewind, &global_settings.resume_rewind, NULL);
++#ifndef HAVE_LVGL_UI
++/* only the classic WPS rewinds when pausing */
+ MENUITEM_SETTING(pause_rewind, &global_settings.pause_rewind, NULL);
++#endif /* !HAVE_LVGL_UI */
+ #ifdef HAVE_PLAY_FREQ
+ MENUITEM_SETTING(play_frequency, &global_settings.play_frequency, NULL);
+ #endif
+@@ -184,7 +190,9 @@ MENUITEM_SETTING(playback_log, &global_settings.playback_log, NULL);
+ MAKE_MENU(playback_settings,ID2P(LANG_PLAYBACK),0,
+           Icon_Playback_menu,
+           &shuffle_item, &repeat_mode, &play_selected,
++#ifndef HAVE_LVGL_UI
+           &ff_rewind_settings_menu,
++#endif /* !HAVE_LVGL_UI */
+ #ifdef HAVE_DISK_STORAGE
+           &buffer_margin,
+ #endif
+@@ -207,7 +215,9 @@ MAKE_MENU(playback_settings,ID2P(LANG_PLAYBACK),0,
+           ,&rewind_across_tracks
+ 
+           ,&resume_rewind
++#ifndef HAVE_LVGL_UI
+           ,&pause_rewind
++#endif /* !HAVE_LVGL_UI */
+ #ifdef HAVE_PLAY_FREQ
+           ,&play_frequency
+ #endif
 diff --git a/apps/menus/settings_menu.c b/apps/menus/settings_menu.c
 index 1879ada8fe..97c536faad 100644
 --- a/apps/menus/settings_menu.c
@@ -595012,6 +595246,33 @@ index 03ddfc2a3a..d6dfa990b7 100644
              &colors_settings,
  #endif
  );
+diff --git a/apps/menus/time_menu.c b/apps/menus/time_menu.c
+index 6c282a2865..7b2972c7cb 100644
+--- a/apps/menus/time_menu.c
++++ b/apps/menus/time_menu.c
+@@ -218,8 +218,10 @@ static int time_menu_callback(int action,
+     if (redraw)
+     {
+         last_redraw = current_tick;
++#ifndef HAVE_LVGL_UI
+         FOR_NB_SCREENS(i)
+             draw_timedate(&clock_vps[i], &screens[i]);
++#endif
+     }
+     return action;
+ }
+@@ -268,7 +270,11 @@ int time_screen(void* ignored)
+             clock_vps[i].height = 0;
+         menu[i].y += clock_vps[i].height;
+         menu[i].height -= clock_vps[i].height;
++#ifndef HAVE_LVGL_UI
++        /* the LVGL menu draws its own header; painting the classic clock
++         * here would flash the skin UI before it */
+         draw_timedate(&clock_vps[i], &screens[i]);
++#endif
+     }
+ 
+ #ifdef SAMSUNG_YH820
 diff --git a/apps/menus/wifi_menu.c b/apps/menus/wifi_menu.c
 new file mode 100644
 index 0000000000..5a33fc4b2c

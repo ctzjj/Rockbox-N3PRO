@@ -30,6 +30,9 @@ enum playlist_viewer_result playlist_viewer_ex(const char *filename,
 #include "list.h"
 #include "audio.h"
 #include "cuesheet.h"
+#include "misc.h"
+#include "playlist.h"
+#include "settings.h"
 
 /* playback/misc code writes id3/ff-rewind info here for the (removed) WPS;
  * the LVGL player reads audio_* APIs directly */
@@ -197,4 +200,99 @@ void wps_prev_track(unsigned long skip_thresh)
         audio_pre_ff_rewind();
         audio_ff_rewind(0);
     }
+}
+
+static void wps_next_track(void)
+{
+    struct wps_state *state = get_wps_state();
+
+    /* take care of if we're playing a cuesheet */
+    if (state->id3->cuesheet)
+    {
+        if (curr_cuesheet_skip(state->id3->cuesheet, 1, state->id3->elapsed))
+        {
+            /* if the result was false, then we really want
+               to skip to the next track */
+            return;
+        }
+    }
+
+    audio_next();
+}
+
+/* verbatim from the classic WPS: the prev/next buttons honour the
+ * skip-length, prevent-skip and rewind-across-tracks settings */
+void wps_play_hop(int direction)
+{
+    struct wps_state *state = get_wps_state();
+    struct cuesheet *cue = state->id3->cuesheet;
+    long step = global_settings.skip_length * 1000;
+    long elapsed = state->id3->elapsed;
+    long remaining = state->id3->length - elapsed;
+
+    /* if cuesheet is active, then we want the current tracks end instead of
+     * the total end */
+    if (cue && (cue->curr_track_idx + 1 < cue->track_count))
+    {
+        int next = cue->curr_track_idx + 1;
+        struct cue_track_info *t = &cue->tracks[next];
+        remaining = t->offset - elapsed;
+    }
+
+    if (step < 0)
+    {
+        if (direction < 0)
+        {
+            wps_prev_track(DEFAULT_SKIP_THRESH);
+            return;
+        }
+        else if (remaining < DEFAULT_SKIP_THRESH * 2)
+        {
+            wps_next_track();
+            return;
+        }
+        else
+            elapsed += (remaining - DEFAULT_SKIP_THRESH * 2);
+    }
+    else if (!global_settings.prevent_skip &&
+           (!step ||
+            (direction > 0 && step >= remaining) ||
+            (direction < 0 && elapsed < DEFAULT_SKIP_THRESH)))
+    {   /* Do normal track skipping */
+        if (direction > 0)
+            wps_next_track();
+        else if (direction < 0)
+        {
+            if (step > 0 && global_settings.rewind_across_tracks &&
+                elapsed < DEFAULT_SKIP_THRESH && playlist_check(-1))
+            {
+                bool audio_paused = (audio_status() & AUDIO_STATUS_PAUSE) ? true : false;
+                if (!audio_paused)
+                    audio_pause();
+                audio_prev();
+                audio_ff_rewind(-step);
+                if (!audio_paused)
+                    audio_resume();
+                return;
+            }
+
+            wps_prev_track(DEFAULT_SKIP_THRESH);
+        }
+        return;
+    }
+    else if (direction == 1 && step >= remaining)
+    {
+        system_sound_play(SOUND_TRACK_NO_MORE);
+        return;
+    }
+    else if (direction == -1 && elapsed < step)
+    {
+        elapsed = 0;
+    }
+    else
+    {
+        elapsed += step * direction;
+    }
+    audio_pre_ff_rewind();
+    audio_ff_rewind(elapsed);
 }
