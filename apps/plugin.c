@@ -97,10 +97,103 @@ static void plugin_tsr(int (*exit_callback)(bool));
 
 extern struct battery_tables_t device_battery_tables; /* powermgmt.c */
 
+#if defined(HAVE_LVGL_UI)
+/* Needed by plugins that want to show PNG covers: the classic image
+ * loader only knows JPEG/BMP, but the LVGL build already links lodepng. */
+#include "../lib/lvgl/src/extra/libs/png/lodepng.h"
+
+static void put_le32(unsigned char *p, uint32_t v)
+{
+    p[0] = v; p[1] = v >> 8; p[2] = v >> 16; p[3] = v >> 24;
+}
+
+bool png_to_bmp_file(const char *png, const char *bmp)
+{
+    unsigned char *raw = NULL, *rgba = NULL;
+    unsigned w = 0, h = 0, x, y, row;
+    uint32_t data_sz;
+    unsigned char hdr[54];
+    int fd;
+    long fsz;
+    bool ok = true;
+
+    fd = open(png, O_RDONLY);
+    if (fd < 0)
+        return false;
+    fsz = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET);
+    if (fsz <= 0 || fsz > 8 * 1024 * 1024)
+    {
+        close(fd);
+        return false;
+    }
+    raw = malloc(fsz);
+    if (!raw || read(fd, raw, fsz) != (ssize_t)fsz)
+    {
+        close(fd);
+        free(raw);
+        return false;
+    }
+    close(fd);
+
+    if (lodepng_decode32(&rgba, &w, &h, raw, fsz) != 0 || !rgba)
+    {
+        free(raw);
+        return false;
+    }
+    free(raw);
+
+    row = (w * 3 + 3) & ~3u;
+    data_sz = row * h;
+    memset(hdr, 0, sizeof hdr);
+    hdr[0] = 'B'; hdr[1] = 'M';
+    put_le32(hdr + 2, 54 + data_sz);
+    put_le32(hdr + 10, 54);
+    put_le32(hdr + 14, 40);
+    put_le32(hdr + 18, w);
+    put_le32(hdr + 22, h);
+    hdr[26] = 1; hdr[28] = 24;
+    put_le32(hdr + 34, data_sz);
+
+    fd = open(bmp, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+    {
+        free(rgba);
+        return false;
+    }
+    if (write(fd, hdr, sizeof hdr) != (ssize_t)sizeof hdr)
+        ok = false;
+
+    /* BMP rows are bottom-up, BGR, padded to 4 bytes */
+    for (y = h; ok && y > 0; y--)
+    {
+        unsigned char *line = malloc(row);
+        unsigned char *src = rgba + (size_t)(y - 1) * w * 4;
+        if (!line) { ok = false; break; }
+        memset(line, 0, row);
+        for (x = 0; x < w; x++)
+        {
+            line[x * 3 + 0] = src[x * 4 + 2];
+            line[x * 3 + 1] = src[x * 4 + 1];
+            line[x * 3 + 2] = src[x * 4 + 0];
+        }
+        if (write(fd, line, row) != (ssize_t)row)
+            ok = false;
+        free(line);
+    }
+    close(fd);
+    free(rgba);
+    if (!ok)
+        remove(bmp);
+    return ok;
+}
+#endif /* HAVE_LVGL_UI */
+
 #ifdef HAVE_PLUGIN_CHECK_OPEN_CLOSE
 /* File handle leak prophylaxis */
 #include "bitarray.h"
 #include "file_internal.h" /* for MAX_OPEN_FILES */
+
 
 #define PCOC_WRAPPER(_x_)   WRAPPER(_x_)
 
@@ -839,6 +932,9 @@ static const struct plugin_api rockbox_api = {
     remove_array_ptr,
     round_value_to_list32,
 
+#ifdef HAVE_LVGL_UI
+    png_to_bmp_file,
+#endif
     read_bmp_file,
     read_bmp_fd,
 #ifdef HAVE_JPEG

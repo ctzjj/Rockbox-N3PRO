@@ -1001,6 +1001,9 @@ struct plugin_api {
                                  int count,
                                  bool signd);
 
+#ifdef HAVE_LVGL_UI
+    bool (*png_to_bmp)(const char *png, const char *bmp);
+#endif
     int (*read_bmp_file)(const char* filename, struct bitmap *bm, int maxsize,
                          int format, const struct custom_format *cformat);
     int (*read_bmp_fd)(int fd, struct bitmap *bm, int maxsize,

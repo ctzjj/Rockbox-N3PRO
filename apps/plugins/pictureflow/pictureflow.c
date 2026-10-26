@@ -2082,8 +2082,11 @@ static bool dump_embedded_albumart(const char *track,
     case AA_TYPE_BMP:
         ext = "bmp";
         break;
+    case AA_TYPE_PNG:
+        ext = "png";           /* converted to bmp below */
+        break;
     default:
-        return false;          /* no PNG decoder in the plugin */
+        return false;
     }
 
     rb->snprintf(buf, buflen, CACHE_PREFIX "/embart.%s", ext);
@@ -2119,6 +2122,30 @@ static bool dump_embedded_albumart(const char *track,
     if (!ok)
         rb->remove(buf);
     return ok;
+}
+
+/**
+  The classic image loader only decodes JPEG/BMP.  On builds that have
+  the PNG decoder (LVGL UI links lodepng) turn a .png cover into a .bmp
+  in the plugin cache so read_image_file() can load it.
+ */
+static bool pf_use_png_fallback(char *buf, int buflen)
+{
+    int n = rb->strlen(buf);
+
+    if (n < 4 || rb->strcmp(buf + n - 4, ".png"))
+        return true;
+#if defined(HAVE_LVGL_UI)
+    char bmp[MAX_PATH];
+    rb->snprintf(bmp, sizeof bmp, CACHE_PREFIX "/embart.bmp");
+    if (!rb->png_to_bmp(buf, bmp))
+        return false;
+    rb->strlcpy(buf, bmp, buflen);
+    return true;
+#else
+    (void)buflen;
+    return false;              /* no PNG decoder in this build */
+#endif
 }
 
 /**
@@ -2170,6 +2197,8 @@ static bool get_albumart_for_index_from_db(const int slide_index, char *buf,
         rb->strlcpy(buf, embedded, buflen);
         ret = true;
     }
+    if (ret && !pf_use_png_fallback(buf, buflen))
+        return false;
     return ret;
 }
 

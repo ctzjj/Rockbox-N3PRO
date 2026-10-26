@@ -600707,7 +600707,7 @@ index e35700732c..0000000000
 -    return ret;
 -}
 diff --git a/apps/plugin.c b/apps/plugin.c
-index 83574d5ed0..2e99ac4889 100644
+index 83574d5ed0..5551ebf932 100644
 --- a/apps/plugin.c
 +++ b/apps/plugin.c
 @@ -31,6 +31,7 @@
@@ -600718,7 +600718,112 @@ index 83574d5ed0..2e99ac4889 100644
  #include "mp3data.h"
  #include "powermgmt.h"
  #include "splash.h"
-@@ -668,6 +669,7 @@ static const struct plugin_api rockbox_api = {
+@@ -96,11 +97,104 @@ static void plugin_tsr(int (*exit_callback)(bool));
+ 
+ extern struct battery_tables_t device_battery_tables; /* powermgmt.c */
+ 
++#if defined(HAVE_LVGL_UI)
++/* Needed by plugins that want to show PNG covers: the classic image
++ * loader only knows JPEG/BMP, but the LVGL build already links lodepng. */
++#include "../lib/lvgl/src/extra/libs/png/lodepng.h"
++
++static void put_le32(unsigned char *p, uint32_t v)
++{
++    p[0] = v; p[1] = v >> 8; p[2] = v >> 16; p[3] = v >> 24;
++}
++
++bool png_to_bmp_file(const char *png, const char *bmp)
++{
++    unsigned char *raw = NULL, *rgba = NULL;
++    unsigned w = 0, h = 0, x, y, row;
++    uint32_t data_sz;
++    unsigned char hdr[54];
++    int fd;
++    long fsz;
++    bool ok = true;
++
++    fd = open(png, O_RDONLY);
++    if (fd < 0)
++        return false;
++    fsz = lseek(fd, 0, SEEK_END);
++    lseek(fd, 0, SEEK_SET);
++    if (fsz <= 0 || fsz > 8 * 1024 * 1024)
++    {
++        close(fd);
++        return false;
++    }
++    raw = malloc(fsz);
++    if (!raw || read(fd, raw, fsz) != (ssize_t)fsz)
++    {
++        close(fd);
++        free(raw);
++        return false;
++    }
++    close(fd);
++
++    if (lodepng_decode32(&rgba, &w, &h, raw, fsz) != 0 || !rgba)
++    {
++        free(raw);
++        return false;
++    }
++    free(raw);
++
++    row = (w * 3 + 3) & ~3u;
++    data_sz = row * h;
++    memset(hdr, 0, sizeof hdr);
++    hdr[0] = 'B'; hdr[1] = 'M';
++    put_le32(hdr + 2, 54 + data_sz);
++    put_le32(hdr + 10, 54);
++    put_le32(hdr + 14, 40);
++    put_le32(hdr + 18, w);
++    put_le32(hdr + 22, h);
++    hdr[26] = 1; hdr[28] = 24;
++    put_le32(hdr + 34, data_sz);
++
++    fd = open(bmp, O_WRONLY | O_CREAT | O_TRUNC, 0666);
++    if (fd < 0)
++    {
++        free(rgba);
++        return false;
++    }
++    if (write(fd, hdr, sizeof hdr) != (ssize_t)sizeof hdr)
++        ok = false;
++
++    /* BMP rows are bottom-up, BGR, padded to 4 bytes */
++    for (y = h; ok && y > 0; y--)
++    {
++        unsigned char *line = malloc(row);
++        unsigned char *src = rgba + (size_t)(y - 1) * w * 4;
++        if (!line) { ok = false; break; }
++        memset(line, 0, row);
++        for (x = 0; x < w; x++)
++        {
++            line[x * 3 + 0] = src[x * 4 + 2];
++            line[x * 3 + 1] = src[x * 4 + 1];
++            line[x * 3 + 2] = src[x * 4 + 0];
++        }
++        if (write(fd, line, row) != (ssize_t)row)
++            ok = false;
++        free(line);
++    }
++    close(fd);
++    free(rgba);
++    if (!ok)
++        remove(bmp);
++    return ok;
++}
++#endif /* HAVE_LVGL_UI */
++
+ #ifdef HAVE_PLUGIN_CHECK_OPEN_CLOSE
+ /* File handle leak prophylaxis */
+ #include "bitarray.h"
+ #include "file_internal.h" /* for MAX_OPEN_FILES */
+ 
++
+ #define PCOC_WRAPPER(_x_)   WRAPPER(_x_)
+ 
+ BITARRAY_TYPE_DECLARE(plugin_check_open_close_bitmap_t, open_files_bitmap,
+@@ -668,6 +762,7 @@ static const struct plugin_api rockbox_api = {
      audio_set_input_source,
  #endif
      dsp_set_crossfeed_type ,
@@ -600726,8 +600831,18 @@ index 83574d5ed0..2e99ac4889 100644
      dsp_eq_enable,
      dsp_dither_enable,
  #ifdef HAVE_PITCHCONTROL
+@@ -837,6 +932,9 @@ static const struct plugin_api rockbox_api = {
+     remove_array_ptr,
+     round_value_to_list32,
+ 
++#ifdef HAVE_LVGL_UI
++    png_to_bmp_file,
++#endif
+     read_bmp_file,
+     read_bmp_fd,
+ #ifdef HAVE_JPEG
 diff --git a/apps/plugin.h b/apps/plugin.h
-index e98c4b78a3..52714b21ad 100644
+index e98c4b78a3..ef3849fb51 100644
 --- a/apps/plugin.h
 +++ b/apps/plugin.h
 @@ -778,6 +778,7 @@ struct plugin_api {
@@ -600738,6 +600853,16 @@ index e98c4b78a3..52714b21ad 100644
      void (*dsp_eq_enable)(bool enable);
      void (*dsp_dither_enable)(bool enable);
  #ifdef HAVE_PITCHCONTROL
+@@ -1000,6 +1001,9 @@ struct plugin_api {
+                                  int count,
+                                  bool signd);
+ 
++#ifdef HAVE_LVGL_UI
++    bool (*png_to_bmp)(const char *png, const char *bmp);
++#endif
+     int (*read_bmp_file)(const char* filename, struct bitmap *bm, int maxsize,
+                          int format, const struct custom_format *cformat);
+     int (*read_bmp_fd)(int fd, struct bitmap *bm, int maxsize,
 diff --git a/apps/plugins/SOURCES.app_build b/apps/plugins/SOURCES.app_build
 index 439a6dd29c..c66f43a454 100644
 --- a/apps/plugins/SOURCES.app_build
@@ -607650,10 +607775,10 @@ index 3572320a3f..6b0b15f08a 100644
  
  #elif CONFIG_KEYPAD == RG_NANO_PAD
 diff --git a/apps/plugins/pictureflow/pictureflow.c b/apps/plugins/pictureflow/pictureflow.c
-index bba1a5d70a..ae9830badd 100644
+index bba1a5d70a..e483e2b102 100644
 --- a/apps/plugins/pictureflow/pictureflow.c
 +++ b/apps/plugins/pictureflow/pictureflow.c
-@@ -2057,33 +2057,119 @@ bool retrieve_id3(struct mp3entry *id3, const char* file)
+@@ -2057,33 +2057,148 @@ bool retrieve_id3(struct mp3entry *id3, const char* file)
      return rb->get_metadata(id3, -1, file);
  }
  
@@ -607682,8 +607807,11 @@ index bba1a5d70a..ae9830badd 100644
 +    case AA_TYPE_BMP:
 +        ext = "bmp";
 +        break;
++    case AA_TYPE_PNG:
++        ext = "png";           /* converted to bmp below */
++        break;
 +    default:
-+        return false;          /* no PNG decoder in the plugin */
++        return false;
 +    }
 +
 +    rb->snprintf(buf, buflen, CACHE_PREFIX "/embart.%s", ext);
@@ -607719,6 +607847,30 @@ index bba1a5d70a..ae9830badd 100644
 +    if (!ok)
 +        rb->remove(buf);
 +    return ok;
++}
++
++/**
++  The classic image loader only decodes JPEG/BMP.  On builds that have
++  the PNG decoder (LVGL UI links lodepng) turn a .png cover into a .bmp
++  in the plugin cache so read_image_file() can load it.
++ */
++static bool pf_use_png_fallback(char *buf, int buflen)
++{
++    int n = rb->strlen(buf);
++
++    if (n < 4 || rb->strcmp(buf + n - 4, ".png"))
++        return true;
++#if defined(HAVE_LVGL_UI)
++    char bmp[MAX_PATH];
++    rb->snprintf(bmp, sizeof bmp, CACHE_PREFIX "/embart.bmp");
++    if (!rb->png_to_bmp(buf, bmp))
++        return false;
++    rb->strlcpy(buf, bmp, buflen);
++    return true;
++#else
++    (void)buflen;
++    return false;              /* no PNG decoder in this build */
++#endif
 +}
 +
  /**
@@ -607777,6 +607929,8 @@ index bba1a5d70a..ae9830badd 100644
 +        rb->strlcpy(buf, embedded, buflen);
 +        ret = true;
 +    }
++    if (ret && !pf_use_png_fallback(buf, buflen))
++        return false;
      return ret;
  }
  
