@@ -542950,10 +542950,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..80a0f5eb39
+index 0000000000..4c1edbbb22
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,187 @@
+@@ -0,0 +1,156 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543004,7 +543004,6 @@ index 0000000000..80a0f5eb39
 +
 +void lvgui_input_feed(int button, intptr_t data)
 +{
-+    extern volatile bool lvgui_plugin_active;
 +    /* Pointer-mode touch events from button-devinput.c: the queue carries
 +     * BUTTON_TOUCHSCREEN (press/repeat) and BUTTON_REL|BUTTON_TOUCHSCREEN,
 +     * with coordinates packed in the data word as (x << 16) | y. */
@@ -543032,36 +543031,6 @@ index 0000000000..80a0f5eb39
 +        }
 +
 +        /* arm only on the press *edge* (move repeats must not re-arm) */
-+        /* a plugin owns the screen: feed it the classic LEFT/RIGHT keys
-+         * (PictureFlow and friends only map buttons, not touch) */
-+        if (lvgui_plugin_active)
-+        {
-+            static lv_coord_t px, py;
-+
-+            if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
-+                edge_prev == LV_INDEV_STATE_RELEASED)
-+            {
-+                px = g_last_touch.point.x;
-+                py = g_last_touch.point.y;
-+            }
-+            else if (edge_prev == LV_INDEV_STATE_PRESSED &&
-+                     g_last_touch.state == LV_INDEV_STATE_RELEASED)
-+            {
-+                lv_coord_t dx = g_last_touch.point.x - px;
-+                lv_coord_t dy = g_last_touch.point.y - py;
-+                lv_coord_t adx = dx < 0 ? -dx : dx;
-+                lv_coord_t ady = dy < 0 ? -dy : dy;
-+                if (adx > 40 && adx > ady)
-+                {
-+                    long btn = dx < 0 ? BUTTON_RIGHT : BUTTON_LEFT;
-+                    button_queue_post(btn, 0);
-+                    button_queue_post(btn | BUTTON_REL, 0);
-+                }
-+            }
-+            edge_prev = g_last_touch.state;
-+            return;
-+        }
-+
 +        if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
 +            edge_prev == LV_INDEV_STATE_RELEASED)
 +        {
@@ -543143,10 +543112,10 @@ index 0000000000..80a0f5eb39
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..fd6377d5af
+index 0000000000..7ec688637e
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,204 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543227,17 +543196,10 @@ index 0000000000..fd6377d5af
 + * over whatever it left on the framebuffer. Called from lvgui_ft_enter_path()
 + * inside a job, so the LVGL loop is not running while the plugin draws. */
 +extern int root_menu_plugin_screen(void);
-+/* set while a plugin owns the screen: our touch gestures become the
-+ * plugin's LEFT/RIGHT keys instead of shell navigation */
-+volatile bool lvgui_plugin_active = false;
 +
 +int lvgui_plugin_run(void)
 +{
-+    int rc;
-+
-+    lvgui_plugin_active = true;
-+    rc = root_menu_plugin_screen();
-+    lvgui_plugin_active = false;
++    int rc = root_menu_plugin_screen();
 +
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_obj_invalidate(lv_layer_top());
@@ -550098,10 +550060,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..dfa235a461
+index 0000000000..42eac762be
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2890 @@
+@@ -0,0 +1,2906 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550666,6 +550628,18 @@ index 0000000000..dfa235a461
 +    if (!start_menu)
 +        return GO_TO_PREVIOUS;
 +
++#ifdef HAVE_TOUCHSCREEN
++    /* This engine can be reached from inside a plugin, where plugin.c has
++     * forced TOUCHSCREEN_BUTTON: the menu would then only ever see 3x3
++     * cell codes and no coordinates, so taps and swipes never landed on
++     * the widgets.  Take the panel back in point mode while the native
++     * menu owns the screen; the plugin's own grid mode is restored when
++     * the menu returns. */
++    enum touchscreen_mode ts_mode = touchscreen_get_mode();
++    if (ts_mode != TOUCHSCREEN_POINT)
++        touchscreen_set_mode(TOUCHSCREEN_POINT);
++#endif
++
 +    g_menu_active = true;
 +    while (!done)
 +    {
@@ -550815,6 +550789,10 @@ index 0000000000..dfa235a461
 +
 +    if (start_selected)
 +        *start_selected = selected;
++#ifdef HAVE_TOUCHSCREEN
++    if (ts_mode != TOUCHSCREEN_POINT)
++        touchscreen_set_mode(ts_mode);
++#endif
 +    return ret;
 +}
 +
@@ -613201,10 +613179,10 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..2499ed0011
+index 0000000000..40b6dd19b5
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,147 @@
 +/*
 + * This config file is for the Cayin N3Pro
 + */
@@ -613244,6 +613222,12 @@ index 0000000000..2499ed0011
 +#ifndef BOOTLOADER
 +#define HAVE_BUTTON_DATA
 +#define HAVE_TOUCHSCREEN
++/* Grid mode (plugins, keyboard, stock menus) has no shell gestures.  A
++ * touch that starts on the left/right rim is held back so a horizontal
++ * swipe can post the standard cancel key; a plain tap still presses the
++ * 3x3 cell on release.  See button-devinput.c. */
++#define TOUCHSCREEN_GRID_SWIPE_BACK
++#define GRID_SWIPE_BACK_BUTTON BUTTON_POWER
 +#define HAVE_KBD_POINT_MODE
 +/* Music database (tagcache) for the library browser. */
 +#define HAVE_TAGCACHE
@@ -613996,7 +613980,7 @@ index a1b4194ec3..4b7fd128ba 100644
  {
      /* cap range, just in case */
 diff --git a/firmware/target/hosted/button-devinput.c b/firmware/target/hosted/button-devinput.c
-index 1c5e2abea2..7defe044af 100644
+index 1c5e2abea2..c992c446a6 100644
 --- a/firmware/target/hosted/button-devinput.c
 +++ b/firmware/target/hosted/button-devinput.c
 @@ -33,6 +33,7 @@
@@ -614028,6 +614012,76 @@ index 1c5e2abea2..7defe044af 100644
  #ifdef BUTTON_DELAY_RELEASE
  static int button_delay_release = 0;
  static int delay_tick = 0;
+@@ -124,6 +128,17 @@ static enum
+     TOUCHSCREEN_STATE_DOWN
+ } _last_touch_state = TOUCHSCREEN_STATE_UNKNOWN;
+ 
++#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
++/* Rim band and travel that turn a grid-mode touch into a back gesture. */
++#define GRID_SWIPE_EDGE 48
++#define GRID_SWIPE_PX   40
++
++static bool grid_touch_active;      /* a rim touch is being tracked */
++static bool grid_touch_swiped;      /* it travelled far enough horizontally */
++static int  grid_touch_cell;        /* cell held back until the release */
++static int  grid_touch_x, grid_touch_y;
++#endif
++
+ /* Do _NOT_ change this.  Unofficial Linux API */
+ #define EVENT_VALUE_TOUCHSCREEN_RELEASE  -1
+ /* This is only used as an arbitrary placeholder */
+@@ -320,8 +335,51 @@ int button_read_device(BDATA)
+ 
+     if(_last_touch_state == TOUCHSCREEN_STATE_DOWN)
+     {
++#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
++        /* Grid mode returns a 3x3 cell, not a point: defer a rim touch so
++         * a horizontal swipe can become BACK instead of a cell press. */
++        if (touch && !(touch & BUTTON_TOUCHSCREEN) &&
++            touchscreen_get_mode() == TOUCHSCREEN_BUTTON)
++        {
++            if(!grid_touch_active)
++            {
++                grid_touch_active = true;
++                grid_touch_swiped = false;
++                grid_touch_cell = 0;
++                grid_touch_x = _last_x;
++                grid_touch_y = _last_y;
++                if(_last_x < GRID_SWIPE_EDGE ||
++                   _last_x >= LCD_WIDTH - GRID_SWIPE_EDGE)
++                    grid_touch_cell = touch;
++            }
++            if(grid_touch_cell)
++            {
++                int dx = _last_x - grid_touch_x;
++                int dy = _last_y - grid_touch_y;
++                int adx = dx < 0 ? -dx : dx;
++                int ady = dy < 0 ? -dy : dy;
++                if(adx >= GRID_SWIPE_PX && adx > ady)
++                    grid_touch_swiped = true;
++                return button_bitmap;   /* nothing pressed while held */
++            }
++        }
++#endif
+         return button_bitmap | touch;
+     }
++#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
++    else if(grid_touch_active)
++    {
++        grid_touch_active = false;
++        if(grid_touch_cell)
++        {
++            int btn = grid_touch_swiped ? GRID_SWIPE_BACK_BUTTON
++                                        : grid_touch_cell;
++            grid_touch_cell = 0;
++            button_queue_post(btn, 0);
++            button_queue_post(btn | BUTTON_REL, 0);
++        }
++    }
++#endif
+ #endif
+ 
+     return button_bitmap;
 diff --git a/firmware/target/hosted/button-devinput.h b/firmware/target/hosted/button-devinput.h
 index 20c76cab4b..03b3dbf2bf 100644
 --- a/firmware/target/hosted/button-devinput.h

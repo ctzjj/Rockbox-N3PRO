@@ -562,6 +562,18 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
     if (!start_menu)
         return GO_TO_PREVIOUS;
 
+#ifdef HAVE_TOUCHSCREEN
+    /* This engine can be reached from inside a plugin, where plugin.c has
+     * forced TOUCHSCREEN_BUTTON: the menu would then only ever see 3x3
+     * cell codes and no coordinates, so taps and swipes never landed on
+     * the widgets.  Take the panel back in point mode while the native
+     * menu owns the screen; the plugin's own grid mode is restored when
+     * the menu returns. */
+    enum touchscreen_mode ts_mode = touchscreen_get_mode();
+    if (ts_mode != TOUCHSCREEN_POINT)
+        touchscreen_set_mode(TOUCHSCREEN_POINT);
+#endif
+
     g_menu_active = true;
     while (!done)
     {
@@ -711,6 +723,10 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
 
     if (start_selected)
         *start_selected = selected;
+#ifdef HAVE_TOUCHSCREEN
+    if (ts_mode != TOUCHSCREEN_POINT)
+        touchscreen_set_mode(ts_mode);
+#endif
     return ret;
 }
 
