@@ -48,6 +48,7 @@ extern void shell_lock_hide(void);
 
 void lvgui_input_feed(int button, intptr_t data)
 {
+    extern volatile bool lvgui_plugin_active;
     /* Pointer-mode touch events from button-devinput.c: the queue carries
      * BUTTON_TOUCHSCREEN (press/repeat) and BUTTON_REL|BUTTON_TOUCHSCREEN,
      * with coordinates packed in the data word as (x << 16) | y. */
@@ -75,6 +76,36 @@ void lvgui_input_feed(int button, intptr_t data)
         }
 
         /* arm only on the press *edge* (move repeats must not re-arm) */
+        /* a plugin owns the screen: feed it the classic LEFT/RIGHT keys
+         * (PictureFlow and friends only map buttons, not touch) */
+        if (lvgui_plugin_active)
+        {
+            static lv_coord_t px, py;
+
+            if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
+                edge_prev == LV_INDEV_STATE_RELEASED)
+            {
+                px = g_last_touch.point.x;
+                py = g_last_touch.point.y;
+            }
+            else if (edge_prev == LV_INDEV_STATE_PRESSED &&
+                     g_last_touch.state == LV_INDEV_STATE_RELEASED)
+            {
+                lv_coord_t dx = g_last_touch.point.x - px;
+                lv_coord_t dy = g_last_touch.point.y - py;
+                lv_coord_t adx = dx < 0 ? -dx : dx;
+                lv_coord_t ady = dy < 0 ? -dy : dy;
+                if (adx > 40 && adx > ady)
+                {
+                    long btn = dx < 0 ? BUTTON_RIGHT : BUTTON_LEFT;
+                    button_queue_post(btn, 0);
+                    button_queue_post(btn | BUTTON_REL, 0);
+                }
+            }
+            edge_prev = g_last_touch.state;
+            return;
+        }
+
         if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
             edge_prev == LV_INDEV_STATE_RELEASED)
         {

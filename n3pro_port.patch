@@ -10760,10 +10760,10 @@ index 0000000000..aa6a5627fc
 +
 +#endif /* _XMLESCAPE_H */
 diff --git a/apps/filetree.c b/apps/filetree.c
-index cbf2423ea0..2d5413cf2b 100644
+index cbf2423ea0..b18c026c11 100644
 --- a/apps/filetree.c
 +++ b/apps/filetree.c
-@@ -912,3 +912,26 @@ int ft_exit(struct tree_context* c)
+@@ -912,3 +912,49 @@ int ft_exit(struct tree_context* c)
  
      return rc;
  }
@@ -10780,6 +10780,29 @@ index cbf2423ea0..2d5413cf2b 100644
 +    const char *ext = strrchr(path, '.');
 +
 +    set_current_file(path);
++
++    /* Make sure ft_enter() works on the picked file: set_current_file()
++     * resolves the name through tree_get_file_position(), but when that
++     * lookup misses (stale sort/filter state) selected_item keeps pointing
++     * at whatever was selected before and every pick opens the same file.
++     * Look the name up by hand and override. */
++    {
++        struct tree_context *tc = tree_get_context();
++        const char *base = strrchr(path, '/');
++        struct entry *ents = tree_get_entries(tc);
++        int i, found = -1;
++        base = base ? base + 1 : path;
++        for (i = 0; i < tc->filesindir; i++)
++        {
++            if (!strcmp(ents[i].name, base))
++            {
++                found = i;
++                break;
++            }
++        }
++        if (found >= 0)
++            tc->selected_item = found;
++    }
 +    rc = ft_enter(tree_get_context());
 +    /* plugin files only queue a GO_TO_PLUGIN screen: there is no classic
 +     * screen loop to run it, so do it right here */
@@ -542927,10 +542950,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..4c1edbbb22
+index 0000000000..80a0f5eb39
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,187 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -542981,6 +543004,7 @@ index 0000000000..4c1edbbb22
 +
 +void lvgui_input_feed(int button, intptr_t data)
 +{
++    extern volatile bool lvgui_plugin_active;
 +    /* Pointer-mode touch events from button-devinput.c: the queue carries
 +     * BUTTON_TOUCHSCREEN (press/repeat) and BUTTON_REL|BUTTON_TOUCHSCREEN,
 +     * with coordinates packed in the data word as (x << 16) | y. */
@@ -543008,6 +543032,36 @@ index 0000000000..4c1edbbb22
 +        }
 +
 +        /* arm only on the press *edge* (move repeats must not re-arm) */
++        /* a plugin owns the screen: feed it the classic LEFT/RIGHT keys
++         * (PictureFlow and friends only map buttons, not touch) */
++        if (lvgui_plugin_active)
++        {
++            static lv_coord_t px, py;
++
++            if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
++                edge_prev == LV_INDEV_STATE_RELEASED)
++            {
++                px = g_last_touch.point.x;
++                py = g_last_touch.point.y;
++            }
++            else if (edge_prev == LV_INDEV_STATE_PRESSED &&
++                     g_last_touch.state == LV_INDEV_STATE_RELEASED)
++            {
++                lv_coord_t dx = g_last_touch.point.x - px;
++                lv_coord_t dy = g_last_touch.point.y - py;
++                lv_coord_t adx = dx < 0 ? -dx : dx;
++                lv_coord_t ady = dy < 0 ? -dy : dy;
++                if (adx > 40 && adx > ady)
++                {
++                    long btn = dx < 0 ? BUTTON_RIGHT : BUTTON_LEFT;
++                    button_queue_post(btn, 0);
++                    button_queue_post(btn | BUTTON_REL, 0);
++                }
++            }
++            edge_prev = g_last_touch.state;
++            return;
++        }
++
 +        if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
 +            edge_prev == LV_INDEV_STATE_RELEASED)
 +        {
@@ -543089,10 +543143,10 @@ index 0000000000..4c1edbbb22
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..d6d9e1989c
+index 0000000000..fd6377d5af
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,203 @@
+@@ -0,0 +1,211 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543173,9 +543227,17 @@ index 0000000000..d6d9e1989c
 + * over whatever it left on the framebuffer. Called from lvgui_ft_enter_path()
 + * inside a job, so the LVGL loop is not running while the plugin draws. */
 +extern int root_menu_plugin_screen(void);
++/* set while a plugin owns the screen: our touch gestures become the
++ * plugin's LEFT/RIGHT keys instead of shell navigation */
++volatile bool lvgui_plugin_active = false;
++
 +int lvgui_plugin_run(void)
 +{
-+    int rc = root_menu_plugin_screen();
++    int rc;
++
++    lvgui_plugin_active = true;
++    rc = root_menu_plugin_screen();
++    lvgui_plugin_active = false;
 +
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_obj_invalidate(lv_layer_top());

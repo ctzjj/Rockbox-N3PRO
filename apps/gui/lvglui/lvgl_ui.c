@@ -78,9 +78,17 @@ void lvgui_idle_pump(void)
  * over whatever it left on the framebuffer. Called from lvgui_ft_enter_path()
  * inside a job, so the LVGL loop is not running while the plugin draws. */
 extern int root_menu_plugin_screen(void);
+/* set while a plugin owns the screen: our touch gestures become the
+ * plugin's LEFT/RIGHT keys instead of shell navigation */
+volatile bool lvgui_plugin_active = false;
+
 int lvgui_plugin_run(void)
 {
-    int rc = root_menu_plugin_screen();
+    int rc;
+
+    lvgui_plugin_active = true;
+    rc = root_menu_plugin_screen();
+    lvgui_plugin_active = false;
 
     lv_obj_invalidate(lv_scr_act());
     lv_obj_invalidate(lv_layer_top());

@@ -925,6 +925,29 @@ int lvgui_ft_enter_path(const char *path)
     const char *ext = strrchr(path, '.');
 
     set_current_file(path);
+
+    /* Make sure ft_enter() works on the picked file: set_current_file()
+     * resolves the name through tree_get_file_position(), but when that
+     * lookup misses (stale sort/filter state) selected_item keeps pointing
+     * at whatever was selected before and every pick opens the same file.
+     * Look the name up by hand and override. */
+    {
+        struct tree_context *tc = tree_get_context();
+        const char *base = strrchr(path, '/');
+        struct entry *ents = tree_get_entries(tc);
+        int i, found = -1;
+        base = base ? base + 1 : path;
+        for (i = 0; i < tc->filesindir; i++)
+        {
+            if (!strcmp(ents[i].name, base))
+            {
+                found = i;
+                break;
+            }
+        }
+        if (found >= 0)
+            tc->selected_item = found;
+    }
     rc = ft_enter(tree_get_context());
     /* plugin files only queue a GO_TO_PLUGIN screen: there is no classic
      * screen loop to run it, so do it right here */
