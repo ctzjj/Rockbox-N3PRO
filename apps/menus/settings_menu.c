@@ -327,10 +327,14 @@ MAKE_MENU(disk_menu, ID2P(LANG_DISK_MENU), 0, Icon_NOICON,
 /* Limits menu */
 MENUITEM_SETTING(max_files_in_dir, &global_settings.max_files_in_dir, NULL);
 MENUITEM_SETTING(max_files_in_playlist, &global_settings.max_files_in_playlist, NULL);
+#ifndef HAVE_LVGL_UI
 MENUITEM_SETTING(default_glyphs, &global_settings.glyphs_to_cache, NULL);
+#endif /* !HAVE_LVGL_UI */
 MAKE_MENU(limits_menu, ID2P(LANG_LIMITS_MENU), 0, Icon_NOICON,
            &max_files_in_dir, &max_files_in_playlist
+#ifndef HAVE_LVGL_UI
            ,&default_glyphs
+#endif /* !HAVE_LVGL_UI */
            );
 
 #ifdef HAVE_PERCEPTUAL_VOLUME

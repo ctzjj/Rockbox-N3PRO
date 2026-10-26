@@ -543456,10 +543456,10 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..9e112bd230
+index 0000000000..06ff8b7c37
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
-@@ -0,0 +1,1602 @@
+@@ -0,0 +1,1647 @@
 +/* ui_backend.c -- rockbox adapter implementation.
 + * Everything here talks to rockbox (tagcache, playlist, file tree,
 + * metadata, artwork); nothing here talks to LVGL. */
@@ -544599,6 +544599,51 @@ index 0000000000..9e112bd230
 +        *track_display = global_settings.playlist_viewer_track_display;
 +}
 +
++/* playlist viewer line, following format_line() from the classic
++ * playlist_viewer: [current], indices prefix, file name / path / tags */
++void be_playlist_row_label(int idx, bool current, char *out, size_t outsz)
++{
++    char path[MAX_PATH];
++    char shown[MAX_PATH];
++
++    out[0] = '\0';
++    if (!be_playlist_track_path(idx, path, sizeof path))
++        return;
++
++    int indices, track_display;
++    be_playlist_viewer_opts(&indices, &track_display);
++
++    if (track_display == 1)
++    {
++        strlcpy(shown, path, sizeof shown);
++    }
++    else
++    {
++        const char *base = strrchr(path, '/');
++        strlcpy(shown, base ? base + 1 : path, sizeof shown);
++        char *dot = strrchr(shown, '.');
++        if (dot)
++            *dot = '\0';
++    }
++
++    struct mp3entry id3;
++    if (track_display > 1 && get_metadata(&id3, -1, path) &&
++        id3.title && *id3.title)
++    {
++        if (track_display == 2 && id3.album && *id3.album)
++            snprintf(shown, sizeof shown, "%s - %s", id3.title, id3.album);
++        else
++            strlcpy(shown, id3.title, sizeof shown);
++    }
++
++    if (indices)
++        snprintf(out, outsz, "%s%d. %s%s", current ? "[" : "", idx + 1,
++                 shown, current ? "]" : "");
++    else
++        snprintf(out, outsz, "%s%s%s", current ? "[" : "", shown,
++                 current ? "]" : "");
++}
++
 +void be_power_off(void)
 +{
 +    /* sys_poweroff() only broadcasts SYS_POWEROFF, which is consumed by the
@@ -545064,10 +545109,10 @@ index 0000000000..9e112bd230
 +}
 diff --git a/apps/gui/lvglui/ui_backend.h b/apps/gui/lvglui/ui_backend.h
 new file mode 100644
-index 0000000000..2b0addcbba
+index 0000000000..6fa56fbb8d
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.h
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,224 @@
 +/* ui_backend.h -- rockbox data/playback adapter for the LVGL UI.
 + *
 + * Pure data in and out: no LVGL types live here. The UI layer renders
@@ -545225,6 +545270,7 @@ index 0000000000..2b0addcbba
 +void be_keyclick(void);
 +int be_start_screen(void);
 +void be_playlist_viewer_opts(int *indices, int *track_display);
++void be_playlist_row_label(int idx, bool current, char *out, size_t outsz);
 +void be_power_off(void);
 +void be_reboot(void);
 +
@@ -548083,10 +548129,10 @@ index 0000000000..1f2b1a0705
 +};
 diff --git a/apps/gui/lvglui/ui_library.c b/apps/gui/lvglui/ui_library.c
 new file mode 100644
-index 0000000000..e20ca98ef6
+index 0000000000..39641e6bca
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_library.c
-@@ -0,0 +1,1892 @@
+@@ -0,0 +1,1882 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -548313,6 +548359,14 @@ index 0000000000..e20ca98ef6
 +        shell_player_show();
 +}
 +
++static void pl_file_job(void *p)
++{
++    char *path = p;
++    if (be_play_playlist_file(path))
++        shell_player_show();
++    free(path);
++}
++
 +static void lib_activate(lib_data *d, int idx, int action)
 +{
 +    if (!d)
@@ -548345,16 +548399,12 @@ index 0000000000..e20ca98ef6
 +        if (dir_exists(d->tk.path[idx]))
 +            files_open_dir(d->tk.path[idx]);
 +        else if (be_is_playlist_name(d->tk.path[idx]))
-+        {
-+            if (be_play_playlist_file(d->tk.path[idx]))
-+                shell_player_show();
-+        }
++            lvgui_run_job(pl_file_job, strdup(d->tk.path[idx]));
 +        else
 +             files_play(d, idx);
 +         break;
 +    case A_PLPLAY:    /* playlists screen: play this playlist */
-+        if (be_play_playlist_file(d->tk.path[idx]))
-+            shell_player_show();
++        lvgui_run_job(pl_file_job, strdup(d->tk.path[idx]));
 +        break;
 +    }
 +}
@@ -548895,22 +548945,8 @@ index 0000000000..e20ca98ef6
 +            {
 +                if (!be_playlist_track_path(i, tpath, sizeof tpath))
 +                    break;
-+                char stem[MAX_PATH], line[MAX_PATH + 8];
-+                pl_stem(tpath, stem, sizeof stem);
-+                /* playlist viewer settings: indices and track display */
-+                int pl_indices, pl_track_display;
-+                be_playlist_viewer_opts(&pl_indices, &pl_track_display);
-+                const char *shown = stem;
-+                if (pl_track_display == 1)
-+                    shown = tpath;
-+                if (pl_indices)
-+                    snprintf(line, sizeof line, "%s%d. %s%s",
-+                             i == cur ? "[" : "", i + 1, shown,
-+                             i == cur ? "]" : "");
-+                else
-+                    snprintf(line, sizeof line, "%s%s%s",
-+                             i == cur ? "[" : "", shown,
-+                             i == cur ? "]" : "");
++                char line[MAX_PATH + 16];
++                be_playlist_row_label(i, i == cur, line, sizeof line);
 +                ti[n] = strdup(line);
 +                su[n] = strdup("");
 +                pa[n] = strdup(tpath);
@@ -595121,7 +595157,7 @@ index a09d81de3d..aeb20c79c0 100644
      return 0;
  }
 diff --git a/apps/menus/settings_menu.c b/apps/menus/settings_menu.c
-index 1879ada8fe..8d33134895 100644
+index 1879ada8fe..5f4de7f532 100644
 --- a/apps/menus/settings_menu.c
 +++ b/apps/menus/settings_menu.c
 @@ -191,7 +191,7 @@ MENUITEM_SETTING(dirfilter, &global_settings.dirfilter, NULL);
@@ -595161,7 +595197,22 @@ index 1879ada8fe..8d33134895 100644
            &disk_spindown,
  #endif
  #ifdef HAVE_DIRCACHE
-@@ -395,11 +397,11 @@ MENUITEM_SETTING(touchpad_sensitivity, &global_settings.touchpad_sensitivity, NU
+@@ -325,10 +327,14 @@ MAKE_MENU(disk_menu, ID2P(LANG_DISK_MENU), 0, Icon_NOICON,
+ /* Limits menu */
+ MENUITEM_SETTING(max_files_in_dir, &global_settings.max_files_in_dir, NULL);
+ MENUITEM_SETTING(max_files_in_playlist, &global_settings.max_files_in_playlist, NULL);
++#ifndef HAVE_LVGL_UI
+ MENUITEM_SETTING(default_glyphs, &global_settings.glyphs_to_cache, NULL);
++#endif /* !HAVE_LVGL_UI */
+ MAKE_MENU(limits_menu, ID2P(LANG_LIMITS_MENU), 0, Icon_NOICON,
+            &max_files_in_dir, &max_files_in_playlist
++#ifndef HAVE_LVGL_UI
+            ,&default_glyphs
++#endif /* !HAVE_LVGL_UI */
+            );
+ 
+ #ifdef HAVE_PERCEPTUAL_VOLUME
+@@ -395,11 +401,11 @@ MENUITEM_SETTING(touchpad_sensitivity, &global_settings.touchpad_sensitivity, NU
  MENUITEM_SETTING(touchpad_deadzone, &global_settings.touchpad_deadzone, NULL);
  #endif
  
@@ -595175,7 +595226,7 @@ index 1879ada8fe..8d33134895 100644
  
  MENUITEM_SETTING(bt_selective_actions,
                   &global_settings.bt_selective_softlock_actions,
-@@ -446,7 +448,9 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
+@@ -446,7 +452,9 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
              &volume_adjust_norm_steps,
  #endif
  #ifdef HAVE_QUICKSCREEN
@@ -595185,7 +595236,7 @@ index 1879ada8fe..8d33134895 100644
  #endif
  #ifdef HAVE_MORSE_INPUT
              &morse_input,
-@@ -477,7 +481,9 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
+@@ -477,7 +485,9 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
              &touchpad_deadzone,
  #endif
  #ifndef HAS_BUTTON_HOLD
@@ -595195,7 +595246,7 @@ index 1879ada8fe..8d33134895 100644
  #endif
  #if defined(USB_ENABLE_HID) || \
      defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO) || \
-@@ -493,6 +499,7 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
+@@ -493,6 +503,7 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
  #endif
           );
  
@@ -595203,7 +595254,7 @@ index 1879ada8fe..8d33134895 100644
  /*    SYSTEM MENU                  */
  /***********************************/
  
-@@ -675,6 +682,7 @@ MAKE_MENU(autoresume_menu, ID2P(LANG_AUTORESUME),
+@@ -675,6 +686,7 @@ MAKE_MENU(autoresume_menu, ID2P(LANG_AUTORESUME),
  
  /***********************************/
  /*    VOICE MENU                   */
@@ -595211,7 +595262,7 @@ index 1879ada8fe..8d33134895 100644
  static int talk_callback(int action,
                           const struct menu_item_ex *this_item,
                           struct gui_synclist *this_list);
-@@ -719,6 +727,7 @@ MAKE_MENU(voice_settings_menu, ID2P(LANG_VOICE), 0, Icon_Voice,
+@@ -719,6 +731,7 @@ MAKE_MENU(voice_settings_menu, ID2P(LANG_VOICE), 0, Icon_Voice,
            &talk_menu_item, &talk_dir_item, &talk_dir_clip_item,
            &talk_file_item, &talk_file_clip_item, &talk_filetype_item,
            &talk_battery_level_item, &talk_mixer_amp_item);
@@ -595219,7 +595270,7 @@ index 1879ada8fe..8d33134895 100644
  /*    VOICE MENU                   */
  /***********************************/
  
-@@ -775,6 +784,7 @@ MENUITEM_FUNCTION_DYNTEXT_W_PARAM(hotkey_wps_item, 0,
+@@ -775,6 +788,7 @@ MENUITEM_FUNCTION_DYNTEXT_W_PARAM(hotkey_wps_item, 0,
                                    wps_context_menu_speak_item,
                                    (void*)0, NULL, Icon_Menu_setting);
  #else
@@ -595227,7 +595278,7 @@ index 1879ada8fe..8d33134895 100644
  MENUITEM_FUNCTION_DYNTEXT_W_PARAM(wps_set_context_item_0, 0,
                                    wps_context_menu_do_setting, (void*)0,
                                    wps_context_menu_get_name,
-@@ -825,6 +835,7 @@ MAKE_MENU(wps_settings, ID2P(LANG_WPS), 0, Icon_Playback_menu
+@@ -825,6 +839,7 @@ MAKE_MENU(wps_settings, ID2P(LANG_WPS), 0, Icon_Playback_menu
              ,&wps_set_context_item_4
              ,&reset_wps_item
              );
@@ -595235,7 +595286,7 @@ index 1879ada8fe..8d33134895 100644
  /*    WPS Settings MENU            */
  /***********************************/
  
-@@ -839,7 +850,9 @@ MENUITEM_FUNCTION_W_PARAM(browse_langs, 0, ID2P(LANG_LANGUAGE),
+@@ -839,7 +854,9 @@ MENUITEM_FUNCTION_W_PARAM(browse_langs, 0, ID2P(LANG_LANGUAGE),
  
  MAKE_MENU(settings_menu_item, ID2P(LANG_GENERAL_SETTINGS), 0,
            Icon_General_settings_menu,
@@ -595245,7 +595296,7 @@ index 1879ada8fe..8d33134895 100644
            &playlist_settings, &file_menu,
  #ifdef HAVE_TAGCACHE
            &tagcache_menu,
-@@ -850,7 +863,10 @@ MAKE_MENU(settings_menu_item, ID2P(LANG_GENERAL_SETTINGS), 0,
+@@ -850,7 +867,10 @@ MAKE_MENU(settings_menu_item, ID2P(LANG_GENERAL_SETTINGS), 0,
  #ifdef HAVE_TAGCACHE
            &autoresume_menu,
  #endif

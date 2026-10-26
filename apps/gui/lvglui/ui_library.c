@@ -224,6 +224,14 @@ static void db_enter_job(void *p)
         shell_player_show();
 }
 
+static void pl_file_job(void *p)
+{
+    char *path = p;
+    if (be_play_playlist_file(path))
+        shell_player_show();
+    free(path);
+}
+
 static void lib_activate(lib_data *d, int idx, int action)
 {
     if (!d)
@@ -256,16 +264,12 @@ static void lib_activate(lib_data *d, int idx, int action)
         if (dir_exists(d->tk.path[idx]))
             files_open_dir(d->tk.path[idx]);
         else if (be_is_playlist_name(d->tk.path[idx]))
-        {
-            if (be_play_playlist_file(d->tk.path[idx]))
-                shell_player_show();
-        }
+            lvgui_run_job(pl_file_job, strdup(d->tk.path[idx]));
         else
              files_play(d, idx);
          break;
     case A_PLPLAY:    /* playlists screen: play this playlist */
-        if (be_play_playlist_file(d->tk.path[idx]))
-            shell_player_show();
+        lvgui_run_job(pl_file_job, strdup(d->tk.path[idx]));
         break;
     }
 }
@@ -806,22 +810,8 @@ void shell_playlist_show(void)
             {
                 if (!be_playlist_track_path(i, tpath, sizeof tpath))
                     break;
-                char stem[MAX_PATH], line[MAX_PATH + 8];
-                pl_stem(tpath, stem, sizeof stem);
-                /* playlist viewer settings: indices and track display */
-                int pl_indices, pl_track_display;
-                be_playlist_viewer_opts(&pl_indices, &pl_track_display);
-                const char *shown = stem;
-                if (pl_track_display == 1)
-                    shown = tpath;
-                if (pl_indices)
-                    snprintf(line, sizeof line, "%s%d. %s%s",
-                             i == cur ? "[" : "", i + 1, shown,
-                             i == cur ? "]" : "");
-                else
-                    snprintf(line, sizeof line, "%s%s%s",
-                             i == cur ? "[" : "", shown,
-                             i == cur ? "]" : "");
+                char line[MAX_PATH + 16];
+                be_playlist_row_label(i, i == cur, line, sizeof line);
                 ti[n] = strdup(line);
                 su[n] = strdup("");
                 pa[n] = strdup(tpath);

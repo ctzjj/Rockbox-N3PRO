@@ -155,6 +155,7 @@ void be_bookmark_load(void);
 void be_keyclick(void);
 int be_start_screen(void);
 void be_playlist_viewer_opts(int *indices, int *track_display);
+void be_playlist_row_label(int idx, bool current, char *out, size_t outsz);
 void be_power_off(void);
 void be_reboot(void);
 

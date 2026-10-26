@@ -1137,6 +1137,51 @@ void be_playlist_viewer_opts(int *indices, int *track_display)
         *track_display = global_settings.playlist_viewer_track_display;
 }
 
+/* playlist viewer line, following format_line() from the classic
+ * playlist_viewer: [current], indices prefix, file name / path / tags */
+void be_playlist_row_label(int idx, bool current, char *out, size_t outsz)
+{
+    char path[MAX_PATH];
+    char shown[MAX_PATH];
+
+    out[0] = '\0';
+    if (!be_playlist_track_path(idx, path, sizeof path))
+        return;
+
+    int indices, track_display;
+    be_playlist_viewer_opts(&indices, &track_display);
+
+    if (track_display == 1)
+    {
+        strlcpy(shown, path, sizeof shown);
+    }
+    else
+    {
+        const char *base = strrchr(path, '/');
+        strlcpy(shown, base ? base + 1 : path, sizeof shown);
+        char *dot = strrchr(shown, '.');
+        if (dot)
+            *dot = '\0';
+    }
+
+    struct mp3entry id3;
+    if (track_display > 1 && get_metadata(&id3, -1, path) &&
+        id3.title && *id3.title)
+    {
+        if (track_display == 2 && id3.album && *id3.album)
+            snprintf(shown, sizeof shown, "%s - %s", id3.title, id3.album);
+        else
+            strlcpy(shown, id3.title, sizeof shown);
+    }
+
+    if (indices)
+        snprintf(out, outsz, "%s%d. %s%s", current ? "[" : "", idx + 1,
+                 shown, current ? "]" : "");
+    else
+        snprintf(out, outsz, "%s%s%s", current ? "[" : "", shown,
+                 current ? "]" : "");
+}
+
 void be_power_off(void)
 {
     /* sys_poweroff() only broadcasts SYS_POWEROFF, which is consumed by the
