@@ -31,10 +31,10 @@
 static lv_indev_drv_t g_indev_pointer;
 static lv_indev_data_t g_last_touch;
 
-/* global edge-swipe-back: start within 24 px of a side edge and drag
- * 56 px towards the centre to pop the navigation stack */
-#define EDGE_PX   24
-#define SWIPE_PX  56
+/* global edge-swipe-back: start within 48 px of a side edge and drag
+ * 45 px towards the centre (horizontal dominant) to pop the stack */
+#define EDGE_PX   48
+#define SWIPE_PX  45
 
 static lv_coord_t edge_start_x;
 static lv_coord_t edge_start_y;
@@ -122,8 +122,9 @@ void lvgui_input_feed(int button, intptr_t data)
             {
                 lvgui_control_open();
             }
-            else if ((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
-                     (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX))
+            else if (((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
+                      (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX)) &&
+                     (dx < 0 ? -dx : dx) > (dy < 0 ? -dy : dy))
             {
                 /* inside a menu job the swipe means "one menu level up":
                  * popping the screen instead would flash Home while the

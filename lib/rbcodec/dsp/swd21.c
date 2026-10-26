@@ -5,9 +5,7 @@
  * 在 MCU 上可直接换成身份映射/真实指针。
  */
 #include "swd21.h"
-
-/* 用户提供：把 32 位地址映射为主机指针 */
-extern uint8_t *swd_map(uint32_t addr);
+#include "swd_map.h"
 
 #define M32 0xFFFFFFFFu
 
@@ -58,15 +56,15 @@ static inline int32_t abs32(int32_t v){
 
 static inline int32_t LD(uint32_t a){
     int32_t v;
-    __builtin_memcpy(&v, swd_map(a), 4);
+    __builtin_memcpy(&v, swd_map_fast(a), 4);
     return v;
 }
 static inline void ST(uint32_t a, int32_t v){
-    __builtin_memcpy(swd_map(a), &v, 4);
+    __builtin_memcpy(swd_map_fast(a), &v, 4);
 }
 static inline uint32_t LDU16(uint32_t a){
     uint16_t v;
-    __builtin_memcpy(&v, swd_map(a), 2);
+    __builtin_memcpy(&v, swd_map_fast(a), 2);
     return v;
 }
 

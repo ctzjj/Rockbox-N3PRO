@@ -40,15 +40,13 @@
 #include "swd_devdata.h"
 #include "swd_devdata48.h"
 
-#define SWD_IMG_BASE   0x1000c000u
-#define SWD_STATE_BASE 0x30000000u
-#define SWD_DEST_BASE  0x32000000u
-#define SWD_BUF_BASE   0x34000000u
+#include "swd_map.h"
 
-static uint8_t swd_state[0x1000] __attribute__((aligned(4)));
-static uint8_t swd_dest[0x1000]  __attribute__((aligned(4)));
-static uint8_t swd_sink[4];          /* catch-all for unmapped addresses */
-static int32_t swd_buf[2];           /* interleaved L,R sample buffer    */
+uint8_t swd_state_mem[SWD_STATE_SIZE] __attribute__((aligned(4)));
+uint8_t swd_dest_mem[SWD_DEST_SIZE]  __attribute__((aligned(4)));
+uint8_t swd_sink_mem[4];             /* catch-all for unmapped addresses */
+uint8_t swd_buf_mem[SWD_BUF_SIZE] __attribute__((aligned(4))); /* int32 L,R */
+const uint8_t *swd_img0 = SWD_IMG0;
 
 static bool swd_enable = false;
 static bool swd_ready = false;
@@ -82,19 +80,7 @@ static int swd_clamp(int v, int lo, int hi)
 
 uint8_t *swd_map(uint32_t addr)
 {
-    if (addr >= SWD_STATE_BASE &&
-        addr < SWD_STATE_BASE + sizeof(swd_state))
-        return &swd_state[addr - SWD_STATE_BASE];
-    if (addr >= SWD_DEST_BASE &&
-        addr < SWD_DEST_BASE + sizeof(swd_dest))
-        return &swd_dest[addr - SWD_DEST_BASE];
-    if (addr >= SWD_IMG_BASE &&
-        addr < SWD_IMG_BASE + sizeof(SWD_IMG0))
-        return (uint8_t *)SWD_IMG0 + (addr - SWD_IMG_BASE);
-    if (addr >= SWD_BUF_BASE &&
-        addr < SWD_BUF_BASE + sizeof(swd_buf))
-        return (uint8_t *)swd_buf + (addr - SWD_BUF_BASE);
-    return swd_sink;
+    return swd_map_fast(addr);
 }
 
 static void wput16(uint32_t addr, uint16_t v)
@@ -201,10 +187,10 @@ static void swd_init(int32_t frequency)
         de_img = SWD_DEV_DEST;
     }
 
-    memset(swd_state, 0, sizeof(swd_state));
-    memcpy(swd_state, st_img, 1024);
-    memset(swd_dest, 0, sizeof(swd_dest));
-    memcpy(swd_dest, de_img, 1024);
+    memset(swd_state_mem, 0, sizeof(swd_state_mem));
+    memcpy(swd_state_mem, st_img, 1024);
+    memset(swd_dest_mem, 0, sizeof(swd_dest_mem));
+    memcpy(swd_dest_mem, de_img, 1024);
 
     swd_cur_rate = frequency;
 
@@ -299,31 +285,47 @@ static void swd_process(struct dsp_proc_entry *this, struct dsp_buffer **buf_p)
 {
     struct dsp_buffer *buf = *buf_p;
     int count = buf->remcount;
-    int i;
+    int i = 0;
 
     if (!swd_ready || !swd_rate_ok)
         return;                    /* passthrough: not inited or rate > 48k */
 
-    for (i = 0; i < count; i++)
+    /* hand the core whole blocks: the vendor core loops count frames
+     * internally, per-frame calls paid its prologue 44100 times a second */
+    while (i < count)
     {
-        int32_t l = buf->p32[0][i];
-        int32_t r = buf->p32[1][i];
+        int n = count - i;
+        int j;
+        int32_t *fb = (int32_t *)swd_buf_mem;
 
-        l >>= swd_shift;         /* frac_bits -> int16 domain */
-        r >>= swd_shift;
-        if (l > 0x7fff)     l = 0x7fff;
-        else if (l < -0x8000) l = -0x8000;
-        if (r > 0x7fff)     r = 0x7fff;
-        else if (r < -0x8000) r = -0x8000;
+        if (n > SWD_BLK)
+            n = SWD_BLK;
 
-        swd_buf[0] = l;
-        swd_buf[1] = r;
+        for (j = 0; j < n; j++)
+        {
+            int32_t l = buf->p32[0][i + j];
+            int32_t r = buf->p32[1][i + j];
 
-        wput16(SWD_STATE_BASE, 1);           /* frame count = 1 */
+            l >>= swd_shift;         /* frac_bits -> int16 domain */
+            r >>= swd_shift;
+            if (l > 0x7fff)       l = 0x7fff;
+            else if (l < -0x8000) l = -0x8000;
+            if (r > 0x7fff)       r = 0x7fff;
+            else if (r < -0x8000) r = -0x8000;
+
+            fb[2 * j]     = l;
+            fb[2 * j + 1] = r;
+        }
+
+        wput16(SWD_STATE_BASE, n);           /* frame count = n */
         swd21_process(SWD_STATE_BASE, SWD_BUF_BASE);
 
-        buf->p32[0][i] = swd_buf[0] << swd_shift;   /* int16 -> frac_bits */
-        buf->p32[1][i] = swd_buf[1] << swd_shift;
+        for (j = 0; j < n; j++)
+        {
+            buf->p32[0][i + j] = fb[2 * j] << swd_shift;   /* -> frac_bits */
+            buf->p32[1][i + j] = fb[2 * j + 1] << swd_shift;
+        }
+        i += n;
     }
 
     (void)this;

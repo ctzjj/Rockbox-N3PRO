@@ -542927,10 +542927,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..ed5b1c675d
+index 0000000000..4c1edbbb22
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,156 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -542964,10 +542964,10 @@ index 0000000000..ed5b1c675d
 +static lv_indev_drv_t g_indev_pointer;
 +static lv_indev_data_t g_last_touch;
 +
-+/* global edge-swipe-back: start within 24 px of a side edge and drag
-+ * 56 px towards the centre to pop the navigation stack */
-+#define EDGE_PX   24
-+#define SWIPE_PX  56
++/* global edge-swipe-back: start within 48 px of a side edge and drag
++ * 45 px towards the centre (horizontal dominant) to pop the stack */
++#define EDGE_PX   48
++#define SWIPE_PX  45
 +
 +static lv_coord_t edge_start_x;
 +static lv_coord_t edge_start_y;
@@ -543055,8 +543055,9 @@ index 0000000000..ed5b1c675d
 +            {
 +                lvgui_control_open();
 +            }
-+            else if ((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
-+                     (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX))
++            else if (((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
++                      (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX)) &&
++                     (dx < 0 ? -dx : dx) > (dy < 0 ? -dy : dy))
 +            {
 +                /* inside a menu job the swipe means "one menu level up":
 +                 * popping the screen instead would flash Home while the
@@ -669995,10 +669996,10 @@ index 0000000000..43cea58d1f
 +
 diff --git a/lib/rbcodec/dsp/swd.c b/lib/rbcodec/dsp/swd.c
 new file mode 100644
-index 0000000000..680efe76bb
+index 0000000000..7deb2bf714
 --- /dev/null
 +++ b/lib/rbcodec/dsp/swd.c
-@@ -0,0 +1,379 @@
+@@ -0,0 +1,381 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -670041,15 +670042,13 @@ index 0000000000..680efe76bb
 +#include "swd_devdata.h"
 +#include "swd_devdata48.h"
 +
-+#define SWD_IMG_BASE   0x1000c000u
-+#define SWD_STATE_BASE 0x30000000u
-+#define SWD_DEST_BASE  0x32000000u
-+#define SWD_BUF_BASE   0x34000000u
++#include "swd_map.h"
 +
-+static uint8_t swd_state[0x1000] __attribute__((aligned(4)));
-+static uint8_t swd_dest[0x1000]  __attribute__((aligned(4)));
-+static uint8_t swd_sink[4];          /* catch-all for unmapped addresses */
-+static int32_t swd_buf[2];           /* interleaved L,R sample buffer    */
++uint8_t swd_state_mem[SWD_STATE_SIZE] __attribute__((aligned(4)));
++uint8_t swd_dest_mem[SWD_DEST_SIZE]  __attribute__((aligned(4)));
++uint8_t swd_sink_mem[4];             /* catch-all for unmapped addresses */
++uint8_t swd_buf_mem[SWD_BUF_SIZE] __attribute__((aligned(4))); /* int32 L,R */
++const uint8_t *swd_img0 = SWD_IMG0;
 +
 +static bool swd_enable = false;
 +static bool swd_ready = false;
@@ -670083,19 +670082,7 @@ index 0000000000..680efe76bb
 +
 +uint8_t *swd_map(uint32_t addr)
 +{
-+    if (addr >= SWD_STATE_BASE &&
-+        addr < SWD_STATE_BASE + sizeof(swd_state))
-+        return &swd_state[addr - SWD_STATE_BASE];
-+    if (addr >= SWD_DEST_BASE &&
-+        addr < SWD_DEST_BASE + sizeof(swd_dest))
-+        return &swd_dest[addr - SWD_DEST_BASE];
-+    if (addr >= SWD_IMG_BASE &&
-+        addr < SWD_IMG_BASE + sizeof(SWD_IMG0))
-+        return (uint8_t *)SWD_IMG0 + (addr - SWD_IMG_BASE);
-+    if (addr >= SWD_BUF_BASE &&
-+        addr < SWD_BUF_BASE + sizeof(swd_buf))
-+        return (uint8_t *)swd_buf + (addr - SWD_BUF_BASE);
-+    return swd_sink;
++    return swd_map_fast(addr);
 +}
 +
 +static void wput16(uint32_t addr, uint16_t v)
@@ -670202,10 +670189,10 @@ index 0000000000..680efe76bb
 +        de_img = SWD_DEV_DEST;
 +    }
 +
-+    memset(swd_state, 0, sizeof(swd_state));
-+    memcpy(swd_state, st_img, 1024);
-+    memset(swd_dest, 0, sizeof(swd_dest));
-+    memcpy(swd_dest, de_img, 1024);
++    memset(swd_state_mem, 0, sizeof(swd_state_mem));
++    memcpy(swd_state_mem, st_img, 1024);
++    memset(swd_dest_mem, 0, sizeof(swd_dest_mem));
++    memcpy(swd_dest_mem, de_img, 1024);
 +
 +    swd_cur_rate = frequency;
 +
@@ -670300,31 +670287,47 @@ index 0000000000..680efe76bb
 +{
 +    struct dsp_buffer *buf = *buf_p;
 +    int count = buf->remcount;
-+    int i;
++    int i = 0;
 +
 +    if (!swd_ready || !swd_rate_ok)
 +        return;                    /* passthrough: not inited or rate > 48k */
 +
-+    for (i = 0; i < count; i++)
++    /* hand the core whole blocks: the vendor core loops count frames
++     * internally, per-frame calls paid its prologue 44100 times a second */
++    while (i < count)
 +    {
-+        int32_t l = buf->p32[0][i];
-+        int32_t r = buf->p32[1][i];
++        int n = count - i;
++        int j;
++        int32_t *fb = (int32_t *)swd_buf_mem;
 +
-+        l >>= swd_shift;         /* frac_bits -> int16 domain */
-+        r >>= swd_shift;
-+        if (l > 0x7fff)     l = 0x7fff;
-+        else if (l < -0x8000) l = -0x8000;
-+        if (r > 0x7fff)     r = 0x7fff;
-+        else if (r < -0x8000) r = -0x8000;
++        if (n > SWD_BLK)
++            n = SWD_BLK;
 +
-+        swd_buf[0] = l;
-+        swd_buf[1] = r;
++        for (j = 0; j < n; j++)
++        {
++            int32_t l = buf->p32[0][i + j];
++            int32_t r = buf->p32[1][i + j];
 +
-+        wput16(SWD_STATE_BASE, 1);           /* frame count = 1 */
++            l >>= swd_shift;         /* frac_bits -> int16 domain */
++            r >>= swd_shift;
++            if (l > 0x7fff)       l = 0x7fff;
++            else if (l < -0x8000) l = -0x8000;
++            if (r > 0x7fff)       r = 0x7fff;
++            else if (r < -0x8000) r = -0x8000;
++
++            fb[2 * j]     = l;
++            fb[2 * j + 1] = r;
++        }
++
++        wput16(SWD_STATE_BASE, n);           /* frame count = n */
 +        swd21_process(SWD_STATE_BASE, SWD_BUF_BASE);
 +
-+        buf->p32[0][i] = swd_buf[0] << swd_shift;   /* int16 -> frac_bits */
-+        buf->p32[1][i] = swd_buf[1] << swd_shift;
++        for (j = 0; j < n; j++)
++        {
++            buf->p32[0][i + j] = fb[2 * j] << swd_shift;   /* -> frac_bits */
++            buf->p32[1][i + j] = fb[2 * j + 1] << swd_shift;
++        }
++        i += n;
 +    }
 +
 +    (void)this;
@@ -670394,10 +670397,10 @@ index 0000000000..163281cd86
 +void dsp_set_swd_limiter(int mode);
 diff --git a/lib/rbcodec/dsp/swd21.c b/lib/rbcodec/dsp/swd21.c
 new file mode 100644
-index 0000000000..7a5e2a66e0
+index 0000000000..5ff76f41ea
 --- /dev/null
 +++ b/lib/rbcodec/dsp/swd21.c
-@@ -0,0 +1,480 @@
+@@ -0,0 +1,478 @@
 +/* SWD v2.1 (the driver) DSP core —— 0x1000b000 定点 C 实现
 + *
 + * 与已验证逐位一致的 Python (swd_dsp.py) 等价。
@@ -670405,9 +670408,7 @@ index 0000000000..7a5e2a66e0
 + * 在 MCU 上可直接换成身份映射/真实指针。
 + */
 +#include "swd21.h"
-+
-+/* 用户提供：把 32 位地址映射为主机指针 */
-+extern uint8_t *swd_map(uint32_t addr);
++#include "swd_map.h"
 +
 +#define M32 0xFFFFFFFFu
 +
@@ -670458,15 +670459,15 @@ index 0000000000..7a5e2a66e0
 +
 +static inline int32_t LD(uint32_t a){
 +    int32_t v;
-+    __builtin_memcpy(&v, swd_map(a), 4);
++    __builtin_memcpy(&v, swd_map_fast(a), 4);
 +    return v;
 +}
 +static inline void ST(uint32_t a, int32_t v){
-+    __builtin_memcpy(swd_map(a), &v, 4);
++    __builtin_memcpy(swd_map_fast(a), &v, 4);
 +}
 +static inline uint32_t LDU16(uint32_t a){
 +    uint16_t v;
-+    __builtin_memcpy(&v, swd_map(a), 2);
++    __builtin_memcpy(&v, swd_map_fast(a), 2);
 +    return v;
 +}
 +
@@ -671298,6 +671299,59 @@ index 0000000000..34a6d117ea
 +  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 +  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 +};
++#endif
+diff --git a/lib/rbcodec/dsp/swd_map.h b/lib/rbcodec/dsp/swd_map.h
+new file mode 100644
+index 0000000000..b76d4ab9d6
+--- /dev/null
++++ b/lib/rbcodec/dsp/swd_map.h
+@@ -0,0 +1,47 @@
++/* SWD memory space -> host pointer, inlined for the hot DSP core.
++ * The transcription addresses everything through 32-bit virtual
++ * addresses; a plain call per access was the main cost on slow targets. */
++#ifndef SWD_MAP_H
++#define SWD_MAP_H
++
++#include <stdint.h>
++
++#define SWD_IMG_BASE   0x1000c000u
++#define SWD_STATE_BASE 0x30000000u
++#define SWD_DEST_BASE  0x32000000u
++#define SWD_BUF_BASE   0x34000000u
++
++#define SWD_STATE_SIZE 0x1000
++#define SWD_DEST_SIZE  0x1000
++#define SWD_IMG_SIZE   8192
++
++/* frames handed to the core in one call */
++#define SWD_BLK        64
++#define SWD_BUF_SIZE   (SWD_BLK * 2 * 4)
++
++extern uint8_t swd_state_mem[SWD_STATE_SIZE];
++extern uint8_t swd_dest_mem[SWD_DEST_SIZE];
++extern uint8_t swd_sink_mem[4];
++extern uint8_t swd_buf_mem[SWD_BUF_SIZE];
++extern const uint8_t *swd_img0;
++
++static inline uint8_t *swd_map_fast(uint32_t a)
++{
++    uint32_t d;
++
++    d = a - SWD_STATE_BASE;
++    if (d < SWD_STATE_SIZE)
++        return swd_state_mem + d;
++    d = a - SWD_DEST_BASE;
++    if (d < SWD_DEST_SIZE)
++        return swd_dest_mem + d;
++    d = a - SWD_IMG_BASE;
++    if (d < SWD_IMG_SIZE)
++        return (uint8_t *)swd_img0 + d;
++    d = a - SWD_BUF_BASE;
++    if (d < SWD_BUF_SIZE)
++        return swd_buf_mem + d;
++    return swd_sink_mem;
++}
++
 +#endif
 diff --git a/lib/rbcodec/dsp/swd_memimg.h b/lib/rbcodec/dsp/swd_memimg.h
 new file mode 100644
