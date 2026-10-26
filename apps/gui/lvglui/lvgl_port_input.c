@@ -25,6 +25,8 @@
 #include "lvgl.h"
 #include "button.h"
 #include "lvgl_ui.h"
+#include "settings.h"
+#include "misc.h"
 
 static lv_indev_drv_t g_indev_pointer;
 static lv_indev_data_t g_last_touch;
@@ -76,6 +78,7 @@ void lvgui_input_feed(int button, intptr_t data)
         if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
             edge_prev == LV_INDEV_STATE_RELEASED)
         {
+            be_keyclick();
             edge_armed = g_last_touch.point.x < EDGE_PX ||
                          g_last_touch.point.x > 360 - EDGE_PX;
             top_armed = g_last_touch.point.y < 40;

@@ -158,6 +158,7 @@ void lvgui_main(void)
     lvgui_port_disp_init();
     lvgui_port_input_init();
     lvgui_shell_start();
+    shell_start_screen_apply();   /* Start Screen setting */
     add_event(LCD_EVENT_ACTIVATION, lvgui_lcd_activation_hook);
 
     while (1)

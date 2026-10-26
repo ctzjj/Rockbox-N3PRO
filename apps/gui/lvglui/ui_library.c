@@ -808,9 +808,20 @@ void shell_playlist_show(void)
                     break;
                 char stem[MAX_PATH], line[MAX_PATH + 8];
                 pl_stem(tpath, stem, sizeof stem);
-                snprintf(line, sizeof line, "%s%d. %s%s",
-                         i == cur ? "[" : "", i + 1, stem,
-                         i == cur ? "]" : "");
+                /* playlist viewer settings: indices and track display */
+                int pl_indices, pl_track_display;
+                be_playlist_viewer_opts(&pl_indices, &pl_track_display);
+                const char *shown = stem;
+                if (pl_track_display == 1)
+                    shown = tpath;
+                if (pl_indices)
+                    snprintf(line, sizeof line, "%s%d. %s%s",
+                             i == cur ? "[" : "", i + 1, shown,
+                             i == cur ? "]" : "");
+                else
+                    snprintf(line, sizeof line, "%s%s%s",
+                             i == cur ? "[" : "", shown,
+                             i == cur ? "]" : "");
                 ti[n] = strdup(line);
                 su[n] = strdup("");
                 pa[n] = strdup(tpath);

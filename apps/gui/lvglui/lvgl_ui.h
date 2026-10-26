@@ -134,6 +134,7 @@ void library_open(void);
 
 /* file browser (ui_library.c) */
 void shell_files_show(void);
+void shell_start_screen_apply(void);
 
 /* playlist catalog (ui_library.c) */
 void shell_playlists_show(void);

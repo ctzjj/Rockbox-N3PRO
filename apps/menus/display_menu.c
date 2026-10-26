@@ -152,12 +152,17 @@ MENUITEM_SETTING(backlight_timeout_plugged,
 MENUITEM_SETTING(backlight_on_button_hold,
                 &global_settings.backlight_on_button_hold, NULL);
 
+#ifndef HAVE_LVGL_UI
 MENUITEM_SETTING(caption_backlight, &global_settings.caption_backlight, NULL);
+#endif /* !HAVE_LVGL_UI */
+
 #if    defined(HAVE_BACKLIGHT_FADING_INT_SETTING) \
     || defined(HAVE_BACKLIGHT_FADING_BOOL_SETTING)
 MENUITEM_SETTING(backlight_fade_in, &global_settings.backlight_fade_in, NULL);
 MENUITEM_SETTING(backlight_fade_out, &global_settings.backlight_fade_out, NULL);
 #endif
+
+#ifndef HAVE_LVGL_UI
 MENUITEM_SETTING(bl_filter_first_keypress,
                     &global_settings.bl_filter_first_keypress,
                     filterfirstkeypress_callback);
@@ -172,6 +177,7 @@ MENUITEM_FUNCTION(sel_backlight_mask, 0, ID2P(LANG_SETTINGS),
 
 MAKE_MENU(sel_backlight, ID2P(LANG_BACKLIGHT_SELECTIVE),
           NULL, Icon_Menu_setting, &bl_selective_actions, &sel_backlight_mask);
+#endif /* !HAVE_LVGL_UI */
 
 #ifdef HAVE_LCD_SLEEP_SETTING
 MENUITEM_SETTING(lcd_sleep_after_backlight_off,
@@ -204,13 +210,19 @@ MAKE_MENU(lcd_settings,ID2P(LANG_LCD_MENU),
             ,&backlight_timeout_plugged
 # endif
             ,&backlight_on_button_hold
+#ifndef HAVE_LVGL_UI
             ,&caption_backlight
+#endif /* !HAVE_LVGL_UI */
 #if    defined(HAVE_BACKLIGHT_FADING_INT_SETTING) \
     || defined(HAVE_BACKLIGHT_FADING_BOOL_SETTING)
             ,&backlight_fade_in, &backlight_fade_out
 #endif
+#ifndef HAVE_LVGL_UI
             ,&bl_filter_first_keypress
+#endif /* !HAVE_LVGL_UI */
+#ifndef HAVE_LVGL_UI
             ,&sel_backlight
+#endif /* !HAVE_LVGL_UI */
 # ifdef HAVE_LCD_SLEEP_SETTING
             ,&lcd_sleep_after_backlight_off
 # endif

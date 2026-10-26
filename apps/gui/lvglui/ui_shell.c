@@ -25,6 +25,7 @@
 #include "lvgl.h"
 #include "lcd.h"
 #include "lvgl_ui.h"
+#include "root_menu.h"
 #include "ui_theme.h"
 #include "dlna/dlna_output.h"
 #include "ui_backend.h"
@@ -1986,6 +1987,36 @@ static void open_system(lv_event_t *e)    { (void)e; lvgui_run_job(menu_job, (vo
 static void open_shortcuts(lv_event_t *e) { (void)e; lvgui_run_job(menu_job, (void *)be_shortcut_menu); }
 static void open_bookmarks(lv_event_t *e) { (void)e; lvgui_run_job(menu_job, (void *)be_bookmark_load); }
 static void open_settings(lv_event_t *e)  { (void)e; lvgui_run_job(menu_job, (void *)be_settings_menu); }
+
+/* Settings -> Startup/Shutdown -> Start Screen, applied once at boot.
+ * Same arithmetic as root_menu_setup_screens(): the setting stores
+ * GO_TO_* + 2, 0 means "previous screen" (global_status.last_screen). */
+void shell_start_screen_apply(void)
+{
+    switch (be_start_screen())
+    {
+    case GO_TO_FILEBROWSER:
+        shell_files_show();
+        break;
+    case GO_TO_DBBROWSER:
+        library_open();
+        break;
+    case GO_TO_WPS:
+        shell_player_show();
+        break;
+    case GO_TO_RECENTBMARKS:
+        open_bookmarks(NULL);
+        break;
+    case GO_TO_PLUGIN:
+        open_plugins(NULL);
+        break;
+    case GO_TO_PLAYLISTS_SCREEN:
+        shell_playlists_show();
+        break;
+    default:                  /* GO_TO_ROOT / GO_TO_MAINMENU: Home */
+        break;
+    }
+}
 int lvgui_dlna_view(void);
 
 static void wps_job(void *p)

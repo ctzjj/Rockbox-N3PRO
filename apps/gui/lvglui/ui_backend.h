@@ -152,6 +152,9 @@ void be_wifi_menu(void);                       /* 网络 → wifi_root_item     
 void be_bookmark_load(void);
 
 /* power: the control centre's 关机 / 重启 rows (confirm first, in the UI) */
+void be_keyclick(void);
+int be_start_screen(void);
+void be_playlist_viewer_opts(int *indices, int *track_display);
 void be_power_off(void);
 void be_reboot(void);
 

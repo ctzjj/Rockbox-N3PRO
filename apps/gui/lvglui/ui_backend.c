@@ -19,6 +19,8 @@
 #include "wifi_menu.h"
 #include "shortcuts.h"
 #include "settings_list.h"
+#include "root_menu.h"
+#include "settings.h"
 #include "menus/eq_menu.h"
 #include "thread.h"
 #include "kernel.h"
@@ -1107,11 +1109,40 @@ void be_settings_menu(void)
     do_settings_menu(&main_menu_);              /* GO_TO_MAINMENU */
 }
 
+/* rockbox's own keyclick entry: settings/repeat/hardware handling included */
+void be_keyclick(void)
+{
+    keyclick_click(true, BUTTON_TOUCHSCREEN);
+}
+
+/* Settings -> Startup/Shutdown -> Start Screen, resolved exactly like
+ * root_menu_setup_screens() (the setting stores GO_TO_* + 2) */
+int be_start_screen(void)
+{
+    int screen = global_settings.start_in_screen - 2;
+
+    if (global_settings.start_in_screen == 0)
+        screen = global_status.last_screen;
+    if (screen > GO_TO_SHORTCUTMENU ||
+        (screen == GO_TO_WPS && global_status.resume_index == -1))
+        screen = GO_TO_ROOT;
+    return screen;
+}
+
+void be_playlist_viewer_opts(int *indices, int *track_display)
+{
+    if (indices)
+        *indices = global_settings.playlist_viewer_indices;
+    if (track_display)
+        *track_display = global_settings.playlist_viewer_track_display;
+}
+
 void be_power_off(void)
 {
     /* sys_poweroff() only broadcasts SYS_POWEROFF, which is consumed by the
      * classic UI event loop that we never run under LVGL: shut down here. */
-    shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
+    if (global_settings.show_shutdown_message)
+        shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
     power_off();
 }
 

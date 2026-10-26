@@ -542927,10 +542927,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..8d447ba35e
+index 0000000000..ed5b1c675d
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,155 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -542958,6 +542958,8 @@ index 0000000000..8d447ba35e
 +#include "lvgl.h"
 +#include "button.h"
 +#include "lvgl_ui.h"
++#include "settings.h"
++#include "misc.h"
 +
 +static lv_indev_drv_t g_indev_pointer;
 +static lv_indev_data_t g_last_touch;
@@ -543009,6 +543011,7 @@ index 0000000000..8d447ba35e
 +        if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
 +            edge_prev == LV_INDEV_STATE_RELEASED)
 +        {
++            be_keyclick();
 +            edge_armed = g_last_touch.point.x < EDGE_PX ||
 +                         g_last_touch.point.x > 360 - EDGE_PX;
 +            top_armed = g_last_touch.point.y < 40;
@@ -543085,10 +543088,10 @@ index 0000000000..8d447ba35e
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..dd7b329b93
+index 0000000000..c5514d9356
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,186 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543249,6 +543252,7 @@ index 0000000000..dd7b329b93
 +    lvgui_port_disp_init();
 +    lvgui_port_input_init();
 +    lvgui_shell_start();
++    shell_start_screen_apply();   /* Start Screen setting */
 +    add_event(LCD_EVENT_ACTIVATION, lvgui_lcd_activation_hook);
 +
 +    while (1)
@@ -543276,10 +543280,10 @@ index 0000000000..dd7b329b93
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..4f95d27f6a
+index 0000000000..79888305cd
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,160 @@
+@@ -0,0 +1,161 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543416,6 +543420,7 @@ index 0000000000..4f95d27f6a
 +
 +/* file browser (ui_library.c) */
 +void shell_files_show(void);
++void shell_start_screen_apply(void);
 +
 +/* playlist catalog (ui_library.c) */
 +void shell_playlists_show(void);
@@ -543451,10 +543456,10 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..d26051c6ef
+index 0000000000..9e112bd230
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
-@@ -0,0 +1,1571 @@
+@@ -0,0 +1,1602 @@
 +/* ui_backend.c -- rockbox adapter implementation.
 + * Everything here talks to rockbox (tagcache, playlist, file tree,
 + * metadata, artwork); nothing here talks to LVGL. */
@@ -543476,6 +543481,8 @@ index 0000000000..d26051c6ef
 +#include "wifi_menu.h"
 +#include "shortcuts.h"
 +#include "settings_list.h"
++#include "root_menu.h"
++#include "settings.h"
 +#include "menus/eq_menu.h"
 +#include "thread.h"
 +#include "kernel.h"
@@ -544564,11 +544571,40 @@ index 0000000000..d26051c6ef
 +    do_settings_menu(&main_menu_);              /* GO_TO_MAINMENU */
 +}
 +
++/* rockbox's own keyclick entry: settings/repeat/hardware handling included */
++void be_keyclick(void)
++{
++    keyclick_click(true, BUTTON_TOUCHSCREEN);
++}
++
++/* Settings -> Startup/Shutdown -> Start Screen, resolved exactly like
++ * root_menu_setup_screens() (the setting stores GO_TO_* + 2) */
++int be_start_screen(void)
++{
++    int screen = global_settings.start_in_screen - 2;
++
++    if (global_settings.start_in_screen == 0)
++        screen = global_status.last_screen;
++    if (screen > GO_TO_SHORTCUTMENU ||
++        (screen == GO_TO_WPS && global_status.resume_index == -1))
++        screen = GO_TO_ROOT;
++    return screen;
++}
++
++void be_playlist_viewer_opts(int *indices, int *track_display)
++{
++    if (indices)
++        *indices = global_settings.playlist_viewer_indices;
++    if (track_display)
++        *track_display = global_settings.playlist_viewer_track_display;
++}
++
 +void be_power_off(void)
 +{
 +    /* sys_poweroff() only broadcasts SYS_POWEROFF, which is consumed by the
 +     * classic UI event loop that we never run under LVGL: shut down here. */
-+    shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
++    if (global_settings.show_shutdown_message)
++        shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
 +    power_off();
 +}
 +
@@ -545028,10 +545064,10 @@ index 0000000000..d26051c6ef
 +}
 diff --git a/apps/gui/lvglui/ui_backend.h b/apps/gui/lvglui/ui_backend.h
 new file mode 100644
-index 0000000000..2c1474637b
+index 0000000000..2b0addcbba
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.h
-@@ -0,0 +1,220 @@
+@@ -0,0 +1,223 @@
 +/* ui_backend.h -- rockbox data/playback adapter for the LVGL UI.
 + *
 + * Pure data in and out: no LVGL types live here. The UI layer renders
@@ -545186,6 +545222,9 @@ index 0000000000..2c1474637b
 +void be_bookmark_load(void);
 +
 +/* power: the control centre's 关机 / 重启 rows (confirm first, in the UI) */
++void be_keyclick(void);
++int be_start_screen(void);
++void be_playlist_viewer_opts(int *indices, int *track_display);
 +void be_power_off(void);
 +void be_reboot(void);
 +
@@ -548044,10 +548083,10 @@ index 0000000000..1f2b1a0705
 +};
 diff --git a/apps/gui/lvglui/ui_library.c b/apps/gui/lvglui/ui_library.c
 new file mode 100644
-index 0000000000..486e792aa6
+index 0000000000..e20ca98ef6
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_library.c
-@@ -0,0 +1,1881 @@
+@@ -0,0 +1,1892 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -548858,9 +548897,20 @@ index 0000000000..486e792aa6
 +                    break;
 +                char stem[MAX_PATH], line[MAX_PATH + 8];
 +                pl_stem(tpath, stem, sizeof stem);
-+                snprintf(line, sizeof line, "%s%d. %s%s",
-+                         i == cur ? "[" : "", i + 1, stem,
-+                         i == cur ? "]" : "");
++                /* playlist viewer settings: indices and track display */
++                int pl_indices, pl_track_display;
++                be_playlist_viewer_opts(&pl_indices, &pl_track_display);
++                const char *shown = stem;
++                if (pl_track_display == 1)
++                    shown = tpath;
++                if (pl_indices)
++                    snprintf(line, sizeof line, "%s%d. %s%s",
++                             i == cur ? "[" : "", i + 1, shown,
++                             i == cur ? "]" : "");
++                else
++                    snprintf(line, sizeof line, "%s%s%s",
++                             i == cur ? "[" : "", shown,
++                             i == cur ? "]" : "");
 +                ti[n] = strdup(line);
 +                su[n] = strdup("");
 +                pa[n] = strdup(tpath);
@@ -554018,10 +554068,10 @@ index 0000000000..f6ed4e4a3c
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..ea18aa62d5
+index 0000000000..233318cef3
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2515 @@
+@@ -0,0 +1,2546 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -554049,6 +554099,7 @@ index 0000000000..ea18aa62d5
 +#include "lvgl.h"
 +#include "lcd.h"
 +#include "lvgl_ui.h"
++#include "root_menu.h"
 +#include "ui_theme.h"
 +#include "dlna/dlna_output.h"
 +#include "ui_backend.h"
@@ -556010,6 +556061,36 @@ index 0000000000..ea18aa62d5
 +static void open_shortcuts(lv_event_t *e) { (void)e; lvgui_run_job(menu_job, (void *)be_shortcut_menu); }
 +static void open_bookmarks(lv_event_t *e) { (void)e; lvgui_run_job(menu_job, (void *)be_bookmark_load); }
 +static void open_settings(lv_event_t *e)  { (void)e; lvgui_run_job(menu_job, (void *)be_settings_menu); }
++
++/* Settings -> Startup/Shutdown -> Start Screen, applied once at boot.
++ * Same arithmetic as root_menu_setup_screens(): the setting stores
++ * GO_TO_* + 2, 0 means "previous screen" (global_status.last_screen). */
++void shell_start_screen_apply(void)
++{
++    switch (be_start_screen())
++    {
++    case GO_TO_FILEBROWSER:
++        shell_files_show();
++        break;
++    case GO_TO_DBBROWSER:
++        library_open();
++        break;
++    case GO_TO_WPS:
++        shell_player_show();
++        break;
++    case GO_TO_RECENTBMARKS:
++        open_bookmarks(NULL);
++        break;
++    case GO_TO_PLUGIN:
++        open_plugins(NULL);
++        break;
++    case GO_TO_PLAYLISTS_SCREEN:
++        shell_playlists_show();
++        break;
++    default:                  /* GO_TO_ROOT / GO_TO_MAINMENU: Home */
++        break;
++    }
++}
 +int lvgui_dlna_view(void);
 +
 +static void wps_job(void *p)
@@ -594815,10 +594896,56 @@ index 0000000000..fb90f0168c
 +
 +#endif /* HAVE_BT_AUDIO */
 diff --git a/apps/menus/display_menu.c b/apps/menus/display_menu.c
-index 99b1ad5f1e..ab2314307c 100644
+index 99b1ad5f1e..a281cf93bf 100644
 --- a/apps/menus/display_menu.c
 +++ b/apps/menus/display_menu.c
-@@ -310,6 +310,7 @@ MAKE_MENU(lcd_remote_settings, ID2P(LANG_LCD_REMOTE_MENU),
+@@ -152,12 +152,17 @@ MENUITEM_SETTING(backlight_timeout_plugged,
+ MENUITEM_SETTING(backlight_on_button_hold,
+                 &global_settings.backlight_on_button_hold, NULL);
+ 
++#ifndef HAVE_LVGL_UI
+ MENUITEM_SETTING(caption_backlight, &global_settings.caption_backlight, NULL);
++#endif /* !HAVE_LVGL_UI */
++
+ #if    defined(HAVE_BACKLIGHT_FADING_INT_SETTING) \
+     || defined(HAVE_BACKLIGHT_FADING_BOOL_SETTING)
+ MENUITEM_SETTING(backlight_fade_in, &global_settings.backlight_fade_in, NULL);
+ MENUITEM_SETTING(backlight_fade_out, &global_settings.backlight_fade_out, NULL);
+ #endif
++
++#ifndef HAVE_LVGL_UI
+ MENUITEM_SETTING(bl_filter_first_keypress,
+                     &global_settings.bl_filter_first_keypress,
+                     filterfirstkeypress_callback);
+@@ -172,6 +177,7 @@ MENUITEM_FUNCTION(sel_backlight_mask, 0, ID2P(LANG_SETTINGS),
+ 
+ MAKE_MENU(sel_backlight, ID2P(LANG_BACKLIGHT_SELECTIVE),
+           NULL, Icon_Menu_setting, &bl_selective_actions, &sel_backlight_mask);
++#endif /* !HAVE_LVGL_UI */
+ 
+ #ifdef HAVE_LCD_SLEEP_SETTING
+ MENUITEM_SETTING(lcd_sleep_after_backlight_off,
+@@ -204,13 +210,19 @@ MAKE_MENU(lcd_settings,ID2P(LANG_LCD_MENU),
+             ,&backlight_timeout_plugged
+ # endif
+             ,&backlight_on_button_hold
++#ifndef HAVE_LVGL_UI
+             ,&caption_backlight
++#endif /* !HAVE_LVGL_UI */
+ #if    defined(HAVE_BACKLIGHT_FADING_INT_SETTING) \
+     || defined(HAVE_BACKLIGHT_FADING_BOOL_SETTING)
+             ,&backlight_fade_in, &backlight_fade_out
+ #endif
++#ifndef HAVE_LVGL_UI
+             ,&bl_filter_first_keypress
++#endif /* !HAVE_LVGL_UI */
++#ifndef HAVE_LVGL_UI
+             ,&sel_backlight
++#endif /* !HAVE_LVGL_UI */
+ # ifdef HAVE_LCD_SLEEP_SETTING
+             ,&lcd_sleep_after_backlight_off
+ # endif
+@@ -310,6 +322,7 @@ MAKE_MENU(lcd_remote_settings, ID2P(LANG_LCD_REMOTE_MENU),
  /********************************/
  
  /***********************************/
@@ -594826,7 +594953,7 @@ index 99b1ad5f1e..ab2314307c 100644
  /*    SCROLL MENU                  */
  MENUITEM_SETTING_W_TEXT(scroll_speed, &global_settings.scroll_speed,
                           ID2P(LANG_SCROLL), NULL);
-@@ -360,12 +361,14 @@ MAKE_MENU(scroll_settings_menu, ID2P(LANG_SCROLL_MENU), 0, Icon_NOICON,
+@@ -360,12 +373,14 @@ MAKE_MENU(scroll_settings_menu, ID2P(LANG_SCROLL_MENU), 0, Icon_NOICON,
            &list_accel_start_delay, &list_accel_wait
  #endif
            );
@@ -594841,7 +594968,7 @@ index 99b1ad5f1e..ab2314307c 100644
  static int peakmeter_callback(int action,
                                const struct menu_item_ex *this_item,
                                struct gui_synclist *this_list)
-@@ -548,6 +551,7 @@ MAKE_MENU(peak_meter_menu, ID2P(LANG_PM_MENU), NULL, Icon_NOICON,
+@@ -548,6 +563,7 @@ MAKE_MENU(peak_meter_menu, ID2P(LANG_PM_MENU), NULL, Icon_NOICON,
            &histogram,
  #endif
            &peak_meter_scale_item, &peak_meter_min_item, &peak_meter_max_item);
@@ -594849,7 +594976,7 @@ index 99b1ad5f1e..ab2314307c 100644
  /*    PEAK METER MENU              */
  /***********************************/
  
-@@ -598,6 +602,7 @@ MAKE_MENU(touchscreen_menu, ID2P(LANG_TOUCHSCREEN_SETTINGS), NULL, Icon_NOICON,
+@@ -598,6 +614,7 @@ MAKE_MENU(touchscreen_menu, ID2P(LANG_TOUCHSCREEN_SETTINGS), NULL, Icon_NOICON,
            &touchscreen_menu_reset_calibration);
  #endif
  
@@ -594857,7 +594984,7 @@ index 99b1ad5f1e..ab2314307c 100644
  static int codepage_callback(int action,
                               const struct menu_item_ex *this_item,
                               struct gui_synclist *this_list)
-@@ -620,6 +625,7 @@ static int codepage_callback(int action,
+@@ -620,6 +637,7 @@ static int codepage_callback(int action,
  }
  
  MENUITEM_SETTING(codepage_setting, &global_settings.default_codepage, codepage_callback);
@@ -594865,7 +594992,7 @@ index 99b1ad5f1e..ab2314307c 100644
  
  
  MAKE_MENU(display_menu, ID2P(LANG_DISPLAY),
-@@ -628,9 +634,11 @@ MAKE_MENU(display_menu, ID2P(LANG_DISPLAY),
+@@ -628,9 +646,11 @@ MAKE_MENU(display_menu, ID2P(LANG_DISPLAY),
  #ifdef HAVE_REMOTE_LCD
              &lcd_remote_settings,
  #endif
@@ -594994,10 +595121,81 @@ index a09d81de3d..aeb20c79c0 100644
      return 0;
  }
 diff --git a/apps/menus/settings_menu.c b/apps/menus/settings_menu.c
-index 1879ada8fe..97c536faad 100644
+index 1879ada8fe..8d33134895 100644
 --- a/apps/menus/settings_menu.c
 +++ b/apps/menus/settings_menu.c
-@@ -493,6 +493,7 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
+@@ -191,7 +191,7 @@ MENUITEM_SETTING(dirfilter, &global_settings.dirfilter, NULL);
+ MENUITEM_SETTING(show_filename_ext, &global_settings.show_filename_ext, NULL);
+ MENUITEM_SETTING(browse_current, &global_settings.browse_current, NULL);
+ MENUITEM_SETTING(show_path_in_browser, &global_settings.show_path_in_browser, NULL);
+-#ifdef HAVE_HOTKEY
++#if defined(HAVE_HOTKEY) && !defined(HAVE_LVGL_UI)
+ MENUITEM_FUNCTION_W_PARAM(hotkey_tree_item, 0, ID2P(LANG_HOTKEY_FILE_BROWSER),
+                                   tree_context_menu_do_setting, (void*)0,
+                                   NULL, Icon_Menu_setting);
+@@ -218,7 +218,9 @@ MAKE_MENU(file_menu, ID2P(LANG_FILE), filemenu_callback, Icon_file_view_menu,
+                 &keep_directory,
+                 &clear_start_directory_item
+ #ifdef HAVE_HOTKEY
++#ifndef HAVE_LVGL_UI
+                 ,&hotkey_tree_item
++#endif /* !HAVE_LVGL_UI */
+ #endif
+                 );
+ static int filemenu_callback(int action,
+@@ -283,7 +285,7 @@ MENUITEM_SETTING(usb_mode, &global_settings.usb_mode, NULL);
+ MENUITEM_SETTING(use_led_indicators, &global_settings.use_led_indicators, NULL);
+ #endif
+ /* Disk */
+-#ifdef HAVE_DISK_STORAGE
++#if defined(HAVE_DISK_STORAGE) && !defined(HAVE_LVGL_UI)
+ MENUITEM_SETTING(disk_spindown, &global_settings.disk_spindown, NULL);
+ #endif
+ #ifdef HAVE_DIRCACHE
+@@ -313,7 +315,7 @@ MENUITEM_SETTING(dircache, &global_settings.dircache, dircache_callback);
+ #endif
+ #if defined(HAVE_DIRCACHE) || defined(HAVE_DISK_STORAGE)
+ MAKE_MENU(disk_menu, ID2P(LANG_DISK_MENU), 0, Icon_NOICON,
+-#ifdef HAVE_DISK_STORAGE
++#if defined(HAVE_DISK_STORAGE) && !defined(HAVE_LVGL_UI)
+           &disk_spindown,
+ #endif
+ #ifdef HAVE_DIRCACHE
+@@ -395,11 +397,11 @@ MENUITEM_SETTING(touchpad_sensitivity, &global_settings.touchpad_sensitivity, NU
+ MENUITEM_SETTING(touchpad_deadzone, &global_settings.touchpad_deadzone, NULL);
+ #endif
+ 
+-#ifdef HAVE_QUICKSCREEN
++#if defined(HAVE_QUICKSCREEN) && !defined(HAVE_LVGL_UI)
+ MENUITEM_SETTING(shortcuts_replaces_quickscreen, &global_settings.shortcuts_replaces_qs, NULL);
+ #endif
+ 
+-#ifndef HAS_BUTTON_HOLD
++#if !defined(HAS_BUTTON_HOLD) && !defined(HAVE_LVGL_UI)
+ 
+ MENUITEM_SETTING(bt_selective_actions,
+                  &global_settings.bt_selective_softlock_actions,
+@@ -446,7 +448,9 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
+             &volume_adjust_norm_steps,
+ #endif
+ #ifdef HAVE_QUICKSCREEN
++#ifndef HAVE_LVGL_UI
+             &shortcuts_replaces_quickscreen,
++#endif /* !HAVE_LVGL_UI */
+ #endif
+ #ifdef HAVE_MORSE_INPUT
+             &morse_input,
+@@ -477,7 +481,9 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
+             &touchpad_deadzone,
+ #endif
+ #ifndef HAS_BUTTON_HOLD
++#ifndef HAVE_LVGL_UI
+             &sel_softlock,
++#endif /* !HAVE_LVGL_UI */
+ #endif
+ #if defined(USB_ENABLE_HID) || \
+     defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO) || \
+@@ -493,6 +499,7 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
  #endif
           );
  
@@ -595005,6 +595203,60 @@ index 1879ada8fe..97c536faad 100644
  /*    SYSTEM MENU                  */
  /***********************************/
  
+@@ -675,6 +682,7 @@ MAKE_MENU(autoresume_menu, ID2P(LANG_AUTORESUME),
+ 
+ /***********************************/
+ /*    VOICE MENU                   */
++#ifndef HAVE_LVGL_UI
+ static int talk_callback(int action,
+                          const struct menu_item_ex *this_item,
+                          struct gui_synclist *this_list);
+@@ -719,6 +727,7 @@ MAKE_MENU(voice_settings_menu, ID2P(LANG_VOICE), 0, Icon_Voice,
+           &talk_menu_item, &talk_dir_item, &talk_dir_clip_item,
+           &talk_file_item, &talk_file_clip_item, &talk_filetype_item,
+           &talk_battery_level_item, &talk_mixer_amp_item);
++#endif /* !HAVE_LVGL_UI */
+ /*    VOICE MENU                   */
+ /***********************************/
+ 
+@@ -775,6 +784,7 @@ MENUITEM_FUNCTION_DYNTEXT_W_PARAM(hotkey_wps_item, 0,
+                                   wps_context_menu_speak_item,
+                                   (void*)0, NULL, Icon_Menu_setting);
+ #else
++#ifndef HAVE_LVGL_UI
+ MENUITEM_FUNCTION_DYNTEXT_W_PARAM(wps_set_context_item_0, 0,
+                                   wps_context_menu_do_setting, (void*)0,
+                                   wps_context_menu_get_name,
+@@ -825,6 +835,7 @@ MAKE_MENU(wps_settings, ID2P(LANG_WPS), 0, Icon_Playback_menu
+             ,&wps_set_context_item_4
+             ,&reset_wps_item
+             );
++#endif /* !HAVE_LVGL_UI */
+ /*    WPS Settings MENU            */
+ /***********************************/
+ 
+@@ -839,7 +850,9 @@ MENUITEM_FUNCTION_W_PARAM(browse_langs, 0, ID2P(LANG_LANGUAGE),
+ 
+ MAKE_MENU(settings_menu_item, ID2P(LANG_GENERAL_SETTINGS), 0,
+           Icon_General_settings_menu,
++#ifndef HAVE_LVGL_UI
+           &wps_settings,
++#endif /* !HAVE_LVGL_UI */
+           &playlist_settings, &file_menu,
+ #ifdef HAVE_TAGCACHE
+           &tagcache_menu,
+@@ -850,7 +863,10 @@ MAKE_MENU(settings_menu_item, ID2P(LANG_GENERAL_SETTINGS), 0,
+ #ifdef HAVE_TAGCACHE
+           &autoresume_menu,
+ #endif
+-          &browse_langs, &voice_settings_menu,
++          &browse_langs
++#ifndef HAVE_LVGL_UI
++          , &voice_settings_menu
++#endif /* !HAVE_LVGL_UI */
+           );
+ /*    SETTINGS MENU                */
+ /***********************************/
 diff --git a/apps/menus/sound_menu.c b/apps/menus/sound_menu.c
 index 61d16f4cb1..841844be06 100644
 --- a/apps/menus/sound_menu.c

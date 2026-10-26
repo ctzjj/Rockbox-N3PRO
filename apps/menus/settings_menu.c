@@ -191,7 +191,7 @@ MENUITEM_SETTING(dirfilter, &global_settings.dirfilter, NULL);
 MENUITEM_SETTING(show_filename_ext, &global_settings.show_filename_ext, NULL);
 MENUITEM_SETTING(browse_current, &global_settings.browse_current, NULL);
 MENUITEM_SETTING(show_path_in_browser, &global_settings.show_path_in_browser, NULL);
-#ifdef HAVE_HOTKEY
+#if defined(HAVE_HOTKEY) && !defined(HAVE_LVGL_UI)
 MENUITEM_FUNCTION_W_PARAM(hotkey_tree_item, 0, ID2P(LANG_HOTKEY_FILE_BROWSER),
                                   tree_context_menu_do_setting, (void*)0,
                                   NULL, Icon_Menu_setting);
@@ -218,7 +218,9 @@ MAKE_MENU(file_menu, ID2P(LANG_FILE), filemenu_callback, Icon_file_view_menu,
                 &keep_directory,
                 &clear_start_directory_item
 #ifdef HAVE_HOTKEY
+#ifndef HAVE_LVGL_UI
                 ,&hotkey_tree_item
+#endif /* !HAVE_LVGL_UI */
 #endif
                 );
 static int filemenu_callback(int action,
@@ -283,7 +285,7 @@ MENUITEM_SETTING(usb_mode, &global_settings.usb_mode, NULL);
 MENUITEM_SETTING(use_led_indicators, &global_settings.use_led_indicators, NULL);
 #endif
 /* Disk */
-#ifdef HAVE_DISK_STORAGE
+#if defined(HAVE_DISK_STORAGE) && !defined(HAVE_LVGL_UI)
 MENUITEM_SETTING(disk_spindown, &global_settings.disk_spindown, NULL);
 #endif
 #ifdef HAVE_DIRCACHE
@@ -313,7 +315,7 @@ MENUITEM_SETTING(dircache, &global_settings.dircache, dircache_callback);
 #endif
 #if defined(HAVE_DIRCACHE) || defined(HAVE_DISK_STORAGE)
 MAKE_MENU(disk_menu, ID2P(LANG_DISK_MENU), 0, Icon_NOICON,
-#ifdef HAVE_DISK_STORAGE
+#if defined(HAVE_DISK_STORAGE) && !defined(HAVE_LVGL_UI)
           &disk_spindown,
 #endif
 #ifdef HAVE_DIRCACHE
@@ -395,11 +397,11 @@ MENUITEM_SETTING(touchpad_sensitivity, &global_settings.touchpad_sensitivity, NU
 MENUITEM_SETTING(touchpad_deadzone, &global_settings.touchpad_deadzone, NULL);
 #endif
 
-#ifdef HAVE_QUICKSCREEN
+#if defined(HAVE_QUICKSCREEN) && !defined(HAVE_LVGL_UI)
 MENUITEM_SETTING(shortcuts_replaces_quickscreen, &global_settings.shortcuts_replaces_qs, NULL);
 #endif
 
-#ifndef HAS_BUTTON_HOLD
+#if !defined(HAS_BUTTON_HOLD) && !defined(HAVE_LVGL_UI)
 
 MENUITEM_SETTING(bt_selective_actions,
                  &global_settings.bt_selective_softlock_actions,
@@ -446,7 +448,9 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
             &volume_adjust_norm_steps,
 #endif
 #ifdef HAVE_QUICKSCREEN
+#ifndef HAVE_LVGL_UI
             &shortcuts_replaces_quickscreen,
+#endif /* !HAVE_LVGL_UI */
 #endif
 #ifdef HAVE_MORSE_INPUT
             &morse_input,
@@ -477,7 +481,9 @@ MAKE_MENU(system_menu, ID2P(LANG_SYSTEM),
             &touchpad_deadzone,
 #endif
 #ifndef HAS_BUTTON_HOLD
+#ifndef HAVE_LVGL_UI
             &sel_softlock,
+#endif /* !HAVE_LVGL_UI */
 #endif
 #if defined(USB_ENABLE_HID) || \
     defined(USB_ENABLE_AUDIO) || defined(HAVE_HOST_USB_AUDIO) || \
@@ -676,6 +682,7 @@ MAKE_MENU(autoresume_menu, ID2P(LANG_AUTORESUME),
 
 /***********************************/
 /*    VOICE MENU                   */
+#ifndef HAVE_LVGL_UI
 static int talk_callback(int action,
                          const struct menu_item_ex *this_item,
                          struct gui_synclist *this_list);
@@ -720,6 +727,7 @@ MAKE_MENU(voice_settings_menu, ID2P(LANG_VOICE), 0, Icon_Voice,
           &talk_menu_item, &talk_dir_item, &talk_dir_clip_item,
           &talk_file_item, &talk_file_clip_item, &talk_filetype_item,
           &talk_battery_level_item, &talk_mixer_amp_item);
+#endif /* !HAVE_LVGL_UI */
 /*    VOICE MENU                   */
 /***********************************/
 
@@ -776,6 +784,7 @@ MENUITEM_FUNCTION_DYNTEXT_W_PARAM(hotkey_wps_item, 0,
                                   wps_context_menu_speak_item,
                                   (void*)0, NULL, Icon_Menu_setting);
 #else
+#ifndef HAVE_LVGL_UI
 MENUITEM_FUNCTION_DYNTEXT_W_PARAM(wps_set_context_item_0, 0,
                                   wps_context_menu_do_setting, (void*)0,
                                   wps_context_menu_get_name,
@@ -826,6 +835,7 @@ MAKE_MENU(wps_settings, ID2P(LANG_WPS), 0, Icon_Playback_menu
             ,&wps_set_context_item_4
             ,&reset_wps_item
             );
+#endif /* !HAVE_LVGL_UI */
 /*    WPS Settings MENU            */
 /***********************************/
 
@@ -840,7 +850,9 @@ MENUITEM_FUNCTION_W_PARAM(browse_langs, 0, ID2P(LANG_LANGUAGE),
 
 MAKE_MENU(settings_menu_item, ID2P(LANG_GENERAL_SETTINGS), 0,
           Icon_General_settings_menu,
+#ifndef HAVE_LVGL_UI
           &wps_settings,
+#endif /* !HAVE_LVGL_UI */
           &playlist_settings, &file_menu,
 #ifdef HAVE_TAGCACHE
           &tagcache_menu,
@@ -851,7 +863,10 @@ MAKE_MENU(settings_menu_item, ID2P(LANG_GENERAL_SETTINGS), 0,
 #ifdef HAVE_TAGCACHE
           &autoresume_menu,
 #endif
-          &browse_langs, &voice_settings_menu,
+          &browse_langs
+#ifndef HAVE_LVGL_UI
+          , &voice_settings_menu
+#endif /* !HAVE_LVGL_UI */
           );
 /*    SETTINGS MENU                */
 /***********************************/
