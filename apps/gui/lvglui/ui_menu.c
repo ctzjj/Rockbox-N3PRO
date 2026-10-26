@@ -82,6 +82,11 @@ bool lvgui_menu_cancel(void)
 {
     if (!g_menu_active)
         return false;
+    /* A picker/option screen is on top of the menu: this swipe means
+     * "leave that screen", so let the caller pop the stack instead of
+     * cancelling the menu level underneath (which left the picker open). */
+    if (g_menu_scr && lv_scr_act() != g_menu_scr)
+        return false;
     g_menu_cancel = true;
     return true;
 }
