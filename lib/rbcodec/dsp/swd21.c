@@ -54,18 +54,14 @@ static inline int32_t abs32(int32_t v){
     return (v < 0) ? (int32_t)(uint32_t)(-(uint32_t)v) : v;
 }
 
-static inline int32_t LD(uint32_t a){
-    int32_t v;
-    __builtin_memcpy(&v, swd_map_fast(a), 4);
-    return v;
+static inline __attribute__((always_inline)) int32_t LD(uint32_t a){
+    return *(const int32_t *)swd_map_fast(a);
 }
-static inline void ST(uint32_t a, int32_t v){
-    __builtin_memcpy(swd_map_fast(a), &v, 4);
+static inline __attribute__((always_inline)) void ST(uint32_t a, int32_t v){
+    *(int32_t *)swd_map_fast(a) = v;
 }
-static inline uint32_t LDU16(uint32_t a){
-    uint16_t v;
-    __builtin_memcpy(&v, swd_map_fast(a), 2);
-    return v;
+static inline __attribute__((always_inline)) uint32_t LDU16(uint32_t a){
+    return *(const uint16_t *)swd_map_fast(a);
 }
 
 void swd21_process(uint32_t state, uint32_t buf){

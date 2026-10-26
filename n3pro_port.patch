@@ -543089,10 +543089,10 @@ index 0000000000..4c1edbbb22
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..c5514d9356
+index 0000000000..d6d9e1989c
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,186 @@
+@@ -0,0 +1,203 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543203,8 +543203,24 @@ index 0000000000..c5514d9356
 +    shell_nav_home();
 +}
 +
++/* SYS_POWEROFF comes from the power thread (idle timeout, sleep timer,
++ * low battery): only record it here, the toast has to be built on the
++ * GUI thread. */
++static volatile bool g_shutdown_pending;
++static void lvgui_shutdown_event(unsigned short id, void *data)
++{
++    (void)id;
++    (void)data;
++    g_shutdown_pending = true;
++}
++
 +void lvgui_pump(void)
 +{
++    if (g_shutdown_pending)
++    {
++        g_shutdown_pending = false;
++        shell_shutdown_notice();
++    }
 +    if (g_wake_dirty)
 +    {
 +        g_wake_dirty = false;
@@ -543253,6 +543269,7 @@ index 0000000000..c5514d9356
 +    lvgui_port_disp_init();
 +    lvgui_port_input_init();
 +    lvgui_shell_start();
++    add_event(SYS_POWEROFF, lvgui_shutdown_event);
 +    shell_start_screen_apply();   /* Start Screen setting */
 +    add_event(LCD_EVENT_ACTIVATION, lvgui_lcd_activation_hook);
 +
@@ -543281,10 +543298,10 @@ index 0000000000..c5514d9356
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..79888305cd
+index 0000000000..cf71310c18
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,161 @@
+@@ -0,0 +1,162 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543422,6 +543439,7 @@ index 0000000000..79888305cd
 +/* file browser (ui_library.c) */
 +void shell_files_show(void);
 +void shell_start_screen_apply(void);
++void shell_shutdown_notice(void);
 +
 +/* playlist catalog (ui_library.c) */
 +void shell_playlists_show(void);
@@ -554105,10 +554123,10 @@ index 0000000000..f6ed4e4a3c
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..233318cef3
+index 0000000000..583573ceb8
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2546 @@
+@@ -0,0 +1,2554 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -556098,6 +556116,14 @@ index 0000000000..233318cef3
 +static void open_shortcuts(lv_event_t *e) { (void)e; lvgui_run_job(menu_job, (void *)be_shortcut_menu); }
 +static void open_bookmarks(lv_event_t *e) { (void)e; lvgui_run_job(menu_job, (void *)be_bookmark_load); }
 +static void open_settings(lv_event_t *e)  { (void)e; lvgui_run_job(menu_job, (void *)be_settings_menu); }
++
++/* Idle timeout / sleep timer / low battery: the classic UI showed the
++ * shutdown message from its SYS_POWEROFF handler, mirror that here. */
++void shell_shutdown_notice(void)
++{
++    if (global_settings.show_shutdown_message)
++        shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
++}
 +
 +/* Settings -> Startup/Shutdown -> Start Screen, applied once at boot.
 + * Same arithmetic as root_menu_setup_screens(): the setting stores
@@ -670397,10 +670423,10 @@ index 0000000000..163281cd86
 +void dsp_set_swd_limiter(int mode);
 diff --git a/lib/rbcodec/dsp/swd21.c b/lib/rbcodec/dsp/swd21.c
 new file mode 100644
-index 0000000000..5ff76f41ea
+index 0000000000..b998c8ff48
 --- /dev/null
 +++ b/lib/rbcodec/dsp/swd21.c
-@@ -0,0 +1,478 @@
+@@ -0,0 +1,474 @@
 +/* SWD v2.1 (the driver) DSP core —— 0x1000b000 定点 C 实现
 + *
 + * 与已验证逐位一致的 Python (swd_dsp.py) 等价。
@@ -670457,18 +670483,14 @@ index 0000000000..5ff76f41ea
 +    return (v < 0) ? (int32_t)(uint32_t)(-(uint32_t)v) : v;
 +}
 +
-+static inline int32_t LD(uint32_t a){
-+    int32_t v;
-+    __builtin_memcpy(&v, swd_map_fast(a), 4);
-+    return v;
++static inline __attribute__((always_inline)) int32_t LD(uint32_t a){
++    return *(const int32_t *)swd_map_fast(a);
 +}
-+static inline void ST(uint32_t a, int32_t v){
-+    __builtin_memcpy(swd_map_fast(a), &v, 4);
++static inline __attribute__((always_inline)) void ST(uint32_t a, int32_t v){
++    *(int32_t *)swd_map_fast(a) = v;
 +}
-+static inline uint32_t LDU16(uint32_t a){
-+    uint16_t v;
-+    __builtin_memcpy(&v, swd_map_fast(a), 2);
-+    return v;
++static inline __attribute__((always_inline)) uint32_t LDU16(uint32_t a){
++    return *(const uint16_t *)swd_map_fast(a);
 +}
 +
 +void swd21_process(uint32_t state, uint32_t buf){
@@ -671302,7 +671324,7 @@ index 0000000000..34a6d117ea
 +#endif
 diff --git a/lib/rbcodec/dsp/swd_map.h b/lib/rbcodec/dsp/swd_map.h
 new file mode 100644
-index 0000000000..b76d4ab9d6
+index 0000000000..8ef11947ce
 --- /dev/null
 +++ b/lib/rbcodec/dsp/swd_map.h
 @@ -0,0 +1,47 @@
@@ -671333,7 +671355,7 @@ index 0000000000..b76d4ab9d6
 +extern uint8_t swd_buf_mem[SWD_BUF_SIZE];
 +extern const uint8_t *swd_img0;
 +
-+static inline uint8_t *swd_map_fast(uint32_t a)
++static inline __attribute__((always_inline)) uint8_t *swd_map_fast(uint32_t a)
 +{
 +    uint32_t d;
 +

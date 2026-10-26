@@ -25,7 +25,7 @@ extern uint8_t swd_sink_mem[4];
 extern uint8_t swd_buf_mem[SWD_BUF_SIZE];
 extern const uint8_t *swd_img0;
 
-static inline uint8_t *swd_map_fast(uint32_t a)
+static inline __attribute__((always_inline)) uint8_t *swd_map_fast(uint32_t a)
 {
     uint32_t d;
 

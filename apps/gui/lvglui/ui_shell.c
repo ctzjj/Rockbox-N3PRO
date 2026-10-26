@@ -1988,6 +1988,14 @@ static void open_shortcuts(lv_event_t *e) { (void)e; lvgui_run_job(menu_job, (vo
 static void open_bookmarks(lv_event_t *e) { (void)e; lvgui_run_job(menu_job, (void *)be_bookmark_load); }
 static void open_settings(lv_event_t *e)  { (void)e; lvgui_run_job(menu_job, (void *)be_settings_menu); }
 
+/* Idle timeout / sleep timer / low battery: the classic UI showed the
+ * shutdown message from its SYS_POWEROFF handler, mirror that here. */
+void shell_shutdown_notice(void)
+{
+    if (global_settings.show_shutdown_message)
+        shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
+}
+
 /* Settings -> Startup/Shutdown -> Start Screen, applied once at boot.
  * Same arithmetic as root_menu_setup_screens(): the setting stores
  * GO_TO_* + 2, 0 means "previous screen" (global_status.last_screen). */

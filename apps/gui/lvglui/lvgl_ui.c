@@ -108,8 +108,24 @@ static void lvgui_home_key(void)
     shell_nav_home();
 }
 
+/* SYS_POWEROFF comes from the power thread (idle timeout, sleep timer,
+ * low battery): only record it here, the toast has to be built on the
+ * GUI thread. */
+static volatile bool g_shutdown_pending;
+static void lvgui_shutdown_event(unsigned short id, void *data)
+{
+    (void)id;
+    (void)data;
+    g_shutdown_pending = true;
+}
+
 void lvgui_pump(void)
 {
+    if (g_shutdown_pending)
+    {
+        g_shutdown_pending = false;
+        shell_shutdown_notice();
+    }
     if (g_wake_dirty)
     {
         g_wake_dirty = false;
@@ -158,6 +174,7 @@ void lvgui_main(void)
     lvgui_port_disp_init();
     lvgui_port_input_init();
     lvgui_shell_start();
+    add_event(SYS_POWEROFF, lvgui_shutdown_event);
     shell_start_screen_apply();   /* Start Screen setting */
     add_event(LCD_EVENT_ACTIVATION, lvgui_lcd_activation_hook);
 
