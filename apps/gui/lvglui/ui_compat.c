@@ -161,10 +161,41 @@ int skinlist_get_line_count(enum screen_type screen, struct gui_synclist *list)
     return 0;
 }
 
+/* verbatim from the classic WPS (apps/gui/wps.c), minus the skin refresh
+ * (update_non_static() died with the skin engine) */
 void wps_do_action(enum wps_do_action_type action, bool updatewps)
 {
-    (void)action;
     (void)updatewps;
+
+    if (action == WPS_PLAYPAUSE) /* toggle the status */
+    {
+        struct wps_state *state = get_wps_state();
+        if (state->paused)
+            action = WPS_PLAY;
+
+        state->paused = !state->paused;
+    }
+
+    if (action == WPS_PLAY) /* unpause_action */
+    {
+        audio_resume();
+    }
+    else /* WPS_PAUSE pause_action */
+    {
+        audio_pause();
+
+        if (global_settings.pause_rewind) {
+            unsigned long elapsed = audio_current_track()->elapsed;
+            long newpos = elapsed - (global_settings.pause_rewind * 1000);
+
+            audio_pre_ff_rewind();
+            audio_ff_rewind(newpos > 0 ? newpos : 0);
+        }
+        if (action == WPS_PLAYPAUSE)
+        {
+            settings_save();   /* hosted builds have no storage idle queue */
+        }
+    }
 }
 
 void wps_playlist_percent_prepare(void)
@@ -175,6 +206,7 @@ void wps_playlist_percent_prepare(void)
 struct wps_state *get_wps_state(void)
 {
     wps_state.id3 = audio_current_track();
+    wps_state.paused = (audio_status() & AUDIO_STATUS_PAUSE) != 0;
     return &wps_state;
 }
 

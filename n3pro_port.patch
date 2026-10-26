@@ -543451,7 +543451,7 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..e103cb6e51
+index 0000000000..d26051c6ef
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
 @@ -0,0 +1,1571 @@
@@ -544259,10 +544259,10 @@ index 0000000000..e103cb6e51
 +
 +void be_player_toggle_pause(void)
 +{
-+    if (audio_status() & AUDIO_STATUS_PAUSE)
-+        audio_resume();
-+    else
-+        audio_pause();
++    /* same call the classic WPS made for its play/pause button: handles
++     * the pause-rewind setting and saves the resume info */
++    extern void wps_do_action(enum wps_do_action_type action, bool updatewps);
++    wps_do_action(WPS_PLAYPAUSE, true);
 +}
 +
 +void be_player_next(void)
@@ -545559,10 +545559,10 @@ index 0000000000..290cdd1b21
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_compat.c b/apps/gui/lvglui/ui_compat.c
 new file mode 100644
-index 0000000000..72c9cc491d
+index 0000000000..fcefd8228d
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_compat.c
-@@ -0,0 +1,298 @@
+@@ -0,0 +1,330 @@
 +/* ui_compat.c - no-op stand-ins for classic-UI functions that the frozen
 + * plugin ABI and settings machinery still reference after the classic UI
 + * sources were dropped from the LVGL build. Compiled only when
@@ -545726,10 +545726,41 @@ index 0000000000..72c9cc491d
 +    return 0;
 +}
 +
++/* verbatim from the classic WPS (apps/gui/wps.c), minus the skin refresh
++ * (update_non_static() died with the skin engine) */
 +void wps_do_action(enum wps_do_action_type action, bool updatewps)
 +{
-+    (void)action;
 +    (void)updatewps;
++
++    if (action == WPS_PLAYPAUSE) /* toggle the status */
++    {
++        struct wps_state *state = get_wps_state();
++        if (state->paused)
++            action = WPS_PLAY;
++
++        state->paused = !state->paused;
++    }
++
++    if (action == WPS_PLAY) /* unpause_action */
++    {
++        audio_resume();
++    }
++    else /* WPS_PAUSE pause_action */
++    {
++        audio_pause();
++
++        if (global_settings.pause_rewind) {
++            unsigned long elapsed = audio_current_track()->elapsed;
++            long newpos = elapsed - (global_settings.pause_rewind * 1000);
++
++            audio_pre_ff_rewind();
++            audio_ff_rewind(newpos > 0 ? newpos : 0);
++        }
++        if (action == WPS_PLAYPAUSE)
++        {
++            settings_save();   /* hosted builds have no storage idle queue */
++        }
++    }
 +}
 +
 +void wps_playlist_percent_prepare(void)
@@ -545740,6 +545771,7 @@ index 0000000000..72c9cc491d
 +struct wps_state *get_wps_state(void)
 +{
 +    wps_state.id3 = audio_current_track();
++    wps_state.paused = (audio_status() & AUDIO_STATUS_PAUSE) != 0;
 +    return &wps_state;
 +}
 +
@@ -594961,55 +594993,6 @@ index a09d81de3d..aeb20c79c0 100644
      plugin_load(PLUGIN_APPS_DIR "/main_menu_config.rock", NULL);
      return 0;
  }
-diff --git a/apps/menus/playback_menu.c b/apps/menus/playback_menu.c
-index c359161734..503f0013d9 100644
---- a/apps/menus/playback_menu.c
-+++ b/apps/menus/playback_menu.c
-@@ -63,10 +63,13 @@ MENUITEM_SETTING(shuffle_item, &global_settings.playlist_shuffle, NULL);
- MENUITEM_SETTING(repeat_mode, &global_settings.repeat_mode, NULL);
- MENUITEM_SETTING(play_selected, &global_settings.play_selected, NULL);
- 
-+#ifndef HAVE_LVGL_UI
-+/* wind/rewind acceleration only drives the classic WPS seek buttons */
- MENUITEM_SETTING(ff_rewind_accel, &global_settings.ff_rewind_accel, NULL);
- MENUITEM_SETTING(ff_rewind_min_step, &global_settings.ff_rewind_min_step, NULL);
- MAKE_MENU(ff_rewind_settings_menu, ID2P(LANG_WIND_MENU), 0, Icon_NOICON,
-           &ff_rewind_min_step, &ff_rewind_accel);
-+#endif /* !HAVE_LVGL_UI */
- #ifdef HAVE_DISK_STORAGE
- static int buffermargin_callback(int action,
-                                  const struct menu_item_ex *this_item,
-@@ -171,7 +174,10 @@ MENUITEM_SETTING(skip_length, &global_settings.skip_length, NULL);
- MENUITEM_SETTING(prevent_skip, &global_settings.prevent_skip, NULL);
- MENUITEM_SETTING(rewind_across_tracks, &global_settings.rewind_across_tracks, NULL);
- MENUITEM_SETTING(resume_rewind, &global_settings.resume_rewind, NULL);
-+#ifndef HAVE_LVGL_UI
-+/* only the classic WPS rewinds when pausing */
- MENUITEM_SETTING(pause_rewind, &global_settings.pause_rewind, NULL);
-+#endif /* !HAVE_LVGL_UI */
- #ifdef HAVE_PLAY_FREQ
- MENUITEM_SETTING(play_frequency, &global_settings.play_frequency, NULL);
- #endif
-@@ -184,7 +190,9 @@ MENUITEM_SETTING(playback_log, &global_settings.playback_log, NULL);
- MAKE_MENU(playback_settings,ID2P(LANG_PLAYBACK),0,
-           Icon_Playback_menu,
-           &shuffle_item, &repeat_mode, &play_selected,
-+#ifndef HAVE_LVGL_UI
-           &ff_rewind_settings_menu,
-+#endif /* !HAVE_LVGL_UI */
- #ifdef HAVE_DISK_STORAGE
-           &buffer_margin,
- #endif
-@@ -207,7 +215,9 @@ MAKE_MENU(playback_settings,ID2P(LANG_PLAYBACK),0,
-           ,&rewind_across_tracks
- 
-           ,&resume_rewind
-+#ifndef HAVE_LVGL_UI
-           ,&pause_rewind
-+#endif /* !HAVE_LVGL_UI */
- #ifdef HAVE_PLAY_FREQ
-           ,&play_frequency
- #endif
 diff --git a/apps/menus/settings_menu.c b/apps/menus/settings_menu.c
 index 1879ada8fe..97c536faad 100644
 --- a/apps/menus/settings_menu.c

@@ -802,10 +802,10 @@ void be_player_info(struct be_player_info *out)
 
 void be_player_toggle_pause(void)
 {
-    if (audio_status() & AUDIO_STATUS_PAUSE)
-        audio_resume();
-    else
-        audio_pause();
+    /* same call the classic WPS made for its play/pause button: handles
+     * the pause-rewind setting and saves the resume info */
+    extern void wps_do_action(enum wps_do_action_type action, bool updatewps);
+    wps_do_action(WPS_PLAYPAUSE, true);
 }
 
 void be_player_next(void)
