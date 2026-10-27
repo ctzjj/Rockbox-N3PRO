@@ -557507,10 +557507,10 @@ index 0000000000..cd65163337
 +
 +#endif /* UI_WIDGETS_H */
 diff --git a/apps/gui/option_select.c b/apps/gui/option_select.c
-index d70af4d042..671af43b6f 100644
+index d70af4d042..f5e98dc2b9 100644
 --- a/apps/gui/option_select.c
 +++ b/apps/gui/option_select.c
-@@ -473,16 +473,45 @@ static void val_to_selection(const struct settings_list *setting, int oldvalue,
+@@ -473,16 +473,46 @@ static void val_to_selection(const struct settings_list *setting, int oldvalue,
      {
          *selected = oldvalue;
          *nb_items = 2;
@@ -557548,11 +557548,12 @@ index d70af4d042..671af43b6f 100644
  {
 +#ifdef HAVE_LVGL_UI
 +    bool lvgui_in_job(void);                       /* apps/gui/lvglui */
++    bool plugin_is_running(void);                  /* apps/plugin.c */
 +    bool lvgui_option_screen(const struct settings_list *setting,
 +                             struct viewport parent[NB_SCREENS],
 +                             bool use_temp_var,
 +                             const unsigned char *option_title);
-+    if (lvgui_in_job())
++    if (lvgui_in_job() && !plugin_is_running())
 +        return lvgui_option_screen(setting, parent, use_temp_var,
 +                                   option_title);
 +#endif
@@ -567293,10 +567294,10 @@ index fefaaeda45..4acb663706 100644
  }
 diff --git a/apps/keymaps/keymap-n3pro.c b/apps/keymaps/keymap-n3pro.c
 new file mode 100644
-index 0000000000..22693ef5f8
+index 0000000000..57f98f4202
 --- /dev/null
 +++ b/apps/keymaps/keymap-n3pro.c
-@@ -0,0 +1,237 @@
+@@ -0,0 +1,253 @@
 +/***************************************************************************
 + *             __________               __   ___
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -567344,6 +567345,18 @@ index 0000000000..22693ef5f8
 +    { ACTION_STD_MENU,           BUTTON_HOME,                        BUTTON_NONE },
 +
 +    { ACTION_STD_KEYLOCK,        BUTTON_POWER|BUTTON_SCROLL_BACK,    BUTTON_POWER },
++
++#ifdef HAVE_TOUCHSCREEN
++    /* 3x3 touchscreen grid: plugins run their dialogs in grid mode, so
++     * the classic lists and menus need cell bindings to stay drivable */
++    { ACTION_STD_PREV,           BUTTON_MIDLEFT,                     BUTTON_NONE },
++    { ACTION_STD_PREVREPEAT,     BUTTON_MIDLEFT|BUTTON_REPEAT,       BUTTON_NONE },
++    { ACTION_STD_NEXT,           BUTTON_MIDRIGHT,                    BUTTON_NONE },
++    { ACTION_STD_NEXTREPEAT,     BUTTON_MIDRIGHT|BUTTON_REPEAT,      BUTTON_NONE },
++    { ACTION_STD_OK,             BUTTON_CENTER|BUTTON_REL,           BUTTON_CENTER },
++    { ACTION_STD_CONTEXT,        BUTTON_CENTER|BUTTON_REPEAT,        BUTTON_CENTER },
++    { ACTION_STD_CANCEL,         BUTTON_BOTTOMRIGHT|BUTTON_REL,      BUTTON_BOTTOMRIGHT },
++#endif
 +
 +    LAST_ITEM_IN_LIST
 +};
@@ -567424,6 +567437,10 @@ index 0000000000..22693ef5f8
 +{
 +    { ACTION_YESNO_ACCEPT,       BUTTON_PLAY,                        BUTTON_NONE },
 +    { ACTION_STD_CANCEL,         BUTTON_POWER,                       BUTTON_NONE },
++#ifdef HAVE_TOUCHSCREEN
++    { ACTION_YESNO_ACCEPT,       BUTTON_CENTER|BUTTON_REL,           BUTTON_CENTER },
++    { ACTION_STD_CANCEL,         BUTTON_BOTTOMRIGHT,                 BUTTON_NONE },
++#endif
 +
 +    LAST_ITEM_IN_LIST__NEXTLIST(CONTEXT_STD),
 +};
@@ -594939,10 +594956,10 @@ index 38bc18925a..c4f5d959ab 100644
  
  /* The disk isn't ready at boot, rblogo is stored in bin and erased after boot */
 diff --git a/apps/menu.c b/apps/menu.c
-index f81c1665a5..aeb60a7932 100644
+index f81c1665a5..89f1ec9602 100644
 --- a/apps/menu.c
 +++ b/apps/menu.c
-@@ -383,9 +383,20 @@ void do_setting_from_menu(const struct menu_item_ex *temp,
+@@ -383,9 +383,23 @@ void do_setting_from_menu(const struct menu_item_ex *temp,
  }
  
  /* display a menu */
@@ -594951,13 +594968,16 @@ index f81c1665a5..aeb60a7932 100644
 + * when do_menu() is reached from an lvgui_run_job() blocking context */
 +int lvgui_do_menu(const struct menu_item_ex *menu, int *start_selected);
 +bool lvgui_in_job(void);
++bool plugin_is_running(void);          /* apps/plugin.c */
 +#endif
 +
  int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
              struct viewport parent[NB_SCREENS], bool hide_theme)
  {
 +#ifdef HAVE_LVGL_UI
-+    if (lvgui_in_job())
++    /* a plugin's own menus keep the classic UI: the native engine pops
++     * back to the shell underneath the running plugin otherwise */
++    if (lvgui_in_job() && !plugin_is_running())
 +        return lvgui_do_menu(start_menu, start_selected);
 +#endif
      int selected = start_selected? *start_selected : 0;
@@ -600747,7 +600767,7 @@ index e35700732c..0000000000
 -    return ret;
 -}
 diff --git a/apps/plugin.c b/apps/plugin.c
-index 83574d5ed0..5551ebf932 100644
+index 83574d5ed0..f85686a046 100644
 --- a/apps/plugin.c
 +++ b/apps/plugin.c
 @@ -31,6 +31,7 @@
@@ -600758,7 +600778,21 @@ index 83574d5ed0..5551ebf932 100644
  #include "mp3data.h"
  #include "powermgmt.h"
  #include "splash.h"
-@@ -96,11 +97,104 @@ static void plugin_tsr(int (*exit_callback)(bool));
+@@ -85,6 +86,13 @@ extern unsigned char pluginbuf[];
+ static int  plugin_size = 0;
+ static int (*pfn_tsr_exit)(bool reenter) = NULL; /* TSR exit callback */
+ static char current_plugin[MAX_PATH];
++
++/* True while a plugin owns the screen.  Its menus and dialogs must stay
++ * in the classic UI: our LVGL menu engine would pop its screen on back
++ * and expose the shell underneath the still-running plugin (Rockbox does
++ * not run plugins in the background). */
++static volatile bool plugin_running = false;
++bool plugin_is_running(void) { return plugin_running; }
+ /* NULL if no plugin is loaded, otherwise the handle that lc_open() returned */
+ static void *current_plugin_handle;
+ 
+@@ -96,11 +104,104 @@ static void plugin_tsr(int (*exit_callback)(bool));
  
  extern struct battery_tables_t device_battery_tables; /* powermgmt.c */
  
@@ -600863,7 +600897,7 @@ index 83574d5ed0..5551ebf932 100644
  #define PCOC_WRAPPER(_x_)   WRAPPER(_x_)
  
  BITARRAY_TYPE_DECLARE(plugin_check_open_close_bitmap_t, open_files_bitmap,
-@@ -668,6 +762,7 @@ static const struct plugin_api rockbox_api = {
+@@ -668,6 +769,7 @@ static const struct plugin_api rockbox_api = {
      audio_set_input_source,
  #endif
      dsp_set_crossfeed_type ,
@@ -600871,7 +600905,7 @@ index 83574d5ed0..5551ebf932 100644
      dsp_eq_enable,
      dsp_dither_enable,
  #ifdef HAVE_PITCHCONTROL
-@@ -837,6 +932,9 @@ static const struct plugin_api rockbox_api = {
+@@ -837,6 +939,9 @@ static const struct plugin_api rockbox_api = {
      remove_array_ptr,
      round_value_to_list32,
  
@@ -600881,6 +600915,16 @@ index 83574d5ed0..5551ebf932 100644
      read_bmp_file,
      read_bmp_fd,
  #ifdef HAVE_JPEG
+@@ -1032,7 +1137,9 @@ int plugin_load(const char* plugin, const void* parameter)
+ 
+     plugin_check_open_close__enter();
+ 
++    plugin_running = true;
+     int rc = p_hdr->entry_point(parameter); /* run the loaded plugin */
++    plugin_running = false;
+ 
+     /* unlock the tree and restore the dirfilter pointer */
+     tree_unlock_cache(tc);
 diff --git a/apps/plugin.h b/apps/plugin.h
 index e98c4b78a3..ef3849fb51 100644
 --- a/apps/plugin.h
@@ -613980,7 +614024,7 @@ index a1b4194ec3..4b7fd128ba 100644
  {
      /* cap range, just in case */
 diff --git a/firmware/target/hosted/button-devinput.c b/firmware/target/hosted/button-devinput.c
-index 1c5e2abea2..c992c446a6 100644
+index 1c5e2abea2..1123d65b98 100644
 --- a/firmware/target/hosted/button-devinput.c
 +++ b/firmware/target/hosted/button-devinput.c
 @@ -33,6 +33,7 @@
@@ -614030,7 +614074,7 @@ index 1c5e2abea2..c992c446a6 100644
  /* Do _NOT_ change this.  Unofficial Linux API */
  #define EVENT_VALUE_TOUCHSCREEN_RELEASE  -1
  /* This is only used as an arbitrary placeholder */
-@@ -320,8 +335,51 @@ int button_read_device(BDATA)
+@@ -320,8 +335,61 @@ int button_read_device(BDATA)
  
      if(_last_touch_state == TOUCHSCREEN_STATE_DOWN)
      {
@@ -614066,7 +614110,11 @@ index 1c5e2abea2..c992c446a6 100644
          return button_bitmap | touch;
      }
 +#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
-+    else if(grid_touch_active)
++    /* only finish a grid gesture if we are still in grid mode: a menu may
++     * have taken the panel back in point mode under the finger, and then
++     * nothing may be posted */
++    else if(grid_touch_active &&
++            touchscreen_get_mode() == TOUCHSCREEN_BUTTON)
 +    {
 +        grid_touch_active = false;
 +        if(grid_touch_cell)
@@ -614077,6 +614125,12 @@ index 1c5e2abea2..c992c446a6 100644
 +            button_queue_post(btn, 0);
 +            button_queue_post(btn | BUTTON_REL, 0);
 +        }
++    }
++    else if(grid_touch_active)
++    {
++        /* the mode changed under the finger: drop the gesture */
++        grid_touch_active = false;
++        grid_touch_cell = 0;
 +    }
 +#endif
  #endif

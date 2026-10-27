@@ -86,6 +86,13 @@ extern unsigned char pluginbuf[];
 static int  plugin_size = 0;
 static int (*pfn_tsr_exit)(bool reenter) = NULL; /* TSR exit callback */
 static char current_plugin[MAX_PATH];
+
+/* True while a plugin owns the screen.  Its menus and dialogs must stay
+ * in the classic UI: our LVGL menu engine would pop its screen on back
+ * and expose the shell underneath the still-running plugin (Rockbox does
+ * not run plugins in the background). */
+static volatile bool plugin_running = false;
+bool plugin_is_running(void) { return plugin_running; }
 /* NULL if no plugin is loaded, otherwise the handle that lc_open() returned */
 static void *current_plugin_handle;
 
@@ -1130,7 +1137,9 @@ int plugin_load(const char* plugin, const void* parameter)
 
     plugin_check_open_close__enter();
 
+    plugin_running = true;
     int rc = p_hdr->entry_point(parameter); /* run the loaded plugin */
+    plugin_running = false;
 
     /* unlock the tree and restore the dirfilter pointer */
     tree_unlock_cache(tc);
