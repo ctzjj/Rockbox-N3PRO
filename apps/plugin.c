@@ -1138,7 +1138,21 @@ int plugin_load(const char* plugin, const void* parameter)
     plugin_check_open_close__enter();
 
     plugin_running = true;
+#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
+    /* keep "tap top-left = back" alive in plugins that switch the panel
+     * to point mode and ignore touches themselves */
+    {
+        extern void button_set_plugin_touch_fallback(bool);
+        button_set_plugin_touch_fallback(true);
+    }
+#endif
     int rc = p_hdr->entry_point(parameter); /* run the loaded plugin */
+#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
+    {
+        extern void button_set_plugin_touch_fallback(bool);
+        button_set_plugin_touch_fallback(false);
+    }
+#endif
     plugin_running = false;
 
     /* unlock the tree and restore the dirfilter pointer */

@@ -81,7 +81,8 @@ extern int root_menu_plugin_screen(void);
 
 int lvgui_plugin_run(void)
 {
-    int rc = root_menu_plugin_screen();
+    int rc;
+    rc = root_menu_plugin_screen();
 
     lv_obj_invalidate(lv_scr_act());
     lv_obj_invalidate(lv_layer_top());

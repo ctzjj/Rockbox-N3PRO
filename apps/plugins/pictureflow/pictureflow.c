@@ -69,7 +69,8 @@ static fb_data *lcd_fb;
 #if (CONFIG_KEYPAD != IPOD_1G2G_PAD) \
     && (CONFIG_KEYPAD != IPOD_3G_PAD) \
     && (CONFIG_KEYPAD != IPOD_4G_PAD) \
-    && (CONFIG_KEYPAD != FIIO_M3K_PAD)
+    && (CONFIG_KEYPAD != FIIO_M3K_PAD) \
+    && (CONFIG_KEYPAD != CAYIN_N3PRO_PAD)
 #define USE_CORE_PREVNEXT
 #endif
 #endif
@@ -123,7 +124,8 @@ const struct button_mapping pf_context_buttons[] =
 {
 #ifdef HAVE_TOUCHSCREEN
     {PF_SELECT,       BUTTON_CENTER,              BUTTON_NONE},
-    {PF_BACK,         BUTTON_BOTTOMRIGHT,         BUTTON_NONE},
+    {PF_BACK,         BUTTON_TOPLEFT,             BUTTON_NONE},
+    {PF_MENU,         BUTTON_TOPRIGHT|BUTTON_REL, BUTTON_TOPRIGHT},
 #endif
 #if CONFIG_KEYPAD == PHILIPS_HDD1630_PAD || \
     CONFIG_KEYPAD == GIGABEAT_PAD || CONFIG_KEYPAD == GIGABEAT_S_PAD || \

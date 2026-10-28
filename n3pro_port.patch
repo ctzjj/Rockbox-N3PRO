@@ -543112,10 +543112,10 @@ index 0000000000..4c1edbbb22
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..7ec688637e
+index 0000000000..fb0589e3d9
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,204 @@
+@@ -0,0 +1,205 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543199,7 +543199,8 @@ index 0000000000..7ec688637e
 +
 +int lvgui_plugin_run(void)
 +{
-+    int rc = root_menu_plugin_screen();
++    int rc;
++    rc = root_menu_plugin_screen();
 +
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_obj_invalidate(lv_layer_top());
@@ -567294,10 +567295,10 @@ index fefaaeda45..4acb663706 100644
  }
 diff --git a/apps/keymaps/keymap-n3pro.c b/apps/keymaps/keymap-n3pro.c
 new file mode 100644
-index 0000000000..57f98f4202
+index 0000000000..71d8632d2d
 --- /dev/null
 +++ b/apps/keymaps/keymap-n3pro.c
-@@ -0,0 +1,253 @@
+@@ -0,0 +1,257 @@
 +/***************************************************************************
 + *             __________               __   ___
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -567347,15 +567348,19 @@ index 0000000000..57f98f4202
 +    { ACTION_STD_KEYLOCK,        BUTTON_POWER|BUTTON_SCROLL_BACK,    BUTTON_POWER },
 +
 +#ifdef HAVE_TOUCHSCREEN
-+    /* 3x3 touchscreen grid: plugins run their dialogs in grid mode, so
-+     * the classic lists and menus need cell bindings to stay drivable */
-+    { ACTION_STD_PREV,           BUTTON_MIDLEFT,                     BUTTON_NONE },
-+    { ACTION_STD_PREVREPEAT,     BUTTON_MIDLEFT|BUTTON_REPEAT,       BUTTON_NONE },
-+    { ACTION_STD_NEXT,           BUTTON_MIDRIGHT,                    BUTTON_NONE },
-+    { ACTION_STD_NEXTREPEAT,     BUTTON_MIDRIGHT|BUTTON_REPEAT,      BUTTON_NONE },
++    /* 3x3 touchscreen grid, same layout as keymap-touchscreen.c:
++     * top/bottom = prev/next, top-left = back, top-right = menu,
++     * centre = select, mid-left/right = page left/right */
++    { ACTION_STD_PREV,           BUTTON_TOPMIDDLE,                   BUTTON_NONE },
++    { ACTION_STD_PREVREPEAT,     BUTTON_TOPMIDDLE|BUTTON_REPEAT,     BUTTON_NONE },
++    { ACTION_STD_NEXT,           BUTTON_BOTTOMMIDDLE,                BUTTON_NONE },
++    { ACTION_STD_NEXTREPEAT,     BUTTON_BOTTOMMIDDLE|BUTTON_REPEAT,  BUTTON_NONE },
 +    { ACTION_STD_OK,             BUTTON_CENTER|BUTTON_REL,           BUTTON_CENTER },
 +    { ACTION_STD_CONTEXT,        BUTTON_CENTER|BUTTON_REPEAT,        BUTTON_CENTER },
-+    { ACTION_STD_CANCEL,         BUTTON_BOTTOMRIGHT|BUTTON_REL,      BUTTON_BOTTOMRIGHT },
++    { ACTION_STD_CANCEL,         BUTTON_TOPLEFT|BUTTON_REL,          BUTTON_TOPLEFT },
++    { ACTION_STD_MENU,           BUTTON_TOPRIGHT|BUTTON_REL,         BUTTON_TOPRIGHT },
++    { ACTION_LISTTREE_PGUP,      BUTTON_MIDLEFT,                     BUTTON_NONE },
++    { ACTION_LISTTREE_PGDOWN,    BUTTON_MIDRIGHT,                    BUTTON_NONE },
 +#endif
 +
 +    LAST_ITEM_IN_LIST
@@ -567551,6 +567556,58 @@ index 0000000000..57f98f4202
 +
 +    return button_context_standard;
 +}
+diff --git a/apps/keymaps/keymap-touchscreen.c b/apps/keymaps/keymap-touchscreen.c
+index f1d6486bd3..36ec5afb45 100644
+--- a/apps/keymaps/keymap-touchscreen.c
++++ b/apps/keymaps/keymap-touchscreen.c
+@@ -50,20 +50,25 @@ const struct button_mapping* target_get_context_mapping(int context);
+ */
+ 
+ static const struct button_mapping button_context_standard[]  = {
++    /* 3x3 grid (N3Pro convention): top = prev, bottom = next,
++     * top-left = back, top-right = menu, centre = select,
++     * mid-left/right = page left/right */
+     { ACTION_STD_PREV,        BUTTON_TOPMIDDLE,                  BUTTON_NONE },
+     { ACTION_STD_PREVREPEAT,  BUTTON_TOPMIDDLE|BUTTON_REPEAT,    BUTTON_NONE },
+     { ACTION_STD_NEXT,        BUTTON_BOTTOMMIDDLE,               BUTTON_NONE },
+     { ACTION_STD_NEXTREPEAT,  BUTTON_BOTTOMMIDDLE|BUTTON_REPEAT, BUTTON_NONE },
+ 
+     { ACTION_STD_OK,          BUTTON_CENTER|BUTTON_REL,          BUTTON_CENTER },
+-    { ACTION_STD_OK,          BUTTON_MIDRIGHT|BUTTON_REL,        BUTTON_MIDRIGHT },
+-    { ACTION_STD_CANCEL,      BUTTON_MIDLEFT,                    BUTTON_NONE },
+-    { ACTION_STD_CANCEL,      BUTTON_MIDLEFT|BUTTON_REPEAT,      BUTTON_NONE },
++    { ACTION_STD_CANCEL,      BUTTON_TOPLEFT|BUTTON_REL,         BUTTON_TOPLEFT },
+ 
+-    { ACTION_STD_MENU,        BUTTON_TOPLEFT,                    BUTTON_NONE },
++    { ACTION_STD_MENU,        BUTTON_TOPRIGHT|BUTTON_REL,        BUTTON_TOPRIGHT },
+     { ACTION_STD_QUICKSCREEN, BUTTON_BOTTOMLEFT,                 BUTTON_NONE },
+     { ACTION_STD_CONTEXT,     BUTTON_CENTER|BUTTON_REPEAT,       BUTTON_CENTER },
+-    { ACTION_STD_CONTEXT,     BUTTON_MIDRIGHT|BUTTON_REPEAT,     BUTTON_MIDRIGHT },
++
++    { ACTION_LISTTREE_PGUP,   BUTTON_MIDLEFT,                    BUTTON_NONE },
++    { ACTION_LISTTREE_PGUP,   BUTTON_MIDLEFT|BUTTON_REPEAT,      BUTTON_NONE },
++    { ACTION_LISTTREE_PGDOWN, BUTTON_MIDRIGHT,                   BUTTON_NONE },
++    { ACTION_LISTTREE_PGDOWN, BUTTON_MIDRIGHT|BUTTON_REPEAT,     BUTTON_MIDRIGHT },
+ 
+     LAST_ITEM_IN_LIST__NEXTLIST(CONTEXT_CUSTOM2|CONTEXT_STD)
+ }; /* button_context_standard */
+@@ -123,8 +128,6 @@ static const struct button_mapping button_context_list[]  = {
+ }; /* button_context_list */
+ 
+ static const struct button_mapping button_context_tree[]  = {
+-    { ACTION_TREE_WPS,    BUTTON_TOPRIGHT|BUTTON_REL,         BUTTON_TOPRIGHT },
+-    { ACTION_TREE_STOP,   BUTTON_BOTTOMRIGHT|BUTTON_REL,      BUTTON_BOTTOMRIGHT },
+ #ifdef HAVE_HOTKEY
+ //    { ACTION_TREE_HOTKEY, BUTTON_NONE,                        BUTTON_NONE },
+ #endif
+@@ -151,6 +154,7 @@ static const struct button_mapping button_context_settings[]  = {
+     { ACTION_STD_NEXT,          BUTTON_MIDRIGHT,                        BUTTON_NONE },
+     { ACTION_STD_NEXTREPEAT,    BUTTON_MIDRIGHT|BUTTON_REPEAT,          BUTTON_NONE },
+     { ACTION_STD_CANCEL,        BUTTON_TOPLEFT,                         BUTTON_NONE },
++    { ACTION_STD_MENU,          BUTTON_TOPRIGHT|BUTTON_REL,             BUTTON_TOPRIGHT },
+ 
+     LAST_ITEM_IN_LIST__NEXTLIST(CONTEXT_CUSTOM2|CONTEXT_SETTINGS)
+ }; /* button_context_settings */
 diff --git a/apps/lang/arabic.lang b/apps/lang/arabic.lang
 index 53313bf624..3156619d46 100644
 --- a/apps/lang/arabic.lang
@@ -600767,7 +600824,7 @@ index e35700732c..0000000000
 -    return ret;
 -}
 diff --git a/apps/plugin.c b/apps/plugin.c
-index 83574d5ed0..f85686a046 100644
+index 83574d5ed0..86e5aa1054 100644
 --- a/apps/plugin.c
 +++ b/apps/plugin.c
 @@ -31,6 +31,7 @@
@@ -600915,20 +600972,43 @@ index 83574d5ed0..f85686a046 100644
      read_bmp_file,
      read_bmp_fd,
  #ifdef HAVE_JPEG
-@@ -1032,7 +1137,9 @@ int plugin_load(const char* plugin, const void* parameter)
+@@ -1032,7 +1137,23 @@ int plugin_load(const char* plugin, const void* parameter)
  
      plugin_check_open_close__enter();
  
 +    plugin_running = true;
++#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
++    /* keep "tap top-left = back" alive in plugins that switch the panel
++     * to point mode and ignore touches themselves */
++    {
++        extern void button_set_plugin_touch_fallback(bool);
++        button_set_plugin_touch_fallback(true);
++    }
++#endif
      int rc = p_hdr->entry_point(parameter); /* run the loaded plugin */
++#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
++    {
++        extern void button_set_plugin_touch_fallback(bool);
++        button_set_plugin_touch_fallback(false);
++    }
++#endif
 +    plugin_running = false;
  
      /* unlock the tree and restore the dirfilter pointer */
      tree_unlock_cache(tc);
 diff --git a/apps/plugin.h b/apps/plugin.h
-index e98c4b78a3..ef3849fb51 100644
+index e98c4b78a3..faacb024f3 100644
 --- a/apps/plugin.h
 +++ b/apps/plugin.h
+@@ -182,7 +182,7 @@ int plugin_open(const char *plugin, const char *parameter);
+  * when this happens please take the opportunity to sort in
+  * any new functions "waiting" at the end of the list.
+  */
+-#define PLUGIN_API_VERSION 285
++#define PLUGIN_API_VERSION 286
+ 
+ /* 239 Marks the removal of ARCHOS HWCODEC and CHARCELL */
+ 
 @@ -778,6 +778,7 @@ struct plugin_api {
      void (*audio_set_input_source)(int source, unsigned flags);
  #endif
@@ -607859,10 +607939,30 @@ index 3572320a3f..6b0b15f08a 100644
  
  #elif CONFIG_KEYPAD == RG_NANO_PAD
 diff --git a/apps/plugins/pictureflow/pictureflow.c b/apps/plugins/pictureflow/pictureflow.c
-index bba1a5d70a..e483e2b102 100644
+index bba1a5d70a..1f18798783 100644
 --- a/apps/plugins/pictureflow/pictureflow.c
 +++ b/apps/plugins/pictureflow/pictureflow.c
-@@ -2057,33 +2057,148 @@ bool retrieve_id3(struct mp3entry *id3, const char* file)
+@@ -69,7 +69,8 @@ static fb_data *lcd_fb;
+ #if (CONFIG_KEYPAD != IPOD_1G2G_PAD) \
+     && (CONFIG_KEYPAD != IPOD_3G_PAD) \
+     && (CONFIG_KEYPAD != IPOD_4G_PAD) \
+-    && (CONFIG_KEYPAD != FIIO_M3K_PAD)
++    && (CONFIG_KEYPAD != FIIO_M3K_PAD) \
++    && (CONFIG_KEYPAD != CAYIN_N3PRO_PAD)
+ #define USE_CORE_PREVNEXT
+ #endif
+ #endif
+@@ -123,7 +124,8 @@ const struct button_mapping pf_context_buttons[] =
+ {
+ #ifdef HAVE_TOUCHSCREEN
+     {PF_SELECT,       BUTTON_CENTER,              BUTTON_NONE},
+-    {PF_BACK,         BUTTON_BOTTOMRIGHT,         BUTTON_NONE},
++    {PF_BACK,         BUTTON_TOPLEFT,             BUTTON_NONE},
++    {PF_MENU,         BUTTON_TOPRIGHT|BUTTON_REL, BUTTON_TOPRIGHT},
+ #endif
+ #if CONFIG_KEYPAD == PHILIPS_HDD1630_PAD || \
+     CONFIG_KEYPAD == GIGABEAT_PAD || CONFIG_KEYPAD == GIGABEAT_S_PAD || \
+@@ -2057,33 +2059,148 @@ bool retrieve_id3(struct mp3entry *id3, const char* file)
      return rb->get_metadata(id3, -1, file);
  }
  
@@ -614024,7 +614124,7 @@ index a1b4194ec3..4b7fd128ba 100644
  {
      /* cap range, just in case */
 diff --git a/firmware/target/hosted/button-devinput.c b/firmware/target/hosted/button-devinput.c
-index 1c5e2abea2..1123d65b98 100644
+index 1c5e2abea2..b465aad4aa 100644
 --- a/firmware/target/hosted/button-devinput.c
 +++ b/firmware/target/hosted/button-devinput.c
 @@ -33,6 +33,7 @@
@@ -614056,7 +614156,7 @@ index 1c5e2abea2..1123d65b98 100644
  #ifdef BUTTON_DELAY_RELEASE
  static int button_delay_release = 0;
  static int delay_tick = 0;
-@@ -124,6 +128,17 @@ static enum
+@@ -124,6 +128,30 @@ static enum
      TOUCHSCREEN_STATE_DOWN
  } _last_touch_state = TOUCHSCREEN_STATE_UNKNOWN;
  
@@ -614065,22 +614165,70 @@ index 1c5e2abea2..1123d65b98 100644
 +#define GRID_SWIPE_EDGE 48
 +#define GRID_SWIPE_PX   40
 +
-+static bool grid_touch_active;      /* a rim touch is being tracked */
++static bool grid_touch_active;      /* a touch is being tracked */
 +static bool grid_touch_swiped;      /* it travelled far enough horizontally */
-+static int  grid_touch_cell;        /* cell held back until the release */
++static int  grid_touch_cell;        /* key held back until the release
++                                     * (>0: cell/key, <0: rim in point) */
++static bool grid_touch_point;       /* armed while the panel was in
++                                     * point mode (plugin fallback) */
 +static int  grid_touch_x, grid_touch_y;
++
++/* Some plugins switch the panel back to point mode and then ignore
++ * touches entirely.  While one runs, the 3x3 convention is applied to
++ * the raw coordinates: the top-left ninth and rim swipes post the
++ * standard cancel key so the user can always leave. */
++static bool plugin_touch_fallback;
++void button_set_plugin_touch_fallback(bool en)
++{
++    plugin_touch_fallback = en;
++}
 +#endif
 +
  /* Do _NOT_ change this.  Unofficial Linux API */
  #define EVENT_VALUE_TOUCHSCREEN_RELEASE  -1
  /* This is only used as an arbitrary placeholder */
-@@ -320,8 +335,61 @@ int button_read_device(BDATA)
+@@ -320,8 +348,108 @@ int button_read_device(BDATA)
  
      if(_last_touch_state == TOUCHSCREEN_STATE_DOWN)
      {
 +#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
-+        /* Grid mode returns a 3x3 cell, not a point: defer a rim touch so
-+         * a horizontal swipe can become BACK instead of a cell press. */
++        if (plugin_touch_fallback &&
++            touchscreen_get_mode() != TOUCHSCREEN_BUTTON)
++        {
++            /* point-mode plugin: hold back the top-left ninth and rim
++             * touches, pass everything else through untouched */
++            if(!grid_touch_active)
++            {
++                grid_touch_active = true;
++                grid_touch_swiped = false;
++                grid_touch_cell = 0;
++                grid_touch_point = true;
++                grid_touch_x = _last_x;
++                grid_touch_y = _last_y;
++                if(_last_x < GRID_SWIPE_EDGE ||
++                   _last_x >= LCD_WIDTH - GRID_SWIPE_EDGE)
++                    grid_touch_cell = -1;
++                else if(_last_x < LCD_WIDTH/3 && _last_y < LCD_HEIGHT/3)
++                    grid_touch_cell = GRID_SWIPE_BACK_BUTTON;
++            }
++            else if(grid_touch_cell)
++            {
++                int dx = _last_x - grid_touch_x;
++                int dy = _last_y - grid_touch_y;
++                int adx = dx < 0 ? -dx : dx;
++                int ady = dy < 0 ? -dy : dy;
++                if(adx >= GRID_SWIPE_PX && adx > ady)
++                    grid_touch_swiped = true;
++                if(grid_touch_cell < 0)
++                    return button_bitmap;  /* rim: nothing while held */
++            }
++            return button_bitmap | touch;
++        }
++        /* Grid mode returns a 3x3 cell, not a point.  Touchscreen-aware
++         * plugins follow the stock convention (top-left cell = quit),
++         * so cells pass through unchanged; only a rim touch is held
++         * back so a horizontal swipe can become BACK instead of a cell
++         * press. */
 +        if (touch && !(touch & BUTTON_TOUCHSCREEN) &&
 +            touchscreen_get_mode() == TOUCHSCREEN_BUTTON)
 +        {
@@ -614089,6 +614237,7 @@ index 1c5e2abea2..1123d65b98 100644
 +                grid_touch_active = true;
 +                grid_touch_swiped = false;
 +                grid_touch_cell = 0;
++                grid_touch_point = false;
 +                grid_touch_x = _last_x;
 +                grid_touch_y = _last_y;
 +                if(_last_x < GRID_SWIPE_EDGE ||
@@ -614110,27 +614259,38 @@ index 1c5e2abea2..1123d65b98 100644
          return button_bitmap | touch;
      }
 +#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
-+    /* only finish a grid gesture if we are still in grid mode: a menu may
-+     * have taken the panel back in point mode under the finger, and then
-+     * nothing may be posted */
-+    else if(grid_touch_active &&
-+            touchscreen_get_mode() == TOUCHSCREEN_BUTTON)
++    else if(grid_touch_active)
 +    {
++        /* the finger left: post what was held back, but only if the
++         * mode it was armed in still holds (a native menu may have
++         * taken the panel back in the other mode under the finger) */
++        int cell = grid_touch_cell;
++        bool point = touchscreen_get_mode() != TOUCHSCREEN_BUTTON;
 +        grid_touch_active = false;
-+        if(grid_touch_cell)
++        grid_touch_cell = 0;
++
++        if(grid_touch_point && point)
 +        {
-+            int btn = grid_touch_swiped ? GRID_SWIPE_BACK_BUTTON
-+                                        : grid_touch_cell;
-+            grid_touch_cell = 0;
++            /* plugin point-mode fallback */
++            int btn = 0;
++            if(cell > 0)                    /* top-left ninth tap */
++                btn = cell;
++            else if(cell < 0 && grid_touch_swiped)   /* rim swipe */
++                btn = GRID_SWIPE_BACK_BUTTON;
++            if(btn)
++            {
++                button_queue_post(btn, 0);
++                button_queue_post(btn | BUTTON_REL, 0);
++            }
++        }
++        else if(!grid_touch_point && !point && cell > 0)
++        {
++            /* grid mode: rim tap (the cell) or rim swipe (cancel) */
++            int btn = grid_touch_swiped ? GRID_SWIPE_BACK_BUTTON : cell;
 +            button_queue_post(btn, 0);
 +            button_queue_post(btn | BUTTON_REL, 0);
 +        }
-+    }
-+    else if(grid_touch_active)
-+    {
-+        /* the mode changed under the finger: drop the gesture */
-+        grid_touch_active = false;
-+        grid_touch_cell = 0;
++        /* anything else: the mode changed under the finger, drop it */
 +    }
 +#endif
  #endif
