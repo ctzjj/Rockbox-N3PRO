@@ -20,7 +20,7 @@ Download the ready-made image and SD-card payload from the
 
 ## Screenshots
 
-The native LVGL interface (`lvgl-ui` / `n3pro-lvgl` line):
+The native LVGL interface (this `main` line, formerly `n3pro-lvgl`):
 
 <p align="center">
   <img src="docs/screenshots/home.png" width="240" alt="Home menu">

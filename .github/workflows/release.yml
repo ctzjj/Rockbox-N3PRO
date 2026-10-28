@@ -163,7 +163,7 @@ jobs:
           # keep the rolling v3.x channel in step with every release
           gh release view v3.x -R "${{ github.repository }}" >/dev/null 2>&1 || \
             gh release create v3.x -R "${{ github.repository }}" \
-               --target "n3pro-lvgl" \
+               --target "main" \
                --title "v3.x (rolling)" \
                --notes "Rolling build of the v3.x line, refreshed on every release. Same artifacts as the newest v3.x tag." \
                --prerelease
