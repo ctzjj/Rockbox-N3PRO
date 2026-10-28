@@ -10877,7 +10877,7 @@ index fc4a67df8b..d7cb40109e 100644
      struct rgb_pick rgb;
  
 diff --git a/apps/gui/list.c b/apps/gui/list.c
-index 12f17cefef..8b9b65599e 100644
+index 12f17cefef..14b65b86e4 100644
 --- a/apps/gui/list.c
 +++ b/apps/gui/list.c
 @@ -45,6 +45,22 @@
@@ -10903,7 +10903,42 @@ index 12f17cefef..8b9b65599e 100644
  void list_draw(struct screen *display, struct gui_synclist *list);
  
  static long last_dirty_tick;
-@@ -879,8 +895,135 @@ static const char* simplelist_static_getname(int item,
+@@ -98,7 +114,14 @@ bool list_display_title(struct gui_synclist *list, enum screen_type screen)
+ 
+ int list_get_nb_lines(struct gui_synclist *list, enum screen_type screen)
+ {
++#ifdef HAVE_LVGL_UI
++    /* the native UI never drives classic lists through skins; a lingering
++     * skin list config reported its line count (one row) and the menus
++     * only ever drew the selected item */
++    int lines = -1;
++#else
+     int lines = skinlist_get_line_count(screen, list);
++#endif
+     if (lines < 0)
+     {
+         lines = list_nb_lines(list, screen);
+@@ -235,10 +258,19 @@ void gui_synclist_draw(struct gui_synclist *gui_list)
+     }
+     FOR_NB_SCREENS(i)
+     {
++#ifdef HAVE_LVGL_UI
++        list_draw(&screens[i], gui_list);
++#else
+         if (!skinlist_draw(&screens[i], gui_list))
+             list_draw(&screens[i], gui_list);
++#endif
+         skin_mark_dirty(i);
+     }
++    /* The classic UI relied on the caller to flush; on this port nothing
++     * did (menu, skinlist paths), so lists/menus never reached the panel.
++     * Push the finished frame out here. */
++    FOR_NB_SCREENS(i)
++        screens[i].update();
+ }
+ 
+ /* sets up the list so the selection is shown correctly on the screen */
+@@ -879,8 +911,135 @@ static const char* simplelist_static_getname(int item,
      return simplelist_text[item];
  }
  
@@ -546024,10 +546059,10 @@ index 0000000000..fcefd8228d
 +}
 diff --git a/apps/gui/lvglui/ui_control.c b/apps/gui/lvglui/ui_control.c
 new file mode 100755
-index 0000000000..d4dabc6878
+index 0000000000..c3627f9e1f
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_control.c
-@@ -0,0 +1,804 @@
+@@ -0,0 +1,805 @@
 +#include "config.h"
 +#ifdef HAVE_LVGL_UI
 +
@@ -546074,7 +546109,8 @@ index 0000000000..d4dabc6878
 +            continue;
 +        lv_obj_set_style_bg_color(btn[i], on[i] ? th->accent_blue
 +                                                : lv_color_white(), 0);
-+        lv_obj_set_style_bg_opa(btn[i], on[i] ? 235 : 120, 0);
++        /* off state matches the row below (ctl_round): thin glass */
++        lv_obj_set_style_bg_opa(btn[i], on[i] ? 235 : th->card_opa, 0);
 +        lv_obj_t *l = lv_obj_get_child(btn[i], 0);
 +        if (l)
 +            lv_obj_set_style_text_color(l, on[i] ? lv_color_white()
@@ -550061,10 +550097,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..42eac762be
+index 0000000000..dfa235a461
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2906 @@
+@@ -0,0 +1,2890 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550629,18 +550665,6 @@ index 0000000000..42eac762be
 +    if (!start_menu)
 +        return GO_TO_PREVIOUS;
 +
-+#ifdef HAVE_TOUCHSCREEN
-+    /* This engine can be reached from inside a plugin, where plugin.c has
-+     * forced TOUCHSCREEN_BUTTON: the menu would then only ever see 3x3
-+     * cell codes and no coordinates, so taps and swipes never landed on
-+     * the widgets.  Take the panel back in point mode while the native
-+     * menu owns the screen; the plugin's own grid mode is restored when
-+     * the menu returns. */
-+    enum touchscreen_mode ts_mode = touchscreen_get_mode();
-+    if (ts_mode != TOUCHSCREEN_POINT)
-+        touchscreen_set_mode(TOUCHSCREEN_POINT);
-+#endif
-+
 +    g_menu_active = true;
 +    while (!done)
 +    {
@@ -550790,10 +550814,6 @@ index 0000000000..42eac762be
 +
 +    if (start_selected)
 +        *start_selected = selected;
-+#ifdef HAVE_TOUCHSCREEN
-+    if (ts_mode != TOUCHSCREEN_POINT)
-+        touchscreen_set_mode(ts_mode);
-+#endif
 +    return ret;
 +}
 +
@@ -595013,7 +595033,7 @@ index 38bc18925a..c4f5d959ab 100644
  
  /* The disk isn't ready at boot, rblogo is stored in bin and erased after boot */
 diff --git a/apps/menu.c b/apps/menu.c
-index f81c1665a5..89f1ec9602 100644
+index f81c1665a5..aee64af175 100644
 --- a/apps/menu.c
 +++ b/apps/menu.c
 @@ -383,9 +383,23 @@ void do_setting_from_menu(const struct menu_item_ex *temp,
@@ -595040,6 +595060,34 @@ index f81c1665a5..89f1ec9602 100644
      int selected = start_selected? *start_selected : 0;
      int ret = 0;
      int action;
+@@ -402,10 +416,13 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
+     int old_audio_status = audio_status();
+ 
+ #ifdef HAVE_TOUCHSCREEN
+-    /* plugins possibly have grid mode active. force global settings in lists */
++    /* The classic list UI only understands the 3x3 grid cells, never raw
++     * points.  Plugins may run in point mode (their own touch UIs), so put
++     * the panel in grid mode for the lifetime of the menu; the previous
++     * mode is restored below. */
+     enum touchscreen_mode tsm = touchscreen_get_mode();
+     enum touchscreen_mode old_global_mode = global_settings.touch_mode;
+-    touchscreen_set_mode(global_settings.touch_mode);
++    touchscreen_set_mode(TOUCHSCREEN_BUTTON);
+ #endif
+ 
+     title = init_title(menu, &icon, buf, sizeof buf);
+@@ -810,9 +827,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
+     /* This is needed because this function runs the settings menu and we do
+      * not want to switch back to the old mode if the user intentionally went
+      * to a different one. This is a very hacky way to do this... */
+-    if(!(global_settings.touch_mode != (int)old_global_mode &&
+-         tsm == old_global_mode))
+-        touchscreen_set_mode(tsm);
++    (void)old_global_mode;
++    touchscreen_set_mode(tsm);
+ #endif
+     return ret;
+ }
 diff --git a/apps/menus/bluetooth_menu.c b/apps/menus/bluetooth_menu.c
 new file mode 100644
 index 0000000000..fb90f0168c
@@ -600824,7 +600872,7 @@ index e35700732c..0000000000
 -    return ret;
 -}
 diff --git a/apps/plugin.c b/apps/plugin.c
-index 83574d5ed0..86e5aa1054 100644
+index 83574d5ed0..f85686a046 100644
 --- a/apps/plugin.c
 +++ b/apps/plugin.c
 @@ -31,6 +31,7 @@
@@ -600972,26 +601020,12 @@ index 83574d5ed0..86e5aa1054 100644
      read_bmp_file,
      read_bmp_fd,
  #ifdef HAVE_JPEG
-@@ -1032,7 +1137,23 @@ int plugin_load(const char* plugin, const void* parameter)
+@@ -1032,7 +1137,9 @@ int plugin_load(const char* plugin, const void* parameter)
  
      plugin_check_open_close__enter();
  
 +    plugin_running = true;
-+#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
-+    /* keep "tap top-left = back" alive in plugins that switch the panel
-+     * to point mode and ignore touches themselves */
-+    {
-+        extern void button_set_plugin_touch_fallback(bool);
-+        button_set_plugin_touch_fallback(true);
-+    }
-+#endif
      int rc = p_hdr->entry_point(parameter); /* run the loaded plugin */
-+#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
-+    {
-+        extern void button_set_plugin_touch_fallback(bool);
-+        button_set_plugin_touch_fallback(false);
-+    }
-+#endif
 +    plugin_running = false;
  
      /* unlock the tree and restore the dirfilter pointer */
@@ -613365,10 +613399,10 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..7956c227b9
+index 0000000000..2499ed0011
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
-@@ -0,0 +1,147 @@
+@@ -0,0 +1,141 @@
 +/*
 + * This config file is for the Cayin N3Pro
 + */
@@ -613385,7 +613419,7 @@ index 0000000000..7956c227b9
 +#define LCD_DPI 171
 +
 +#define HAVE_LCD_SLEEP
-+#define LCD_SLEEP_TIMEOUT (20*HZ)
++#define LCD_SLEEP_TIMEOUT (2*HZ)
 +
 +/* Internal Rockbox depth stays 16bpp/RGB565 (like R1).  The N3Pro panel
 + * framebuffer is fixed at 32bpp XRGB8888 by the vendor kernel, so
@@ -613408,12 +613442,6 @@ index 0000000000..7956c227b9
 +#ifndef BOOTLOADER
 +#define HAVE_BUTTON_DATA
 +#define HAVE_TOUCHSCREEN
-+/* Grid mode (plugins, keyboard, stock menus) has no shell gestures.  A
-+ * touch that starts on the left/right rim is held back so a horizontal
-+ * swipe can post the standard cancel key; a plain tap still presses the
-+ * 3x3 cell on release.  See button-devinput.c. */
-+#define TOUCHSCREEN_GRID_SWIPE_BACK
-+#define GRID_SWIPE_BACK_BUTTON BUTTON_POWER
 +#define HAVE_KBD_POINT_MODE
 +/* Music database (tagcache) for the library browser. */
 +#define HAVE_TAGCACHE
@@ -614166,7 +614194,7 @@ index a1b4194ec3..4b7fd128ba 100644
  {
      /* cap range, just in case */
 diff --git a/firmware/target/hosted/button-devinput.c b/firmware/target/hosted/button-devinput.c
-index 1c5e2abea2..83883705fa 100644
+index 1c5e2abea2..b77b5c3504 100644
 --- a/firmware/target/hosted/button-devinput.c
 +++ b/firmware/target/hosted/button-devinput.c
 @@ -33,6 +33,7 @@
@@ -614198,178 +614226,14 @@ index 1c5e2abea2..83883705fa 100644
  #ifdef BUTTON_DELAY_RELEASE
  static int button_delay_release = 0;
  static int delay_tick = 0;
-@@ -124,6 +128,30 @@ static enum
+@@ -124,6 +128,7 @@ static enum
      TOUCHSCREEN_STATE_DOWN
  } _last_touch_state = TOUCHSCREEN_STATE_UNKNOWN;
  
-+#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
-+/* Rim band and travel that turn a grid-mode touch into a back gesture. */
-+#define GRID_SWIPE_EDGE 48
-+#define GRID_SWIPE_PX   40
-+
-+static bool grid_touch_active;      /* a touch is being tracked */
-+static bool grid_touch_swiped;      /* it travelled far enough horizontally */
-+static int  grid_touch_cell;        /* key held back until the release
-+                                     * (>0: cell/key, <0: rim in point) */
-+static bool grid_touch_point;       /* armed while the panel was in
-+                                     * point mode (plugin fallback) */
-+static int  grid_touch_x, grid_touch_y;
-+
-+/* Some plugins switch the panel back to point mode and then ignore
-+ * touches entirely.  While one runs, the 3x3 convention is applied to
-+ * the raw coordinates: the top-left ninth and rim swipes post the
-+ * standard cancel key so the user can always leave. */
-+static bool plugin_touch_fallback;
-+void button_set_plugin_touch_fallback(bool en)
-+{
-+    plugin_touch_fallback = en;
-+}
-+#endif
 +
  /* Do _NOT_ change this.  Unofficial Linux API */
  #define EVENT_VALUE_TOUCHSCREEN_RELEASE  -1
  /* This is only used as an arbitrary placeholder */
-@@ -232,20 +260,25 @@ int button_read_device(BDATA)
-                             bmap &= ~BUTTON_DELAY_RELEASE;
- #endif
- #if defined(HAVE_TOUCHSCREEN) && defined(BUTTON_TOUCH)
--                            /* Some touchscreens give us actual touch/untouch as a "key" */
--                            if (bmap & BUTTON_TOUCH) {
-+                            /* Some touchscreens give us actual touch/untouch as a
-+                             * "key".  Keep the state machine in sync even when the
-+                             * gate above suppressed the delivery (wake tap): a
-+                             * swallowed release would leave the panel stuck in
-+                             * the "pressed" state and eat every later touch. */
-+                            if (event.code == BTN_TOUCH)
-                                 handle_touchscreen_event(ABS_MT_TRACKING_ID, EVENT_VALUE_TOUCHSCREEN_PRESS);
-+                            if (bmap & BUTTON_TOUCH)
-                                 bmap &= ~BUTTON_TOUCH;
--                            }
- #endif
-                             button_bitmap |= bmap;
-                         } else {
- #if defined(HAVE_TOUCHSCREEN) && defined(BUTTON_TOUCH)
--                            /* Some touchscreens give us actual touch/untouch as a "key" */
--                            if (bmap & BUTTON_TOUCH) {
-+                            /* see above: the release must always reach the state
-+                             * machine or the panel stays "pressed" forever */
-+                            if (event.code == BTN_TOUCH)
-                                 handle_touchscreen_event(ABS_MT_TRACKING_ID, EVENT_VALUE_TOUCHSCREEN_RELEASE);
-+                            if (bmap & BUTTON_TOUCH)
-                                 bmap &= ~BUTTON_TOUCH;
--                            }
- #endif
- #ifdef BUTTON_DELAY_RELEASE
-                             /* Delay the release of any requested buttons */
-@@ -320,8 +353,108 @@ int button_read_device(BDATA)
- 
-     if(_last_touch_state == TOUCHSCREEN_STATE_DOWN)
-     {
-+#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
-+        if (plugin_touch_fallback &&
-+            touchscreen_get_mode() != TOUCHSCREEN_BUTTON)
-+        {
-+            /* point-mode plugin: hold back the top-left ninth and rim
-+             * touches, pass everything else through untouched */
-+            if(!grid_touch_active)
-+            {
-+                grid_touch_active = true;
-+                grid_touch_swiped = false;
-+                grid_touch_cell = 0;
-+                grid_touch_point = true;
-+                grid_touch_x = _last_x;
-+                grid_touch_y = _last_y;
-+                if(_last_x < GRID_SWIPE_EDGE ||
-+                   _last_x >= LCD_WIDTH - GRID_SWIPE_EDGE)
-+                    grid_touch_cell = -1;
-+                else if(_last_x < LCD_WIDTH/3 && _last_y < LCD_HEIGHT/3)
-+                    grid_touch_cell = GRID_SWIPE_BACK_BUTTON;
-+            }
-+            else if(grid_touch_cell)
-+            {
-+                int dx = _last_x - grid_touch_x;
-+                int dy = _last_y - grid_touch_y;
-+                int adx = dx < 0 ? -dx : dx;
-+                int ady = dy < 0 ? -dy : dy;
-+                if(adx >= GRID_SWIPE_PX && adx > ady)
-+                    grid_touch_swiped = true;
-+                if(grid_touch_cell < 0)
-+                    return button_bitmap;  /* rim: nothing while held */
-+            }
-+            return button_bitmap | touch;
-+        }
-+        /* Grid mode returns a 3x3 cell, not a point.  Touchscreen-aware
-+         * plugins follow the stock convention (top-left cell = quit),
-+         * so cells pass through unchanged; only a rim touch is held
-+         * back so a horizontal swipe can become BACK instead of a cell
-+         * press. */
-+        if (touch && !(touch & BUTTON_TOUCHSCREEN) &&
-+            touchscreen_get_mode() == TOUCHSCREEN_BUTTON)
-+        {
-+            if(!grid_touch_active)
-+            {
-+                grid_touch_active = true;
-+                grid_touch_swiped = false;
-+                grid_touch_cell = 0;
-+                grid_touch_point = false;
-+                grid_touch_x = _last_x;
-+                grid_touch_y = _last_y;
-+                if(_last_x < GRID_SWIPE_EDGE ||
-+                   _last_x >= LCD_WIDTH - GRID_SWIPE_EDGE)
-+                    grid_touch_cell = touch;
-+            }
-+            if(grid_touch_cell)
-+            {
-+                int dx = _last_x - grid_touch_x;
-+                int dy = _last_y - grid_touch_y;
-+                int adx = dx < 0 ? -dx : dx;
-+                int ady = dy < 0 ? -dy : dy;
-+                if(adx >= GRID_SWIPE_PX && adx > ady)
-+                    grid_touch_swiped = true;
-+                return button_bitmap;   /* nothing pressed while held */
-+            }
-+        }
-+#endif
-         return button_bitmap | touch;
-     }
-+#ifdef TOUCHSCREEN_GRID_SWIPE_BACK
-+    else if(grid_touch_active)
-+    {
-+        /* the finger left: post what was held back, but only if the
-+         * mode it was armed in still holds (a native menu may have
-+         * taken the panel back in the other mode under the finger) */
-+        int cell = grid_touch_cell;
-+        bool point = touchscreen_get_mode() != TOUCHSCREEN_BUTTON;
-+        grid_touch_active = false;
-+        grid_touch_cell = 0;
-+
-+        if(grid_touch_point && point)
-+        {
-+            /* plugin point-mode fallback */
-+            int btn = 0;
-+            if(cell > 0)                    /* top-left ninth tap */
-+                btn = cell;
-+            else if(cell < 0 && grid_touch_swiped)   /* rim swipe */
-+                btn = GRID_SWIPE_BACK_BUTTON;
-+            if(btn)
-+            {
-+                button_queue_post(btn, 0);
-+                button_queue_post(btn | BUTTON_REL, 0);
-+            }
-+        }
-+        else if(!grid_touch_point && !point && cell > 0)
-+        {
-+            /* grid mode: rim tap (the cell) or rim swipe (cancel) */
-+            int btn = grid_touch_swiped ? GRID_SWIPE_BACK_BUTTON : cell;
-+            button_queue_post(btn, 0);
-+            button_queue_post(btn | BUTTON_REL, 0);
-+        }
-+        /* anything else: the mode changed under the finger, drop it */
-+    }
-+#endif
- #endif
- 
-     return button_bitmap;
 diff --git a/firmware/target/hosted/button-devinput.h b/firmware/target/hosted/button-devinput.h
 index 20c76cab4b..03b3dbf2bf 100644
 --- a/firmware/target/hosted/button-devinput.h

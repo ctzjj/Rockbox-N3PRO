@@ -44,7 +44,8 @@ static void ctl_toggles_paint(void)
             continue;
         lv_obj_set_style_bg_color(btn[i], on[i] ? th->accent_blue
                                                 : lv_color_white(), 0);
-        lv_obj_set_style_bg_opa(btn[i], on[i] ? 235 : 120, 0);
+        /* off state matches the row below (ctl_round): thin glass */
+        lv_obj_set_style_bg_opa(btn[i], on[i] ? 235 : th->card_opa, 0);
         lv_obj_t *l = lv_obj_get_child(btn[i], 0);
         if (l)
             lv_obj_set_style_text_color(l, on[i] ? lv_color_white()

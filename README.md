@@ -18,6 +18,20 @@ installation is **fully reversible and cannot brick the device**.
 Download the ready-made image and SD-card payload from the
 [latest release](https://github.com/ctzjj/Rockbox-N3PRO/releases/latest).
 
+## Screenshots
+
+The native LVGL interface (`lvgl-ui` / `n3pro-lvgl` line):
+
+<p align="center">
+  <img src="docs/screenshots/home.png" width="240" alt="Home menu">
+  <img src="docs/screenshots/player.png" width="240" alt="Now playing">
+  <img src="docs/screenshots/control-centre.png" width="240" alt="Control centre">
+</p>
+
+<p align="center">
+  <em>Home menu &middot; now playing &middot; control centre</em>
+</p>
+
 ## Status
 
 | Feature | State |
