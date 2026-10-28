@@ -2148,8 +2148,6 @@ int tagtree_enter(struct tree_context* c, bool is_visible)
      * code would dereference NULL */
     if (!dptr)
     {
-        fprintf(stderr, "tagtree_enter: no entry %d (files=%d level=%d), reload\n",
-                c->selected_item, c->filesindir, c->dirlevel);
         tagtree_load(c);
         dptr = tagtree_get_entry(c, c->selected_item);
     }
@@ -2226,8 +2224,6 @@ int tagtree_enter(struct tree_context* c, bool is_visible)
                 if (!menu || seek < 0 || seek >= menu->itemcount ||
                     !menu->items[seek])
                 {
-                    fprintf(stderr, "tg nav: bad seek %d (menu %p itemcount %d)\n",
-                            seek, (void *)menu, menu ? menu->itemcount : -1);
                     c->dirlevel--;
                     tree_unlock_cache(c);
                     core_unpin(tagtree_handle);

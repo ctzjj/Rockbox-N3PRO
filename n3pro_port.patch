@@ -609285,10 +609285,10 @@ index e33bc9330e..5485fe4a96 100644
              /* Wait until current path for debug screen is read and unset. */
              while (tc_stat.syncscreen && tc_stat.curentry != NULL)
 diff --git a/apps/tagtree.c b/apps/tagtree.c
-index 89889dfd8d..18fdda3aa5 100644
+index 89889dfd8d..b0c248fd05 100644
 --- a/apps/tagtree.c
 +++ b/apps/tagtree.c
-@@ -2142,6 +2142,21 @@ int tagtree_enter(struct tree_context* c, bool is_visible)
+@@ -2142,6 +2142,19 @@ int tagtree_enter(struct tree_context* c, bool is_visible)
  
      dptr = tagtree_get_entry(c, c->selected_item);
  
@@ -609298,8 +609298,6 @@ index 89889dfd8d..18fdda3aa5 100644
 +     * code would dereference NULL */
 +    if (!dptr)
 +    {
-+        fprintf(stderr, "tagtree_enter: no entry %d (files=%d level=%d), reload\n",
-+                c->selected_item, c->filesindir, c->dirlevel);
 +        tagtree_load(c);
 +        dptr = tagtree_get_entry(c, c->selected_item);
 +    }
@@ -609310,7 +609308,7 @@ index 89889dfd8d..18fdda3aa5 100644
      c->dirfull = false;
      seek = dptr->extraseek;
      if (seek == -1) /* <Random> menu item was selected */
-@@ -2205,6 +2220,20 @@ int tagtree_enter(struct tree_context* c, bool is_visible)
+@@ -2205,6 +2218,18 @@ int tagtree_enter(struct tree_context* c, bool is_visible)
              {
                  int i, j;
  
@@ -609320,8 +609318,6 @@ index 89889dfd8d..18fdda3aa5 100644
 +                if (!menu || seek < 0 || seek >= menu->itemcount ||
 +                    !menu->items[seek])
 +                {
-+                    fprintf(stderr, "tg nav: bad seek %d (menu %p itemcount %d)\n",
-+                            seek, (void *)menu, menu ? menu->itemcount : -1);
 +                    c->dirlevel--;
 +                    tree_unlock_cache(c);
 +                    core_unpin(tagtree_handle);

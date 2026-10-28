@@ -1,5 +1,7 @@
 # Rockbox for the Cayin N3Pro
 
+**English** | [简体中文](README.zh-CN.md)
+
 [![build release artifacts](https://github.com/ctzjj/Rockbox-N3PRO/actions/workflows/release.yml/badge.svg)](https://github.com/ctzjj/Rockbox-N3PRO/actions/workflows/release.yml)
 [![latest release](https://img.shields.io/github/v/release/ctzjj/Rockbox-N3PRO?label=release)](https://github.com/ctzjj/Rockbox-N3PRO/releases/latest)
 [![license](https://img.shields.io/badge/license-GPL--2.0-blue)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
