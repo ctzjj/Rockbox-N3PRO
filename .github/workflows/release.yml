@@ -31,10 +31,10 @@ env:
   STOCK_URL: "https://github.com/ctzjj/Rockbox-N3PRO/releases/download/stock-firmware/stock-update.upt"
 
 jobs:
-  # The stock-firmware release and the rolling V3.X channel never build
+  # The stock-firmware release and the rolling v3.x channel never build
   # anything themselves (the latter is created by this very job).
   build:
-    if: ${{ github.event_name != 'release' || (github.event.release.tag_name != 'stock-firmware' && github.event.release.tag_name != 'V3.X') }}
+    if: ${{ github.event_name != 'release' || (github.event.release.tag_name != 'stock-firmware' && github.event.release.tag_name != 'v3.x') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -161,10 +161,10 @@ jobs:
                -R "${{ github.repository }}" || true
           fi
           # keep the rolling v3.x channel in step with every release
-          gh release view V3.X -R "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create V3.X -R "${{ github.repository }}" \
+          gh release view v3.x -R "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create v3.x -R "${{ github.repository }}" \
                --target "n3pro-lvgl" \
-               --title "V3.X (rolling)" \
+               --title "v3.x (rolling)" \
                --notes "Rolling build of the v3.x line, refreshed on every release. Same artifacts as the newest v3.x tag." \
                --prerelease
-          gh release upload V3.X $files --clobber -R "${{ github.repository }}"
+          gh release upload v3.x $files --clobber -R "${{ github.repository }}"
