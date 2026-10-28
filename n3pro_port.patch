@@ -550097,10 +550097,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..68df707ccf
+index 0000000000..79b42a2fe8
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2920 @@
+@@ -0,0 +1,2924 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550450,8 +550450,12 @@ index 0000000000..68df707ccf
 +            selrow = row;
 +    }
 +    last_list = list;
++    /* the fresh rows have not been laid out yet: without this the scroll
++     * range is still zero and scroll_to_y clamps back to the top */
++    lv_obj_update_layout(list);
 +    if (keep_y > 0)
 +        lv_obj_scroll_to_y(list, keep_y, LV_ANIM_OFF);
++    lv_obj_update_layout(list);
 +    if (selrow)
 +    {
 +        /* only move if the highlighted row is out of view now */

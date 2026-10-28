@@ -347,8 +347,12 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
             selrow = row;
     }
     last_list = list;
+    /* the fresh rows have not been laid out yet: without this the scroll
+     * range is still zero and scroll_to_y clamps back to the top */
+    lv_obj_update_layout(list);
     if (keep_y > 0)
         lv_obj_scroll_to_y(list, keep_y, LV_ANIM_OFF);
+    lv_obj_update_layout(list);
     if (selrow)
     {
         /* only move if the highlighted row is out of view now */
