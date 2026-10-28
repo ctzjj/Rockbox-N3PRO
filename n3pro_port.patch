@@ -607556,18 +607556,24 @@ index 37f3d75d33..d3de31165d 100644
  
  #elif CONFIG_KEYPAD == MA_PAD
 diff --git a/apps/plugins/chessbox/chessbox_pgn.h b/apps/plugins/chessbox/chessbox_pgn.h
-index f4f505ef20..bbf50d0299 100644
+index f4f505ef20..4987288ef6 100644
 --- a/apps/plugins/chessbox/chessbox_pgn.h
 +++ b/apps/plugins/chessbox/chessbox_pgn.h
-@@ -566,7 +566,7 @@
+@@ -566,6 +566,14 @@
  #define CB_SCROLL_LEFT  (BUTTON_LEFT|BUTTON_REPEAT)
  #define CB_SCROLL_RIGHT (BUTTON_RIGHT|BUTTON_REPEAT)
  
--#elif CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD
-+#elif CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD || CONFIG_KEYPAD == CAYIN_N3PRO_PAD
++#elif CONFIG_KEYPAD == CAYIN_N3PRO_PAD
++/* 3x3 touchscreen grid, same convention as the rest of the target:
++ * top-left opens the menu (quit lives there), power quits directly,
++ * the difficulty level moves to the bottom-right cell */
++#define CB_MENU          (BUTTON_TOPLEFT|BUTTON_REL)
++#define CB_RC_QUIT       BUTTON_POWER
++#define CB_LEVEL         BUTTON_BOTTOMRIGHT
++
+ #elif CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD
  /* use touchscreen */
  
- #elif CONFIG_KEYPAD == MA_PAD
 diff --git a/apps/plugins/chessclock.c b/apps/plugins/chessclock.c
 index 971af2d90e..d092991c34 100644
 --- a/apps/plugins/chessclock.c
@@ -607745,18 +607751,54 @@ index b67a7aeabe..6a78206be9 100644
  #define BTN_FIRE       BUTTON_BOTTOMLEFT
  #define BTN_PAUSE      BUTTON_TOPLEFT
 diff --git a/apps/plugins/lib/pluginlib_actions.c b/apps/plugins/lib/pluginlib_actions.c
-index 6dadfbc784..541ba3961d 100644
+index 6dadfbc784..aa07ef7b1a 100644
 --- a/apps/plugins/lib/pluginlib_actions.c
 +++ b/apps/plugins/lib/pluginlib_actions.c
-@@ -529,7 +529,7 @@ const struct button_mapping pla_main_ctx[] =
+@@ -302,6 +302,23 @@ const struct button_mapping pla_main_ctx[] =
+     { PLA_DOWN_REPEAT,      BUTTON_DOWN|BUTTON_REPEAT,          BUTTON_NONE },
+     { PLA_LEFT_REPEAT,      BUTTON_LEFT|BUTTON_REPEAT,          BUTTON_NONE },
+     { PLA_RIGHT_REPEAT,     BUTTON_RIGHT|BUTTON_REPEAT,         BUTTON_NONE },
++#elif CONFIG_KEYPAD == CAYIN_N3PRO_PAD
++    /* physical prev/next walk lists, the 3x3 grid supplements them:
++     * top/bottom-middle = up/down, mid-left/right = left/right */
++    { PLA_UP,               BUTTON_PREV,                        BUTTON_NONE },
++    { PLA_DOWN,             BUTTON_NEXT,                        BUTTON_NONE },
++    { PLA_UP_REPEAT,        BUTTON_PREV|BUTTON_REPEAT,          BUTTON_NONE },
++    { PLA_DOWN_REPEAT,      BUTTON_NEXT|BUTTON_REPEAT,          BUTTON_NONE },
++#ifdef HAVE_TOUCHSCREEN
++    { PLA_UP,               BUTTON_TOPMIDDLE,                   BUTTON_NONE },
++    { PLA_DOWN,             BUTTON_BOTTOMMIDDLE,                BUTTON_NONE },
++    { PLA_UP_REPEAT,        BUTTON_TOPMIDDLE|BUTTON_REPEAT,     BUTTON_NONE },
++    { PLA_DOWN_REPEAT,      BUTTON_BOTTOMMIDDLE|BUTTON_REPEAT,  BUTTON_NONE },
++    { PLA_LEFT,             BUTTON_MIDLEFT,                     BUTTON_NONE },
++    { PLA_RIGHT,            BUTTON_MIDRIGHT,                    BUTTON_NONE },
++    { PLA_LEFT_REPEAT,      BUTTON_MIDLEFT|BUTTON_REPEAT,       BUTTON_NONE },
++    { PLA_RIGHT_REPEAT,     BUTTON_MIDRIGHT|BUTTON_REPEAT,      BUTTON_NONE },
++#endif
+ #else
+ #   ifndef HAVE_TOUCHSCREEN
+ #       error pluginlib_actions: No directions defined
+@@ -529,6 +546,20 @@ const struct button_mapping pla_main_ctx[] =
      {PLA_SELECT,            BUTTON_SELECT,                      BUTTON_NONE},
      {PLA_SELECT_REL,        BUTTON_SELECT|BUTTON_REL,           BUTTON_SELECT},
      {PLA_SELECT_REPEAT,     BUTTON_SELECT|BUTTON_REPEAT,        BUTTON_NONE},
--#elif (CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD)
-+#elif (CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD || CONFIG_KEYPAD == CAYIN_N3PRO_PAD)
++#elif CONFIG_KEYPAD == CAYIN_N3PRO_PAD
++    /* 3x3 grid: top-left tap = cancel, hold = exit; centre/play = select */
++#ifdef HAVE_TOUCHSCREEN
++    {PLA_CANCEL,            BUTTON_TOPLEFT,                     BUTTON_NONE},
++    {PLA_EXIT,              BUTTON_TOPLEFT|BUTTON_REPEAT,       BUTTON_NONE},
++    {PLA_SELECT,            BUTTON_CENTER,                      BUTTON_NONE},
++    {PLA_SELECT_REL,        BUTTON_CENTER|BUTTON_REL,           BUTTON_CENTER},
++    {PLA_SELECT_REPEAT,     BUTTON_CENTER|BUTTON_REPEAT,        BUTTON_CENTER},
++#endif
++    {PLA_EXIT,              BUTTON_POWER,                       BUTTON_NONE},
++    {PLA_CANCEL,            BUTTON_POWER|BUTTON_REL,            BUTTON_POWER},
++    {PLA_SELECT,            BUTTON_PLAY,                        BUTTON_NONE},
++    {PLA_SELECT_REL,        BUTTON_PLAY|BUTTON_REL,             BUTTON_PLAY},
++    {PLA_SELECT_REPEAT,     BUTTON_PLAY|BUTTON_REPEAT,          BUTTON_PLAY},
+ #elif (CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD)
      {PLA_EXIT,              BUTTON_POWER,                       BUTTON_NONE},
  #elif (CONFIG_KEYPAD == MA_PAD)
-     {PLA_CANCEL,            BUTTON_BACK|BUTTON_REL,            BUTTON_BACK},
 diff --git a/apps/plugins/midi/midiplay.c b/apps/plugins/midi/midiplay.c
 index ee5b1f13f9..e9bafa06d5 100644
 --- a/apps/plugins/midi/midiplay.c
@@ -613323,7 +613365,7 @@ index c826aa513f..d8e20ed46b 100644
  #endif
 diff --git a/firmware/export/config/n3pro.h b/firmware/export/config/n3pro.h
 new file mode 100644
-index 0000000000..40b6dd19b5
+index 0000000000..7956c227b9
 --- /dev/null
 +++ b/firmware/export/config/n3pro.h
 @@ -0,0 +1,147 @@
@@ -613343,7 +613385,7 @@ index 0000000000..40b6dd19b5
 +#define LCD_DPI 171
 +
 +#define HAVE_LCD_SLEEP
-+#define LCD_SLEEP_TIMEOUT (2*HZ)
++#define LCD_SLEEP_TIMEOUT (20*HZ)
 +
 +/* Internal Rockbox depth stays 16bpp/RGB565 (like R1).  The N3Pro panel
 + * framebuffer is fixed at 32bpp XRGB8888 by the vendor kernel, so
@@ -614124,7 +614166,7 @@ index a1b4194ec3..4b7fd128ba 100644
  {
      /* cap range, just in case */
 diff --git a/firmware/target/hosted/button-devinput.c b/firmware/target/hosted/button-devinput.c
-index 1c5e2abea2..b465aad4aa 100644
+index 1c5e2abea2..83883705fa 100644
 --- a/firmware/target/hosted/button-devinput.c
 +++ b/firmware/target/hosted/button-devinput.c
 @@ -33,6 +33,7 @@
@@ -614187,7 +614229,39 @@ index 1c5e2abea2..b465aad4aa 100644
  /* Do _NOT_ change this.  Unofficial Linux API */
  #define EVENT_VALUE_TOUCHSCREEN_RELEASE  -1
  /* This is only used as an arbitrary placeholder */
-@@ -320,8 +348,108 @@ int button_read_device(BDATA)
+@@ -232,20 +260,25 @@ int button_read_device(BDATA)
+                             bmap &= ~BUTTON_DELAY_RELEASE;
+ #endif
+ #if defined(HAVE_TOUCHSCREEN) && defined(BUTTON_TOUCH)
+-                            /* Some touchscreens give us actual touch/untouch as a "key" */
+-                            if (bmap & BUTTON_TOUCH) {
++                            /* Some touchscreens give us actual touch/untouch as a
++                             * "key".  Keep the state machine in sync even when the
++                             * gate above suppressed the delivery (wake tap): a
++                             * swallowed release would leave the panel stuck in
++                             * the "pressed" state and eat every later touch. */
++                            if (event.code == BTN_TOUCH)
+                                 handle_touchscreen_event(ABS_MT_TRACKING_ID, EVENT_VALUE_TOUCHSCREEN_PRESS);
++                            if (bmap & BUTTON_TOUCH)
+                                 bmap &= ~BUTTON_TOUCH;
+-                            }
+ #endif
+                             button_bitmap |= bmap;
+                         } else {
+ #if defined(HAVE_TOUCHSCREEN) && defined(BUTTON_TOUCH)
+-                            /* Some touchscreens give us actual touch/untouch as a "key" */
+-                            if (bmap & BUTTON_TOUCH) {
++                            /* see above: the release must always reach the state
++                             * machine or the panel stays "pressed" forever */
++                            if (event.code == BTN_TOUCH)
+                                 handle_touchscreen_event(ABS_MT_TRACKING_ID, EVENT_VALUE_TOUCHSCREEN_RELEASE);
++                            if (bmap & BUTTON_TOUCH)
+                                 bmap &= ~BUTTON_TOUCH;
+-                            }
+ #endif
+ #ifdef BUTTON_DELAY_RELEASE
+                             /* Delay the release of any requested buttons */
+@@ -320,8 +353,108 @@ int button_read_device(BDATA)
  
      if(_last_touch_state == TOUCHSCREEN_STATE_DOWN)
      {
