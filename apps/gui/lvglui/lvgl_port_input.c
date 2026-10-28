@@ -81,18 +81,18 @@ void lvgui_input_feed(int button, intptr_t data)
             be_keyclick();
             edge_armed = g_last_touch.point.x < EDGE_PX ||
                          g_last_touch.point.x > 360 - EDGE_PX;
-            top_armed = g_last_touch.point.y < 40;
+            /* the pull-down belongs to the shell only: while a modal panel
+             * (equalizer, pickers, toast, the panel itself) sits on the top
+             * layer, the strip must stay with that panel's own widgets */
+            top_armed = g_last_touch.point.y < 40 &&
+                        lv_obj_get_child_cnt(lv_layer_top()) == 0;
             /* only a gesture that BEGAN with the panel open may close it */
             close_armed = lvgui_control_is_open();
             edge_start_x = g_last_touch.point.x;
             edge_start_y = g_last_touch.point.y;
-            /* open immediately on a touch in the top strip: the release then
-             * lands on the panel (never on the list below, never closing) */
-            if (top_armed && !close_armed)
-            {
-                lvgui_control_open();
-                top_armed = false;
-            }
+            /* a plain tap in the top strip must reach the widgets there
+             * (e.g. the equalizer's Done button): the panel only opens once
+             * the finger has actually dragged down past SWIPE_PX */
         }
         else if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
                  edge_prev == LV_INDEV_STATE_PRESSED &&

@@ -542985,7 +542985,7 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..4c1edbbb22
+index 0000000000..020ddcf02a
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
 @@ -0,0 +1,156 @@
@@ -543072,18 +543072,18 @@ index 0000000000..4c1edbbb22
 +            be_keyclick();
 +            edge_armed = g_last_touch.point.x < EDGE_PX ||
 +                         g_last_touch.point.x > 360 - EDGE_PX;
-+            top_armed = g_last_touch.point.y < 40;
++            /* the pull-down belongs to the shell only: while a modal panel
++             * (equalizer, pickers, toast, the panel itself) sits on the top
++             * layer, the strip must stay with that panel's own widgets */
++            top_armed = g_last_touch.point.y < 40 &&
++                        lv_obj_get_child_cnt(lv_layer_top()) == 0;
 +            /* only a gesture that BEGAN with the panel open may close it */
 +            close_armed = lvgui_control_is_open();
 +            edge_start_x = g_last_touch.point.x;
 +            edge_start_y = g_last_touch.point.y;
-+            /* open immediately on a touch in the top strip: the release then
-+             * lands on the panel (never on the list below, never closing) */
-+            if (top_armed && !close_armed)
-+            {
-+                lvgui_control_open();
-+                top_armed = false;
-+            }
++            /* a plain tap in the top strip must reach the widgets there
++             * (e.g. the equalizer's Done button): the panel only opens once
++             * the finger has actually dragged down past SWIPE_PX */
 +        }
 +        else if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
 +                 edge_prev == LV_INDEV_STATE_PRESSED &&
@@ -550097,10 +550097,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..dfa235a461
+index 0000000000..68df707ccf
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2890 @@
+@@ -0,0 +1,2920 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550400,8 +550400,16 @@ index 0000000000..dfa235a461
 +
 +    lv_obj_t *list;
 +    lv_obj_t *scr;
++    lv_coord_t keep_y = 0;
++    static lv_obj_t *last_list;
 +    if (g_menu_scr && lv_scr_act() == g_menu_scr)
++    {
++        /* coming back from a submenu: stay where the user was instead of
++         * resetting the list to the top */
++        if (last_list && lv_obj_is_valid(last_list))
++            keep_y = lv_obj_get_scroll_y(last_list);
 +        shell_menu_screen_rebuild(g_menu_scr, title, &list);
++    }
 +    else
 +    {
 +        scr = shell_menu_screen_push(title, &list, menu_close_cb);
@@ -550441,8 +550449,18 @@ index 0000000000..dfa235a461
 +        if (sel)
 +            selrow = row;
 +    }
++    last_list = list;
++    if (keep_y > 0)
++        lv_obj_scroll_to_y(list, keep_y, LV_ANIM_OFF);
 +    if (selrow)
-+        lv_obj_scroll_to_view(selrow, LV_ANIM_OFF);
++    {
++        /* only move if the highlighted row is out of view now */
++        lv_area_t ra, la;
++        lv_obj_get_coords(selrow, &ra);
++        lv_obj_get_coords(list, &la);
++        if (ra.y1 < la.y1 || ra.y2 > la.y2)
++            lv_obj_scroll_to_view(selrow, LV_ANIM_OFF);
++    }
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_refr_now(NULL);
 +
@@ -551724,8 +551742,14 @@ index 0000000000..dfa235a461
 +    lv_obj_invalidate(panel);
 +    lv_refr_now(NULL);
 +
-+    while (!g_eq_done)
++    while (!g_eq_done && !g_menu_cancel)
 +        lvgui_pump();
++    if (g_menu_cancel)
++    {
++        /* the back gesture leaves the editor and applies, like Done */
++        g_menu_cancel = false;
++        g_eq_done = true;
++    }
 +
 +    eq_write_apply();
 +    lv_obj_del(panel);
@@ -551941,8 +551965,14 @@ index 0000000000..dfa235a461
 +    lv_obj_set_style_text_font(nol, th->font_cjk, 0);
 +    lv_obj_center(nol);
 +
-+    while (!g_stm_done)
++    while (!g_stm_done && !g_menu_cancel)
 +        lvgui_pump();
++    if (g_menu_cancel)
++    {
++        g_menu_cancel = false;
++        g_stm_done = true;
++        g_stm_ok = false;
++    }
 +
 +    if (g_stm_ok)
 +        *tm = g_stm;

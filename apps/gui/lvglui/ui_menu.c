@@ -297,8 +297,16 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
 
     lv_obj_t *list;
     lv_obj_t *scr;
+    lv_coord_t keep_y = 0;
+    static lv_obj_t *last_list;
     if (g_menu_scr && lv_scr_act() == g_menu_scr)
+    {
+        /* coming back from a submenu: stay where the user was instead of
+         * resetting the list to the top */
+        if (last_list && lv_obj_is_valid(last_list))
+            keep_y = lv_obj_get_scroll_y(last_list);
         shell_menu_screen_rebuild(g_menu_scr, title, &list);
+    }
     else
     {
         scr = shell_menu_screen_push(title, &list, menu_close_cb);
@@ -338,8 +346,18 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
         if (sel)
             selrow = row;
     }
+    last_list = list;
+    if (keep_y > 0)
+        lv_obj_scroll_to_y(list, keep_y, LV_ANIM_OFF);
     if (selrow)
-        lv_obj_scroll_to_view(selrow, LV_ANIM_OFF);
+    {
+        /* only move if the highlighted row is out of view now */
+        lv_area_t ra, la;
+        lv_obj_get_coords(selrow, &ra);
+        lv_obj_get_coords(list, &la);
+        if (ra.y1 < la.y1 || ra.y2 > la.y2)
+            lv_obj_scroll_to_view(selrow, LV_ANIM_OFF);
+    }
     lv_obj_invalidate(lv_scr_act());
     lv_refr_now(NULL);
 
@@ -1621,8 +1639,14 @@ bool lvgui_eq_graphical(void)
     lv_obj_invalidate(panel);
     lv_refr_now(NULL);
 
-    while (!g_eq_done)
+    while (!g_eq_done && !g_menu_cancel)
         lvgui_pump();
+    if (g_menu_cancel)
+    {
+        /* the back gesture leaves the editor and applies, like Done */
+        g_menu_cancel = false;
+        g_eq_done = true;
+    }
 
     eq_write_apply();
     lv_obj_del(panel);
@@ -1838,8 +1862,14 @@ bool lvgui_set_time_screen(const char *title, struct tm *tm, bool set_date)
     lv_obj_set_style_text_font(nol, th->font_cjk, 0);
     lv_obj_center(nol);
 
-    while (!g_stm_done)
+    while (!g_stm_done && !g_menu_cancel)
         lvgui_pump();
+    if (g_menu_cancel)
+    {
+        g_menu_cancel = false;
+        g_stm_done = true;
+        g_stm_ok = false;
+    }
 
     if (g_stm_ok)
         *tm = g_stm;
