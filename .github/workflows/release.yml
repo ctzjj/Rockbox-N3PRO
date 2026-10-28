@@ -31,10 +31,10 @@ env:
   STOCK_URL: "https://github.com/ctzjj/Rockbox-N3PRO/releases/download/stock-firmware/stock-update.upt"
 
 jobs:
-  # The stock-firmware release and the rolling v3.x channel never build
-  # anything themselves (the latter is created by this very job).
+  # The stock-firmware release and the rolling channel tags never build
+  # anything themselves (the channels are created by this very job).
   build:
-    if: ${{ github.event_name != 'release' || (github.event.release.tag_name != 'stock-firmware' && github.event.release.tag_name != 'v3.x') }}
+    if: ${{ github.event_name != 'release' || (github.event.release.tag_name != 'stock-firmware' && github.event.release.tag_name != 'v1.x' && github.event.release.tag_name != 'v2.x' && github.event.release.tag_name != 'v3.x') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -160,11 +160,19 @@ jobs:
             gh release delete-asset "$TAG" stock-update.upt -y \
                -R "${{ github.repository }}" || true
           fi
-          # keep the rolling v3.x channel in step with every release
-          gh release view v3.x -R "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create v3.x -R "${{ github.repository }}" \
-               --target "main" \
-               --title "v3.x (rolling)" \
-               --notes "Rolling build of the v3.x line, refreshed on every release. Same artifacts as the newest v3.x tag." \
+          # keep the rolling channel of this branch in step with every
+          # release: n3pro-rockbox -> v1.x, n3pro-custom -> v2.x, main -> v3.x
+          BRANCH="${{ github.event.release.target_commitish }}"
+          [ -n "$BRANCH" ] || BRANCH="${{ github.ref_name }}"
+          case "$BRANCH" in
+            n3pro-rockbox) CH=v1.x; LINE="v1.x (stock-rockbox line)" ;;
+            n3pro-custom)  CH=v2.x; LINE="v2.x (custom line)" ;;
+            *)             CH=v3.x; LINE="v3.x (LVGL line)"; BRANCH=main ;;
+          esac
+          gh release view "$CH" -R "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create "$CH" -R "${{ github.repository }}" \
+               --target "$BRANCH" \
+               --title "$LINE (rolling)" \
+               --notes "Rolling build of the $LINE, refreshed on every release of the $BRANCH branch. Same artifacts as its newest version tag." \
                --prerelease
-          gh release upload v3.x $files --clobber -R "${{ github.repository }}"
+          gh release upload "$CH" $files --clobber -R "${{ github.repository }}"
