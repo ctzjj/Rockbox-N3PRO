@@ -757,8 +757,11 @@ void lvgui_root_apply(const char **keys, int n)
     /* stock rockbox always keeps the settings entry */
     if (!has_settings && j < (int)MAX_MENU_ITEMS)
         root_menu__[j++] = (struct menu_item_ex *)&menu_;
-    root_menu_.flags = (root_menu_.flags & ~MENU_COUNT_MASK)
+    root_menu_.flags = (root_menu_.flags & ~MENU_ITEM_COUNT(MENU_COUNT_MASK))
                        | MENU_ITEM_COUNT(j);
+    /* persist the order: this is what makes the config writer emit the
+     * "root menu order" line again */
+    global_settings.root_menu_customized = true;
 }
 #endif
 

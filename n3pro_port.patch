@@ -550097,10 +550097,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..79b42a2fe8
+index 0000000000..ba02f33dc8
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2924 @@
+@@ -0,0 +1,2927 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -552052,6 +552052,9 @@ index 0000000000..79b42a2fe8
 +        lv_obj_align(m, LV_ALIGN_RIGHT_MID, -14, 0);
 +        g_rm_marks[i] = m;
 +    }
++    /* keep the last row clear of the floating apply button */
++    lv_obj_set_style_pad_bottom(list, 64, 0);
++    lv_obj_update_layout(list);
 +    lv_obj_t *btn = lv_btn_create(scr);
 +    lv_obj_set_size(btn, 340, 48);
 +    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -8);
@@ -608569,7 +608572,7 @@ index cb00fef74f..aa0915ccfd 100644
               * for cell; page three completes Latin-1 and adds the accented
               * letters common to the other European locales. The space bar
 diff --git a/apps/root_menu.c b/apps/root_menu.c
-index 918669b245..b353afc837 100644
+index 918669b245..1aaa87d9fa 100644
 --- a/apps/root_menu.c
 +++ b/apps/root_menu.c
 @@ -330,6 +330,32 @@ static int recscrn(void* param)
@@ -608681,7 +608684,7 @@ index 918669b245..b353afc837 100644
      { "plugins", &rocks_browser },
      { "system_menu", &system_menu_ },
      { "shortcuts", &shortcut_menu },
-@@ -641,6 +712,56 @@ char* root_menu_write_to_cfg(void* setting, char*buf, int buf_len)
+@@ -641,6 +712,59 @@ char* root_menu_write_to_cfg(void* setting, char*buf, int buf_len)
      return buf;
  }
  
@@ -608730,15 +608733,18 @@ index 918669b245..b353afc837 100644
 +    /* stock rockbox always keeps the settings entry */
 +    if (!has_settings && j < (int)MAX_MENU_ITEMS)
 +        root_menu__[j++] = (struct menu_item_ex *)&menu_;
-+    root_menu_.flags = (root_menu_.flags & ~MENU_COUNT_MASK)
++    root_menu_.flags = (root_menu_.flags & ~MENU_ITEM_COUNT(MENU_COUNT_MASK))
 +                       | MENU_ITEM_COUNT(j);
++    /* persist the order: this is what makes the config writer emit the
++     * "root menu order" line again */
++    global_settings.root_menu_customized = true;
 +}
 +#endif
 +
  void root_menu_set_default(void* setting, void* defaultval)
  {
      unsigned i;
-@@ -843,6 +964,25 @@ static int load_plugin_screen(char *key)
+@@ -843,6 +967,25 @@ static int load_plugin_screen(char *key)
      return ret_val;
  }
  
@@ -608764,7 +608770,7 @@ index 918669b245..b353afc837 100644
  static void ignore_back_button_stub(bool ignore)
  {
  #if (CONFIG_PLATFORM&PLATFORM_ANDROID)
-@@ -1080,3 +1220,26 @@ load_next_screen: /* load_screen is inlined */
+@@ -1080,3 +1223,26 @@ load_next_screen: /* load_screen is inlined */
      }
  
  }

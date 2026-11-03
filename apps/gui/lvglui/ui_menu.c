@@ -1949,6 +1949,9 @@ int lvgui_root_menu_edit(void)
         lv_obj_align(m, LV_ALIGN_RIGHT_MID, -14, 0);
         g_rm_marks[i] = m;
     }
+    /* keep the last row clear of the floating apply button */
+    lv_obj_set_style_pad_bottom(list, 64, 0);
+    lv_obj_update_layout(list);
     lv_obj_t *btn = lv_btn_create(scr);
     lv_obj_set_size(btn, 340, 48);
     lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -8);
