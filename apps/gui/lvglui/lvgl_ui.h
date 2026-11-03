@@ -84,6 +84,8 @@ void shell_pick_cleanup(void);
 void lvgui_control_open(void);
 void lvgui_control_close(void);
 bool lvgui_control_is_open(void);
+bool lvgui_control_swallow(void);
+void lvgui_control_swallow_clear(void);
 /* Bluetooth menu (native do_menu tree) */
 int lvgui_bt_menu(void);
 /* stock resume-playback entry (home play row) */

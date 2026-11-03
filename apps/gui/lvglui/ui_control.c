@@ -15,6 +15,9 @@
  * top-left, [now playing] top-right, volume/brightness pills below. */
 static lv_obj_t *g_ctl;
 static bool g_open;
+/* set while the opening gesture is still in flight: the panel must ignore
+ * touches until the finger that pulled it down has been lifted */
+static bool g_swallow;
 static lv_obj_t *g_med_art;      /* cover parent (accent tile) */
 static lv_obj_t *g_med_img;      /* cover image */
 static lv_obj_t *g_med_title;    /* scrolling title */
@@ -795,7 +798,11 @@ void lvgui_control_open(void)
 {
     if (g_open) return;
     ctl_build();
+    g_swallow = true;      /* the pull-down gesture ends on the sliders */
 }
+
+bool lvgui_control_swallow(void) { return g_swallow; }
+void lvgui_control_swallow_clear(void) { g_swallow = false; }
 
 void lvgui_control_close(void)
 {

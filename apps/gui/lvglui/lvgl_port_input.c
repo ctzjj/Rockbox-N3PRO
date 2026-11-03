@@ -59,6 +59,19 @@ void lvgui_input_feed(int button, intptr_t data)
                              ? LV_INDEV_STATE_RELEASED
                              : LV_INDEV_STATE_PRESSED;
 
+        /* a panel that was just pulled open by this very gesture must not
+         * react to it: report a release and stay inert until the finger is
+         * lifted (a fresh press then works normally) */
+        if (lvgui_control_swallow())
+        {
+            if (g_last_touch.state == LV_INDEV_STATE_RELEASED)
+                lvgui_control_swallow_clear();
+            else
+                g_last_touch.state = LV_INDEV_STATE_RELEASED;
+            edge_prev = g_last_touch.state;
+            return;
+        }
+
         /* the lock screen owns every touch: no edge-back, no pull-down,
          * and only an upward swipe (>= 80 px) unlocks */
         if (lvgl_shell_locked)

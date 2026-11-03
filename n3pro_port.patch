@@ -542985,10 +542985,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..020ddcf02a
+index 0000000000..6a7ea28a54
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,169 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543049,6 +543049,19 @@ index 0000000000..020ddcf02a
 +        g_last_touch.state = (button & BUTTON_REL)
 +                             ? LV_INDEV_STATE_RELEASED
 +                             : LV_INDEV_STATE_PRESSED;
++
++        /* a panel that was just pulled open by this very gesture must not
++         * react to it: report a release and stay inert until the finger is
++         * lifted (a fresh press then works normally) */
++        if (lvgui_control_swallow())
++        {
++            if (g_last_touch.state == LV_INDEV_STATE_RELEASED)
++                lvgui_control_swallow_clear();
++            else
++                g_last_touch.state = LV_INDEV_STATE_RELEASED;
++            edge_prev = g_last_touch.state;
++            return;
++        }
 +
 +        /* the lock screen owns every touch: no edge-back, no pull-down,
 +         * and only an upward swipe (>= 80 px) unlocks */
@@ -543358,10 +543371,10 @@ index 0000000000..fb0589e3d9
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..cf71310c18
+index 0000000000..ea34453fa2
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,162 @@
+@@ -0,0 +1,164 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543448,6 +543461,8 @@ index 0000000000..cf71310c18
 +void lvgui_control_open(void);
 +void lvgui_control_close(void);
 +bool lvgui_control_is_open(void);
++bool lvgui_control_swallow(void);
++void lvgui_control_swallow_clear(void);
 +/* Bluetooth menu (native do_menu tree) */
 +int lvgui_bt_menu(void);
 +/* stock resume-playback entry (home play row) */
@@ -546059,10 +546074,10 @@ index 0000000000..fcefd8228d
 +}
 diff --git a/apps/gui/lvglui/ui_control.c b/apps/gui/lvglui/ui_control.c
 new file mode 100755
-index 0000000000..c3627f9e1f
+index 0000000000..e9c0b9f27a
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_control.c
-@@ -0,0 +1,805 @@
+@@ -0,0 +1,812 @@
 +#include "config.h"
 +#ifdef HAVE_LVGL_UI
 +
@@ -546080,6 +546095,9 @@ index 0000000000..c3627f9e1f
 + * top-left, [now playing] top-right, volume/brightness pills below. */
 +static lv_obj_t *g_ctl;
 +static bool g_open;
++/* set while the opening gesture is still in flight: the panel must ignore
++ * touches until the finger that pulled it down has been lifted */
++static bool g_swallow;
 +static lv_obj_t *g_med_art;      /* cover parent (accent tile) */
 +static lv_obj_t *g_med_img;      /* cover image */
 +static lv_obj_t *g_med_title;    /* scrolling title */
@@ -546860,7 +546878,11 @@ index 0000000000..c3627f9e1f
 +{
 +    if (g_open) return;
 +    ctl_build();
++    g_swallow = true;      /* the pull-down gesture ends on the sliders */
 +}
++
++bool lvgui_control_swallow(void) { return g_swallow; }
++void lvgui_control_swallow_clear(void) { g_swallow = false; }
 +
 +void lvgui_control_close(void)
 +{
