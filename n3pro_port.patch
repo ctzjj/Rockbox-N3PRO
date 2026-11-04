@@ -543402,10 +543402,10 @@ index 0000000000..d252df0022
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..1406b8eaed
+index 0000000000..2d84a3d10f
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,172 @@
+@@ -0,0 +1,175 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543490,6 +543490,9 @@ index 0000000000..1406b8eaed
 +void shell_header_set(lv_obj_t *scr, const char *title);
 +/* drop list-picker screens left on top when a job ends */
 +void shell_pick_cleanup(void);
++/* stop the menu loop that owns the screens being torn down (Home key):
++ * unlike the edge-swipe cancel it must not rebuild the parent level */
++void lvgui_menu_abort(void);
 +
 +/* pull-down control centre */
 +void lvgui_control_open(void);
@@ -550233,10 +550236,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..b8e467aa5f
+index 0000000000..6875603ca1
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2948 @@
+@@ -0,0 +1,2959 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550354,8 +550357,19 @@ index 0000000000..b8e467aa5f
 +static void menu_close_cb(lv_event_t *e)
 +{
 +    (void)e;
++    if (g_menu_abort)               /* Home is tearing the stack down */
++        return;
 +    if (g_menu_row < 0)
 +        g_menu_cancel = true;
++}
++
++/* The Home key tears down every screen above Home; the loop must leave
++ * instead of treating the deletion as "cancel one level". */
++void lvgui_menu_abort(void)
++{
++    g_menu_abort = true;
++    g_menu_cancel = false;
++    g_menu_row = -1;
 +}
 +
 +/* ---- callbacks / labels (mirror apps/menu.c) --------------------------- */
@@ -554425,10 +554439,10 @@ index 0000000000..7d0ca25d96
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..2360bf2e8a
+index 0000000000..cdc907ecc1
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2630 @@
+@@ -0,0 +1,2635 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -554808,6 +554822,11 @@ index 0000000000..2360bf2e8a
 +    (void)param;
 +    if (nav_depth <= 1)
 +        return;
++    /* A menu job may still be looping under these screens.  Its screen is
++     * about to be deleted as part of "go Home", which the DELETE handler
++     * would otherwise read as a one-level cancel and rebuild the parent
++     * menu right back on top of Home.  Tell it to stop instead. */
++    lvgui_menu_abort();
 +    lv_scr_load(nav_stack[0]);            /* switch away FIRST */
 +    while (nav_depth > 1)
 +        lv_obj_del(nav_stack[--nav_depth]);
@@ -670662,10 +670681,10 @@ index 0000000000..db62bce783
 +long emu10k_log15(long x);
 diff --git a/lib/rbcodec/dsp/emu10k_space80.c b/lib/rbcodec/dsp/emu10k_space80.c
 new file mode 100644
-index 0000000000..4ccccaebc5
+index 0000000000..d0fb7c2719
 --- /dev/null
 +++ b/lib/rbcodec/dsp/emu10k_space80.c
-@@ -0,0 +1,232 @@
+@@ -0,0 +1,239 @@
 +#include "emu10k_space80.h"
 +#include "emu10k_core.h"
 +
@@ -670875,19 +670894,26 @@ index 0000000000..4ccccaebc5
 +    switch (setting)
 +    {
 +    case DSP_PROC_INIT:
-+        if (value != 0)
++        /* value == 0 means the stage was just enabled (dsp_proc_enable()
++         * passes the previous state); nonzero is a re-init of an already
++         * enabled stage.  The old test was inverted, so data stayed NULL
++         * on the first enable and the matching CLOSE dereferenced it. */
++        if (value == 0)
 +        {
 +            this->data = (intptr_t)&space80_data;
-+            ((struct space80_data *)this->data)->dsp = dsp;
++            space80_data.dsp = dsp;
 +        }
 +        this->process = space80_process;
-+        //dsp_proc_activate(dsp, DSP_PROC_SPACE80, true);
 +        break;
 +    case DSP_FLUSH:
 +        space80_flush();
 +        break;
 +    case DSP_PROC_CLOSE:
-+        ((struct space80_data *)this->data)->dsp = NULL;
++        if (this->data != 0)
++        {
++            ((struct space80_data *)this->data)->dsp = NULL;
++            this->data = 0;
++        }
 +        break;
 +    }
 +    return 1;
@@ -670910,10 +670936,10 @@ index 0000000000..43cea58d1f
 +
 diff --git a/lib/rbcodec/dsp/swd.c b/lib/rbcodec/dsp/swd.c
 new file mode 100644
-index 0000000000..7deb2bf714
+index 0000000000..1effab995b
 --- /dev/null
 +++ b/lib/rbcodec/dsp/swd.c
-@@ -0,0 +1,381 @@
+@@ -0,0 +1,434 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -670969,6 +670995,26 @@ index 0000000000..7deb2bf714
 +static bool swd_rate_ok = false;     /* coefficients exist for 44.1k/48k */
 +static int32_t swd_cur_rate = 0;     /* rate of the loaded instance     */
 +static int32_t swd_shift = 12;       /* frac_bits - 15: buffer -> int16 */
++
++/* Work queued by the settings/UI thread and serviced at a block boundary in
++ * the DSP thread.  Writing coefficients and especially rebuilding the
++ * coefficient pool (swd21_coef_load) while the core is mid-block was both a
++ * data race and the main source of clicks on the Rockbox side; on the
++ * original device setters and playback ran in one thread. */
++enum
++{
++    SWD_REQ_SETTINGS = 1 << 0,       /* 3D/center/focus/definition/bass */
++    SWD_REQ_INSTANCE = 1 << 1,       /* mode / TB-EQ: full coefficient reload */
++    SWD_REQ_GAINS    = 1 << 2,
++    SWD_REQ_LIMITER  = 1 << 3,
++};
++
++static volatile uint32_t swd_req;
++
++static void swd_queue(uint32_t bits)
++{
++    __atomic_fetch_or(&swd_req, bits, __ATOMIC_SEQ_CST);
++}
 +
 +/* SWD widening gain table, indexed by (3D level / 10) */
 +static const int32_t swd_3dtab[11] =
@@ -671087,6 +671133,37 @@ index 0000000000..7deb2bf714
 +    }
 +}
 +
++static void swd_service_requests(void)
++{
++    uint32_t req = __atomic_exchange_n(&swd_req, 0, __ATOMIC_SEQ_CST);
++
++    if (!req)
++        return;
++
++    if (req & SWD_REQ_INSTANCE)
++    {
++        wput32(SWD_STATE_BASE + 0x144, global_settings.swd_mode ? 1 : 0);
++        wput32(SWD_STATE_BASE + 0x14,  global_settings.swd_mode ? 0 : 1);
++        wput32(SWD_STATE_BASE + 0x10,
++               swd_clamp(global_settings.swd_tbeq, 0, 7));
++        swd21_coef_load(SWD_STATE_BASE);
++    }
++
++    if (req & SWD_REQ_GAINS)
++    {
++        wput32(SWD_STATE_BASE + 0x110,
++               swd_gain13[swd_clamp(global_settings.swd_ingain, 0, 12)]);
++        wput32(SWD_STATE_BASE + 0x114,
++               swd_gain13[swd_clamp(global_settings.swd_outgain, 0, 12)]);
++    }
++
++    if (req & SWD_REQ_LIMITER)
++        swd_write_limiter(global_settings.swd_limiter);
++
++    if (req & SWD_REQ_SETTINGS)
++        swd_apply_settings();
++}
++
 +static void swd_init(int32_t frequency)
 +{
 +    const unsigned char *st_img;
@@ -671132,6 +671209,9 @@ index 0000000000..7deb2bf714
 +
 +    swd21_coef_load(SWD_STATE_BASE);
 +    swd_apply_settings();
++
++    /* init just rebuilt everything from global_settings */
++    __atomic_store_n(&swd_req, 0, __ATOMIC_SEQ_CST);
 +}
 +
 +void dsp_set_swd_enable(bool enable)
@@ -671150,51 +671230,48 @@ index 0000000000..7deb2bf714
 +void dsp_set_swd_params(long spread, long center, long focus,
 +                          long definition, long bass)
 +{
-+    /* Values are read from global_settings by swd_apply_settings(). */
++    /* Applied in the DSP thread from global_settings (which the settings
++     * callbacks have already updated) so the core never sees a half
++     * written coefficient set. */
 +    (void)spread; (void)center; (void)focus;
 +    (void)definition; (void)bass;
 +
-+    swd_apply_settings();
++    if (swd_ready)
++        swd_queue(SWD_REQ_SETTINGS);
 +}
 +
 +void dsp_set_swd_mode(int mode)
 +{
-+    if (!swd_ready)
-+        return;
++    (void)mode;
 +
-+    wput32(SWD_STATE_BASE + 0x144, mode ? 1 : 0);
-+    wput32(SWD_STATE_BASE + 0x14, mode ? 0 : 1);   /* selA */
-+    swd21_coef_load(SWD_STATE_BASE);
++    if (swd_ready)
++        swd_queue(SWD_REQ_INSTANCE);
 +}
 +
 +void dsp_set_swd_tbeq(int index)
 +{
-+    if (!swd_ready)
-+        return;
++    (void)index;
 +
-+    wput32(SWD_STATE_BASE + 0x10, swd_clamp(index, 0, 7));
-+    swd21_coef_load(SWD_STATE_BASE);
++    if (swd_ready)
++        swd_queue(SWD_REQ_INSTANCE);
 +}
 +
 +void dsp_set_swd_gains(int ing, int outg)
 +{
-+    if (!swd_ready)
-+        return;
++    (void)ing; (void)outg;
 +
-+    wput32(SWD_STATE_BASE + 0x110,
-+           swd_gain13[swd_clamp(ing, 0, 12)]);
-+    wput32(SWD_STATE_BASE + 0x114,
-+           swd_gain13[swd_clamp(outg, 0, 12)]);
++    if (swd_ready)
++        swd_queue(SWD_REQ_GAINS);
 +}
 +
 +void dsp_set_swd_limiter(int mode)
 +{
-+    if (!swd_ready)
-+        return;
++    (void)mode;
 +
 +    /* Bare store exactly like the driver's setter (0x10008edc): never
 +     * rebuild the instance here, or the 澎湃 workpoint is lost. */
-+    swd_write_limiter(mode);
++    if (swd_ready)
++        swd_queue(SWD_REQ_LIMITER);
 +}
 +
 +static void swd_process(struct dsp_proc_entry *this, struct dsp_buffer **buf_p)
@@ -671205,6 +671282,8 @@ index 0000000000..7deb2bf714
 +
 +    if (!swd_ready || !swd_rate_ok)
 +        return;                    /* passthrough: not inited or rate > 48k */
++
++    swd_service_requests();        /* settings land between blocks */
 +
 +    /* hand the core whole blocks: the vendor core loops count frames
 +     * internally, per-frame calls paid its prologue 44100 times a second */

@@ -54,6 +54,26 @@ static bool swd_rate_ok = false;     /* coefficients exist for 44.1k/48k */
 static int32_t swd_cur_rate = 0;     /* rate of the loaded instance     */
 static int32_t swd_shift = 12;       /* frac_bits - 15: buffer -> int16 */
 
+/* Work queued by the settings/UI thread and serviced at a block boundary in
+ * the DSP thread.  Writing coefficients and especially rebuilding the
+ * coefficient pool (swd21_coef_load) while the core is mid-block was both a
+ * data race and the main source of clicks on the Rockbox side; on the
+ * original device setters and playback ran in one thread. */
+enum
+{
+    SWD_REQ_SETTINGS = 1 << 0,       /* 3D/center/focus/definition/bass */
+    SWD_REQ_INSTANCE = 1 << 1,       /* mode / TB-EQ: full coefficient reload */
+    SWD_REQ_GAINS    = 1 << 2,
+    SWD_REQ_LIMITER  = 1 << 3,
+};
+
+static volatile uint32_t swd_req;
+
+static void swd_queue(uint32_t bits)
+{
+    __atomic_fetch_or(&swd_req, bits, __ATOMIC_SEQ_CST);
+}
+
 /* SWD widening gain table, indexed by (3D level / 10) */
 static const int32_t swd_3dtab[11] =
 {
@@ -171,6 +191,37 @@ static void swd_write_limiter(int mode)
     }
 }
 
+static void swd_service_requests(void)
+{
+    uint32_t req = __atomic_exchange_n(&swd_req, 0, __ATOMIC_SEQ_CST);
+
+    if (!req)
+        return;
+
+    if (req & SWD_REQ_INSTANCE)
+    {
+        wput32(SWD_STATE_BASE + 0x144, global_settings.swd_mode ? 1 : 0);
+        wput32(SWD_STATE_BASE + 0x14,  global_settings.swd_mode ? 0 : 1);
+        wput32(SWD_STATE_BASE + 0x10,
+               swd_clamp(global_settings.swd_tbeq, 0, 7));
+        swd21_coef_load(SWD_STATE_BASE);
+    }
+
+    if (req & SWD_REQ_GAINS)
+    {
+        wput32(SWD_STATE_BASE + 0x110,
+               swd_gain13[swd_clamp(global_settings.swd_ingain, 0, 12)]);
+        wput32(SWD_STATE_BASE + 0x114,
+               swd_gain13[swd_clamp(global_settings.swd_outgain, 0, 12)]);
+    }
+
+    if (req & SWD_REQ_LIMITER)
+        swd_write_limiter(global_settings.swd_limiter);
+
+    if (req & SWD_REQ_SETTINGS)
+        swd_apply_settings();
+}
+
 static void swd_init(int32_t frequency)
 {
     const unsigned char *st_img;
@@ -216,6 +267,9 @@ static void swd_init(int32_t frequency)
 
     swd21_coef_load(SWD_STATE_BASE);
     swd_apply_settings();
+
+    /* init just rebuilt everything from global_settings */
+    __atomic_store_n(&swd_req, 0, __ATOMIC_SEQ_CST);
 }
 
 void dsp_set_swd_enable(bool enable)
@@ -234,51 +288,48 @@ void dsp_set_swd_enable(bool enable)
 void dsp_set_swd_params(long spread, long center, long focus,
                           long definition, long bass)
 {
-    /* Values are read from global_settings by swd_apply_settings(). */
+    /* Applied in the DSP thread from global_settings (which the settings
+     * callbacks have already updated) so the core never sees a half
+     * written coefficient set. */
     (void)spread; (void)center; (void)focus;
     (void)definition; (void)bass;
 
-    swd_apply_settings();
+    if (swd_ready)
+        swd_queue(SWD_REQ_SETTINGS);
 }
 
 void dsp_set_swd_mode(int mode)
 {
-    if (!swd_ready)
-        return;
+    (void)mode;
 
-    wput32(SWD_STATE_BASE + 0x144, mode ? 1 : 0);
-    wput32(SWD_STATE_BASE + 0x14, mode ? 0 : 1);   /* selA */
-    swd21_coef_load(SWD_STATE_BASE);
+    if (swd_ready)
+        swd_queue(SWD_REQ_INSTANCE);
 }
 
 void dsp_set_swd_tbeq(int index)
 {
-    if (!swd_ready)
-        return;
+    (void)index;
 
-    wput32(SWD_STATE_BASE + 0x10, swd_clamp(index, 0, 7));
-    swd21_coef_load(SWD_STATE_BASE);
+    if (swd_ready)
+        swd_queue(SWD_REQ_INSTANCE);
 }
 
 void dsp_set_swd_gains(int ing, int outg)
 {
-    if (!swd_ready)
-        return;
+    (void)ing; (void)outg;
 
-    wput32(SWD_STATE_BASE + 0x110,
-           swd_gain13[swd_clamp(ing, 0, 12)]);
-    wput32(SWD_STATE_BASE + 0x114,
-           swd_gain13[swd_clamp(outg, 0, 12)]);
+    if (swd_ready)
+        swd_queue(SWD_REQ_GAINS);
 }
 
 void dsp_set_swd_limiter(int mode)
 {
-    if (!swd_ready)
-        return;
+    (void)mode;
 
     /* Bare store exactly like the driver's setter (0x10008edc): never
      * rebuild the instance here, or the 澎湃 workpoint is lost. */
-    swd_write_limiter(mode);
+    if (swd_ready)
+        swd_queue(SWD_REQ_LIMITER);
 }
 
 static void swd_process(struct dsp_proc_entry *this, struct dsp_buffer **buf_p)
@@ -289,6 +340,8 @@ static void swd_process(struct dsp_proc_entry *this, struct dsp_buffer **buf_p)
 
     if (!swd_ready || !swd_rate_ok)
         return;                    /* passthrough: not inited or rate > 48k */
+
+    swd_service_requests();        /* settings land between blocks */
 
     /* hand the core whole blocks: the vendor core loops count frames
      * internally, per-frame calls paid its prologue 44100 times a second */

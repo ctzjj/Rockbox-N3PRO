@@ -115,8 +115,19 @@ static void menu_scrim_cb(lv_event_t *e)
 static void menu_close_cb(lv_event_t *e)
 {
     (void)e;
+    if (g_menu_abort)               /* Home is tearing the stack down */
+        return;
     if (g_menu_row < 0)
         g_menu_cancel = true;
+}
+
+/* The Home key tears down every screen above Home; the loop must leave
+ * instead of treating the deletion as "cancel one level". */
+void lvgui_menu_abort(void)
+{
+    g_menu_abort = true;
+    g_menu_cancel = false;
+    g_menu_row = -1;
 }
 
 /* ---- callbacks / labels (mirror apps/menu.c) --------------------------- */

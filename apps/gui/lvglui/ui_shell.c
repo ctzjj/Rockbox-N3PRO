@@ -377,6 +377,11 @@ static void nav_home_do(void *param)
     (void)param;
     if (nav_depth <= 1)
         return;
+    /* A menu job may still be looping under these screens.  Its screen is
+     * about to be deleted as part of "go Home", which the DELETE handler
+     * would otherwise read as a one-level cancel and rebuild the parent
+     * menu right back on top of Home.  Tell it to stop instead. */
+    lvgui_menu_abort();
     lv_scr_load(nav_stack[0]);            /* switch away FIRST */
     while (nav_depth > 1)
         lv_obj_del(nav_stack[--nav_depth]);

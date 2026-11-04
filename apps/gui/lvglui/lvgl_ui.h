@@ -82,6 +82,9 @@ void shell_menu_screen_slide(lv_obj_t *scr, const char *title, lv_obj_t **list_o
 void shell_header_set(lv_obj_t *scr, const char *title);
 /* drop list-picker screens left on top when a job ends */
 void shell_pick_cleanup(void);
+/* stop the menu loop that owns the screens being torn down (Home key):
+ * unlike the edge-swipe cancel it must not rebuild the parent level */
+void lvgui_menu_abort(void);
 
 /* pull-down control centre */
 void lvgui_control_open(void);
