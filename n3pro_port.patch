@@ -608785,7 +608785,7 @@ index cb00fef74f..aa0915ccfd 100644
               * for cell; page three completes Latin-1 and adds the accented
               * letters common to the other European locales. The space bar
 diff --git a/apps/root_menu.c b/apps/root_menu.c
-index 918669b245..1aaa87d9fa 100644
+index 918669b245..7477970b24 100644
 --- a/apps/root_menu.c
 +++ b/apps/root_menu.c
 @@ -330,6 +330,32 @@ static int recscrn(void* param)
@@ -608897,7 +608897,7 @@ index 918669b245..1aaa87d9fa 100644
      { "plugins", &rocks_browser },
      { "system_menu", &system_menu_ },
      { "shortcuts", &shortcut_menu },
-@@ -641,6 +712,59 @@ char* root_menu_write_to_cfg(void* setting, char*buf, int buf_len)
+@@ -641,6 +712,65 @@ char* root_menu_write_to_cfg(void* setting, char*buf, int buf_len)
      return buf;
  }
  
@@ -608915,6 +608915,12 @@ index 918669b245..1aaa87d9fa 100644
 +        keys[n] = menu_table[t].string;
 +        if (it->flags & MENU_HAS_DESC)
 +            labels[n] = P2STR(it->callback_and_desc->desc);
++        else if ((it->flags & MENU_DYNAMIC_DESC) ||
++                 !strcmp(menu_table[t].string, "wps"))
++            /* dynamic-text entry (now playing / resume): the same fallback
++             * the stock main_menu_config plugin uses instead of the raw
++             * "wps" key */
++            labels[n] = str(LANG_RESUME_PLAYBACK);
 +        else
 +            labels[n] = menu_table[t].string;
 +        enabled[n] = 0;
@@ -608957,7 +608963,7 @@ index 918669b245..1aaa87d9fa 100644
  void root_menu_set_default(void* setting, void* defaultval)
  {
      unsigned i;
-@@ -843,6 +967,25 @@ static int load_plugin_screen(char *key)
+@@ -843,6 +973,25 @@ static int load_plugin_screen(char *key)
      return ret_val;
  }
  
@@ -608983,7 +608989,7 @@ index 918669b245..1aaa87d9fa 100644
  static void ignore_back_button_stub(bool ignore)
  {
  #if (CONFIG_PLATFORM&PLATFORM_ANDROID)
-@@ -1080,3 +1223,26 @@ load_next_screen: /* load_screen is inlined */
+@@ -1080,3 +1229,26 @@ load_next_screen: /* load_screen is inlined */
      }
  
  }

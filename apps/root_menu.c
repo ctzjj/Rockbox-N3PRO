@@ -726,6 +726,12 @@ int lvgui_root_items(const char **keys, const char **labels,
         keys[n] = menu_table[t].string;
         if (it->flags & MENU_HAS_DESC)
             labels[n] = P2STR(it->callback_and_desc->desc);
+        else if ((it->flags & MENU_DYNAMIC_DESC) ||
+                 !strcmp(menu_table[t].string, "wps"))
+            /* dynamic-text entry (now playing / resume): the same fallback
+             * the stock main_menu_config plugin uses instead of the raw
+             * "wps" key */
+            labels[n] = str(LANG_RESUME_PLAYBACK);
         else
             labels[n] = menu_table[t].string;
         enabled[n] = 0;
