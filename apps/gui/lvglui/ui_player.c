@@ -195,9 +195,15 @@ static void cover_gesture_cb(lv_event_t *e)
     else if (dir == LV_DIR_RIGHT)
         cover_set_page(p, (p->page + 2) % 3);
     else if (dir == LV_DIR_TOP && !p->drawer)
+    {
         drawer_open(p);
+        lv_indev_reset(lv_indev_get_act(), NULL);
+    }
     else if (dir == LV_DIR_BOTTOM && p->drawer)
+    {
         drawer_close(p);
+        lv_indev_reset(lv_indev_get_act(), NULL);
+    }
 }
 
 /* repeat: single key cycles Off -> All -> One (live-read by playlist);

@@ -553057,10 +553057,10 @@ index 0000000000..ba02f33dc8
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_player.c b/apps/gui/lvglui/ui_player.c
 new file mode 100644
-index 0000000000..f6ed4e4a3c
+index 0000000000..e30efc057b
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_player.c
-@@ -0,0 +1,1190 @@
+@@ -0,0 +1,1196 @@
 +/* ui_player.c — M3 now-playing screen (WPS equivalent, LVGL edition)
 + *
 + * Follows the approved design mock (brainstorm 587, screen 21/21b):
@@ -553258,9 +553258,15 @@ index 0000000000..f6ed4e4a3c
 +    else if (dir == LV_DIR_RIGHT)
 +        cover_set_page(p, (p->page + 2) % 3);
 +    else if (dir == LV_DIR_TOP && !p->drawer)
++    {
 +        drawer_open(p);
++        lv_indev_reset(lv_indev_get_act(), NULL);
++    }
 +    else if (dir == LV_DIR_BOTTOM && p->drawer)
++    {
 +        drawer_close(p);
++        lv_indev_reset(lv_indev_get_act(), NULL);
++    }
 +}
 +
 +/* repeat: single key cycles Off -> All -> One (live-read by playlist);
