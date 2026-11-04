@@ -369,27 +369,109 @@ void shell_nav_pop_now(void)
     nav_pop_do(NULL);
 }
 
+/* ---- blocking sessions ------------------------------------------------ */
+/* Every screen that takes over the UI and pumps LVGL (menu loop, EQ,
+ * date/time, colour picker, calibration, list pickers, ...) registers a
+ * cancel callback for as long as it is open.  Home broadcasts one signal
+ * and each session unwinds itself, in its own context, deleting only its
+ * own objects.  Nothing has to infer "the user wanted out" from a screen
+ * being deleted, and no session can be left spinning under the new screen
+ * (which used to starve the job queue: taps did nothing). */
+#define UI_MAX_SESSIONS 8
+static void (*sess_cancel[UI_MAX_SESSIONS])(void);
+static bool g_home_pending;
+
+void ui_session_open(void (*cancel)(void))
+{
+    for (int i = 0; i < UI_MAX_SESSIONS; i++)
+    {
+        if (sess_cancel[i] == cancel)
+            return;                       /* already registered */
+        if (sess_cancel[i] == NULL)
+        {
+            sess_cancel[i] = cancel;
+            /* a session that opens while Home is unwinding must close
+             * itself too, or the teardown would wait for it */
+            if (g_home_pending)
+                cancel();
+            return;
+        }
+    }
+}
+
+void ui_session_close(void (*cancel)(void))
+{
+    for (int i = 0; i < UI_MAX_SESSIONS; i++)
+    {
+        if (sess_cancel[i] == cancel)
+        {
+            sess_cancel[i] = NULL;
+            return;
+        }
+    }
+}
+
+bool ui_home_pending(void)
+{
+    return g_home_pending;
+}
+
+void ui_home_request(void)
+{
+    g_home_pending = true;
+    for (int i = 0; i < UI_MAX_SESSIONS; i++)
+        if (sess_cancel[i])
+            sess_cancel[i]();
+}
+
+static int wait_count;              /* blocking waits currently pumping */
+
+/* Simple blocking dialogs (yes/no, keyboard, list pickers, text pages)
+ * wait through this instead of a bare pump loop: Home makes it return
+ * false so the caller can close up and report "cancelled". */
+bool ui_wait(volatile bool *done)
+{
+    wait_count++;
+    while (!*done && !g_home_pending)
+        lvgui_pump();
+    wait_count--;
+    return !g_home_pending;
+}
+
+static bool sessions_active(void)
+{
+    if (wait_count > 0)
+        return true;
+    for (int i = 0; i < UI_MAX_SESSIONS; i++)
+        if (sess_cancel[i])
+            return true;
+    return false;
+}
+
 /* Return to Home, tearing down every screen above it. Deferred like
  * nav_pop_do: callers typically sit in an event cb on the screen that
- * would be deleted underneath them. */
+ * would be deleted underneath them, and open sessions need a couple of
+ * pump cycles to unwind before their screens may go away. */
 static void nav_home_do(void *param)
 {
+    static int waits;
     (void)param;
-    if (nav_depth <= 1)
+    if (sessions_active() && ++waits < 60)
+    {
+        lv_async_call(nav_home_do, NULL);   /* let them finish */
         return;
-    /* A menu job may still be looping under these screens.  Its screen is
-     * about to be deleted as part of "go Home", which the DELETE handler
-     * would otherwise read as a one-level cancel and rebuild the parent
-     * menu right back on top of Home.  Tell it to stop instead. */
-    lvgui_menu_abort();
+    }
+    waits = 0;
     lv_scr_load(nav_stack[0]);            /* switch away FIRST */
     while (nav_depth > 1)
         lv_obj_del(nav_stack[--nav_depth]);
     shell_toast_clear();
+    g_home_pending = false;
 }
 
 void shell_nav_home(void)
 {
+    ui_home_request();
     lv_async_call(nav_home_do, NULL);
 }
 
@@ -1235,11 +1317,10 @@ int shell_kbd_input(char *text, int buflen)
     lv_obj_clear_flag(g_kbd_scrim, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(g_kbd_scrim);
 
-    while (!g_kbd_done)
-        lvgui_pump();
+    bool ok = ui_wait(&g_kbd_done);
 
     int ret = -1;
-    if (g_kbd_ok)
+    if (ok && g_kbd_ok)
     {
         strlcpy(text, lv_textarea_get_text(g_kbd_ta), buflen);
         ret = 0;
@@ -1336,10 +1417,9 @@ int shell_yesno_run(const char *message)
     lv_obj_clear_flag(g_yesno_scrim, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(g_yesno_scrim);
 
-    while (!g_yesno_done)
-        lvgui_pump();
+    bool ok = ui_wait(&g_yesno_done);
 
-    int ret = g_yesno_res;
+    int ret = ok ? g_yesno_res : 1;   /* Home means "no" */
     lv_obj_add_flag(g_yesno_scrim, LV_OBJ_FLAG_HIDDEN);
     return ret;
 }
@@ -1667,13 +1747,12 @@ int shell_list_pick(const char *title, const char **items, int count,
     lv_obj_invalidate(lv_scr_act());
     lv_refr_now(NULL);
 
-    while (!g_pick_done)
-        lvgui_pump();
+    bool ok = ui_wait(&g_pick_done);
     lvgui_pump();               /* let the deferred nav pop run */
     g_pick_icns = NULL;
     g_pick_grads = NULL;
 
-    return g_pick_res;
+    return ok ? g_pick_res : -1;
 }
 
 /* ---- live-refresh status list (netfm / bt-rx / wifi / dlna simplelists) --
@@ -1762,14 +1841,13 @@ int shell_list_pick_refresh(const char *title, int count, int preselect,
     lv_obj_invalidate(lv_scr_act());
     lv_refr_now(NULL);
 
-    while (!g_rfr_done)
-        lvgui_pump();
+    bool ok = ui_wait(&g_rfr_done);
     lv_timer_del(tm);
     memset(g_rfr_rows, 0, sizeof g_rfr_rows);
     lvgui_pump();               /* let the deferred nav pop run */
     g_pick_icns = NULL;
     g_pick_grads = NULL;
-    return g_rfr_res;
+    return ok ? g_rfr_res : -1;
 }
 
 /* Live-preview variant for option_screen: on_move fires on every highlight
@@ -1802,11 +1880,10 @@ int shell_list_pick_live(const char *title, const char **items, int count,
     lv_obj_invalidate(lv_scr_act());
     lv_refr_now(NULL);
 
-    while (!g_pick_done)
-        lvgui_pump();
+    bool ok = ui_wait(&g_pick_done);
     lvgui_pump();
 
-    int ret = g_pick_confirmed ? g_pick_res : -1;
+    int ret = (ok && g_pick_confirmed) ? g_pick_res : -1;
     free(g_pick_rows);
     g_pick_rows = NULL;
     g_pick_icns = NULL;

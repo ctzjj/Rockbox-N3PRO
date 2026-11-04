@@ -1624,8 +1624,7 @@ int shell_plcat_pick(char *out, size_t outsz)
     free(tt);
     free(pp);
 
-    while (!g_plpick_done)
-        lvgui_pump();
+    ui_wait(&g_plpick_done);
 
     lvgui_pump();                       /* let the deferred nav pop run */
 

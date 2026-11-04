@@ -111,24 +111,12 @@ static void menu_scrim_cb(lv_event_t *e)
     g_menu_cancel = true;
 }
 
-/* DELETE on a menu screen: the edge-swipe gesture popped it */
-static void menu_close_cb(lv_event_t *e)
-{
-    (void)e;
-    if (g_menu_abort)               /* Home is tearing the stack down */
-        return;
-    if (g_menu_row < 0)
-        g_menu_cancel = true;
-}
-
-/* The Home key tears down every screen above Home; the loop must leave
- * instead of treating the deletion as "cancel one level". */
-void lvgui_menu_abort(void)
+/* Home asked every session to close: leave without rebuilding a level.
+ * The wait loop spins on g_menu_cancel, so that is what wakes it; the
+ * abort flag is checked first at the top of the loop. */
+static void menu_session_cancel(void)
 {
     g_menu_abort = true;
-    /* the loop blocks in "wait for a row or cancel" while pumping LVGL;
-     * cancel is what wakes it up.  The abort flag is checked first at the
-     * top of the loop, so the level is not rebuilt. */
     g_menu_cancel = true;
     g_menu_row = -1;
 }
@@ -339,7 +327,7 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
     }
     else
     {
-        scr = shell_menu_screen_push(title, &list, menu_close_cb);
+        scr = shell_menu_screen_push(title, &list, NULL);
         g_menu_scr = scr;
     }
 
@@ -617,6 +605,7 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
         return GO_TO_PREVIOUS;
 
     g_menu_active = true;
+    ui_session_open(menu_session_cancel);
     while (!done)
     {
         if (g_menu_abort)
@@ -764,6 +753,7 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
     }
 
     g_menu_active = false;
+    ui_session_close(menu_session_cancel);
     if (g_menu_scr)
     {
         if (lv_scr_act() == g_menu_scr)
@@ -777,6 +767,11 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
 }
 
 /* ---- native colour picker (apps/gui/color_picker.c set_color) ---------- */
+static void c_pick_cancel(void)
+{
+    g_menu_cancel = true;
+}
+
 bool lvgui_set_color(char *title, unsigned *color, unsigned banned)
 {
     static const uint32_t palette[] = {
@@ -798,6 +793,7 @@ bool lvgui_set_color(char *title, unsigned *color, unsigned banned)
     c_pick = -1;
     g_menu_row = -1;
     g_menu_cancel = false;
+    ui_session_open(c_pick_cancel);
 
     lv_obj_t *scr = lv_layer_top();
     lv_obj_t *scrim = lv_obj_create(scr);
@@ -855,6 +851,7 @@ bool lvgui_set_color(char *title, unsigned *color, unsigned banned)
     while (!g_menu_cancel && g_menu_row < 0)
         lvgui_pump();
 
+    ui_session_close(c_pick_cancel);
     lv_obj_del(scrim);
     lvgui_pump();
 
@@ -886,6 +883,11 @@ static void cal_point_cb(lv_event_t *e)
 static void cal_cancel_cb(lv_event_t *e)
 {
     (void)e;
+    g_cal_cancel = true;
+}
+
+static void cal_session_cancel(void)
+{
     g_cal_cancel = true;
 }
 
@@ -931,8 +933,10 @@ int lvgui_calibrate_sample(struct touchscreen_calibration *cal,
 
         g_cal_hit = 0;
         g_cal_cancel = false;
+        ui_session_open(cal_session_cancel);
         while (!g_cal_hit && !g_cal_cancel)
             lvgui_pump();
+        ui_session_close(cal_session_cancel);
 
         lv_obj_del(cross);
         if (g_cal_cancel)
@@ -1435,6 +1439,14 @@ int lvgui_bt_menu(void)
     return do_menu(&bt_lvgl_menu, NULL, NULL, false);
 }
 
+static bool g_eq_abort;
+
+static void eq_session_cancel(void)
+{
+    g_eq_abort = true;
+    g_menu_cancel = true;
+}
+
 bool lvgui_eq_graphical(void)
 {
     const struct int_setting *is = be_eq_gain_setting();
@@ -1442,6 +1454,7 @@ bool lvgui_eq_graphical(void)
     static char fb[EQ_NUM_BANDS][16];
 
     g_eq_done = false;
+    g_eq_abort = false;
     g_eq_band = 0;
 
     lv_obj_t *scr = lv_layer_top();
@@ -1683,8 +1696,20 @@ bool lvgui_eq_graphical(void)
     lv_obj_invalidate(panel);
     lv_refr_now(NULL);
 
+    ui_session_open(eq_session_cancel);
     while (!g_eq_done && !g_menu_cancel)
         lvgui_pump();
+    ui_session_close(eq_session_cancel);
+
+    if (g_eq_abort)
+    {
+        /* Home / lock: leave without touching the stored curve */
+        g_eq_abort = false;
+        g_menu_cancel = false;
+        lv_obj_del(panel);
+        lvgui_pump();
+        return false;
+    }
     if (g_menu_cancel)
     {
         /* the back gesture leaves the editor and applies, like Done */
@@ -1700,6 +1725,12 @@ bool lvgui_eq_graphical(void)
 
 /* ---- native date/time editor (screens.c set_time_screen stand-in) ------- */
 static bool g_stm_done, g_stm_ok;
+
+static void stm_session_cancel(void)
+{
+    g_stm_done = true;
+    g_stm_ok = false;
+}
 static struct tm g_stm;
 static lv_obj_t *g_stm_labels[6];
 
@@ -1906,8 +1937,10 @@ bool lvgui_set_time_screen(const char *title, struct tm *tm, bool set_date)
     lv_obj_set_style_text_font(nol, th->font_cjk, 0);
     lv_obj_center(nol);
 
+    ui_session_open(stm_session_cancel);
     while (!g_stm_done && !g_menu_cancel)
         lvgui_pump();
+    ui_session_close(stm_session_cancel);
     if (g_menu_cancel)
     {
         g_menu_cancel = false;
@@ -2006,8 +2039,7 @@ int lvgui_root_menu_edit(void)
 
     lv_obj_invalidate(lv_scr_act());
     lv_refr_now(NULL);
-    while (!g_rm_done)
-        lvgui_pump();
+    ui_wait(&g_rm_done);
     return 0;
 }
 
@@ -2678,8 +2710,7 @@ static int lvgui_netsrc_screen(const struct netsrc_view *v)
     lv_obj_invalidate(scr);
     lv_refr_now(NULL);
 
-    while (!g_ns.done)
-        lvgui_pump();
+    ui_wait((volatile bool *)&g_ns.done);
     lv_timer_del(g_ns.tm);
     g_ns.v = NULL;
     if (g_ns.art_dsc)
@@ -2892,8 +2923,7 @@ void lvgui_text_page(const char *title, int period_ms,
     lv_obj_invalidate(scr);
     lv_refr_now(NULL);
 
-    while (!g_txt_done)
-        lvgui_pump();
+    ui_wait(&g_txt_done);
     if (tm)
         lv_timer_del(tm);
     g_txt_label = NULL;

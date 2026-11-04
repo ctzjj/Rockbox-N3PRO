@@ -82,9 +82,22 @@ void shell_menu_screen_slide(lv_obj_t *scr, const char *title, lv_obj_t **list_o
 void shell_header_set(lv_obj_t *scr, const char *title);
 /* drop list-picker screens left on top when a job ends */
 void shell_pick_cleanup(void);
-/* stop the menu loop that owns the screens being torn down (Home key):
- * unlike the edge-swipe cancel it must not rebuild the parent level */
-void lvgui_menu_abort(void);
+
+/* ---- blocking UI sessions (ui_shell.c) -------------------------------
+ * A screen that pumps LVGL while waiting for the user (menu loop, EQ,
+ * date/time, pickers, ...) registers a cancel callback while it is open.
+ * Home broadcasts ui_home_request(): every session closes itself, and the
+ * nav stack is torn down once none are left.  A session must also poll
+ * ui_home_pending() in its wait loop (the callback only sets its own
+ * "abort" flag; the loop does the cleanup). */
+void ui_session_open(void (*cancel)(void));
+void ui_session_close(void (*cancel)(void));
+bool ui_home_pending(void);
+void ui_home_request(void);
+/* Pump LVGL until *done flips, or until Home asks everything to close
+ * (returns false then).  Use instead of a bare "while (!done) pump" loop
+ * so no blocking screen can outlive the teardown. */
+bool ui_wait(volatile bool *done);
 
 /* pull-down control centre */
 void lvgui_control_open(void);

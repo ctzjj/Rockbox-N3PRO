@@ -543402,10 +543402,10 @@ index 0000000000..d252df0022
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..2d84a3d10f
+index 0000000000..32794ec4cd
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,175 @@
+@@ -0,0 +1,188 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543490,9 +543490,22 @@ index 0000000000..2d84a3d10f
 +void shell_header_set(lv_obj_t *scr, const char *title);
 +/* drop list-picker screens left on top when a job ends */
 +void shell_pick_cleanup(void);
-+/* stop the menu loop that owns the screens being torn down (Home key):
-+ * unlike the edge-swipe cancel it must not rebuild the parent level */
-+void lvgui_menu_abort(void);
++
++/* ---- blocking UI sessions (ui_shell.c) -------------------------------
++ * A screen that pumps LVGL while waiting for the user (menu loop, EQ,
++ * date/time, pickers, ...) registers a cancel callback while it is open.
++ * Home broadcasts ui_home_request(): every session closes itself, and the
++ * nav stack is torn down once none are left.  A session must also poll
++ * ui_home_pending() in its wait loop (the callback only sets its own
++ * "abort" flag; the loop does the cleanup). */
++void ui_session_open(void (*cancel)(void));
++void ui_session_close(void (*cancel)(void));
++bool ui_home_pending(void);
++void ui_home_request(void);
++/* Pump LVGL until *done flips, or until Home asks everything to close
++ * (returns false then).  Use instead of a bare "while (!done) pump" loop
++ * so no blocking screen can outlive the teardown. */
++bool ui_wait(volatile bool *done);
 +
 +/* pull-down control centre */
 +void lvgui_control_open(void);
@@ -548348,10 +548361,10 @@ index 0000000000..1f2b1a0705
 +};
 diff --git a/apps/gui/lvglui/ui_library.c b/apps/gui/lvglui/ui_library.c
 new file mode 100644
-index 0000000000..39641e6bca
+index 0000000000..77be92cdf9
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_library.c
-@@ -0,0 +1,1882 @@
+@@ -0,0 +1,1881 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -549978,8 +549991,7 @@ index 0000000000..39641e6bca
 +    free(tt);
 +    free(pp);
 +
-+    while (!g_plpick_done)
-+        lvgui_pump();
++    ui_wait(&g_plpick_done);
 +
 +    lvgui_pump();                       /* let the deferred nav pop run */
 +
@@ -550236,10 +550248,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..1deba04cd0
+index 0000000000..55d091e29d
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2967 @@
+@@ -0,0 +1,2997 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550353,24 +550365,12 @@ index 0000000000..1deba04cd0
 +    g_menu_cancel = true;
 +}
 +
-+/* DELETE on a menu screen: the edge-swipe gesture popped it */
-+static void menu_close_cb(lv_event_t *e)
-+{
-+    (void)e;
-+    if (g_menu_abort)               /* Home is tearing the stack down */
-+        return;
-+    if (g_menu_row < 0)
-+        g_menu_cancel = true;
-+}
-+
-+/* The Home key tears down every screen above Home; the loop must leave
-+ * instead of treating the deletion as "cancel one level". */
-+void lvgui_menu_abort(void)
++/* Home asked every session to close: leave without rebuilding a level.
++ * The wait loop spins on g_menu_cancel, so that is what wakes it; the
++ * abort flag is checked first at the top of the loop. */
++static void menu_session_cancel(void)
 +{
 +    g_menu_abort = true;
-+    /* the loop blocks in "wait for a row or cancel" while pumping LVGL;
-+     * cancel is what wakes it up.  The abort flag is checked first at the
-+     * top of the loop, so the level is not rebuilt. */
 +    g_menu_cancel = true;
 +    g_menu_row = -1;
 +}
@@ -550581,7 +550581,7 @@ index 0000000000..1deba04cd0
 +    }
 +    else
 +    {
-+        scr = shell_menu_screen_push(title, &list, menu_close_cb);
++        scr = shell_menu_screen_push(title, &list, NULL);
 +        g_menu_scr = scr;
 +    }
 +
@@ -550859,6 +550859,7 @@ index 0000000000..1deba04cd0
 +        return GO_TO_PREVIOUS;
 +
 +    g_menu_active = true;
++    ui_session_open(menu_session_cancel);
 +    while (!done)
 +    {
 +        if (g_menu_abort)
@@ -551006,6 +551007,7 @@ index 0000000000..1deba04cd0
 +    }
 +
 +    g_menu_active = false;
++    ui_session_close(menu_session_cancel);
 +    if (g_menu_scr)
 +    {
 +        if (lv_scr_act() == g_menu_scr)
@@ -551019,6 +551021,11 @@ index 0000000000..1deba04cd0
 +}
 +
 +/* ---- native colour picker (apps/gui/color_picker.c set_color) ---------- */
++static void c_pick_cancel(void)
++{
++    g_menu_cancel = true;
++}
++
 +bool lvgui_set_color(char *title, unsigned *color, unsigned banned)
 +{
 +    static const uint32_t palette[] = {
@@ -551040,6 +551047,7 @@ index 0000000000..1deba04cd0
 +    c_pick = -1;
 +    g_menu_row = -1;
 +    g_menu_cancel = false;
++    ui_session_open(c_pick_cancel);
 +
 +    lv_obj_t *scr = lv_layer_top();
 +    lv_obj_t *scrim = lv_obj_create(scr);
@@ -551097,6 +551105,7 @@ index 0000000000..1deba04cd0
 +    while (!g_menu_cancel && g_menu_row < 0)
 +        lvgui_pump();
 +
++    ui_session_close(c_pick_cancel);
 +    lv_obj_del(scrim);
 +    lvgui_pump();
 +
@@ -551128,6 +551137,11 @@ index 0000000000..1deba04cd0
 +static void cal_cancel_cb(lv_event_t *e)
 +{
 +    (void)e;
++    g_cal_cancel = true;
++}
++
++static void cal_session_cancel(void)
++{
 +    g_cal_cancel = true;
 +}
 +
@@ -551173,8 +551187,10 @@ index 0000000000..1deba04cd0
 +
 +        g_cal_hit = 0;
 +        g_cal_cancel = false;
++        ui_session_open(cal_session_cancel);
 +        while (!g_cal_hit && !g_cal_cancel)
 +            lvgui_pump();
++        ui_session_close(cal_session_cancel);
 +
 +        lv_obj_del(cross);
 +        if (g_cal_cancel)
@@ -551677,6 +551693,14 @@ index 0000000000..1deba04cd0
 +    return do_menu(&bt_lvgl_menu, NULL, NULL, false);
 +}
 +
++static bool g_eq_abort;
++
++static void eq_session_cancel(void)
++{
++    g_eq_abort = true;
++    g_menu_cancel = true;
++}
++
 +bool lvgui_eq_graphical(void)
 +{
 +    const struct int_setting *is = be_eq_gain_setting();
@@ -551684,6 +551708,7 @@ index 0000000000..1deba04cd0
 +    static char fb[EQ_NUM_BANDS][16];
 +
 +    g_eq_done = false;
++    g_eq_abort = false;
 +    g_eq_band = 0;
 +
 +    lv_obj_t *scr = lv_layer_top();
@@ -551925,8 +551950,20 @@ index 0000000000..1deba04cd0
 +    lv_obj_invalidate(panel);
 +    lv_refr_now(NULL);
 +
++    ui_session_open(eq_session_cancel);
 +    while (!g_eq_done && !g_menu_cancel)
 +        lvgui_pump();
++    ui_session_close(eq_session_cancel);
++
++    if (g_eq_abort)
++    {
++        /* Home / lock: leave without touching the stored curve */
++        g_eq_abort = false;
++        g_menu_cancel = false;
++        lv_obj_del(panel);
++        lvgui_pump();
++        return false;
++    }
 +    if (g_menu_cancel)
 +    {
 +        /* the back gesture leaves the editor and applies, like Done */
@@ -551942,6 +551979,12 @@ index 0000000000..1deba04cd0
 +
 +/* ---- native date/time editor (screens.c set_time_screen stand-in) ------- */
 +static bool g_stm_done, g_stm_ok;
++
++static void stm_session_cancel(void)
++{
++    g_stm_done = true;
++    g_stm_ok = false;
++}
 +static struct tm g_stm;
 +static lv_obj_t *g_stm_labels[6];
 +
@@ -552148,8 +552191,10 @@ index 0000000000..1deba04cd0
 +    lv_obj_set_style_text_font(nol, th->font_cjk, 0);
 +    lv_obj_center(nol);
 +
++    ui_session_open(stm_session_cancel);
 +    while (!g_stm_done && !g_menu_cancel)
 +        lvgui_pump();
++    ui_session_close(stm_session_cancel);
 +    if (g_menu_cancel)
 +    {
 +        g_menu_cancel = false;
@@ -552248,8 +552293,7 @@ index 0000000000..1deba04cd0
 +
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_refr_now(NULL);
-+    while (!g_rm_done)
-+        lvgui_pump();
++    ui_wait(&g_rm_done);
 +    return 0;
 +}
 +
@@ -552920,8 +552964,7 @@ index 0000000000..1deba04cd0
 +    lv_obj_invalidate(scr);
 +    lv_refr_now(NULL);
 +
-+    while (!g_ns.done)
-+        lvgui_pump();
++    ui_wait((volatile bool *)&g_ns.done);
 +    lv_timer_del(g_ns.tm);
 +    g_ns.v = NULL;
 +    if (g_ns.art_dsc)
@@ -553134,8 +553177,7 @@ index 0000000000..1deba04cd0
 +    lv_obj_invalidate(scr);
 +    lv_refr_now(NULL);
 +
-+    while (!g_txt_done)
-+        lvgui_pump();
++    ui_wait(&g_txt_done);
 +    if (tm)
 +        lv_timer_del(tm);
 +    g_txt_label = NULL;
@@ -554447,10 +554489,10 @@ index 0000000000..7d0ca25d96
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..cdc907ecc1
+index 0000000000..8d0e58ac7f
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2635 @@
+@@ -0,0 +1,2712 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -554822,27 +554864,109 @@ index 0000000000..cdc907ecc1
 +    nav_pop_do(NULL);
 +}
 +
++/* ---- blocking sessions ------------------------------------------------ */
++/* Every screen that takes over the UI and pumps LVGL (menu loop, EQ,
++ * date/time, colour picker, calibration, list pickers, ...) registers a
++ * cancel callback for as long as it is open.  Home broadcasts one signal
++ * and each session unwinds itself, in its own context, deleting only its
++ * own objects.  Nothing has to infer "the user wanted out" from a screen
++ * being deleted, and no session can be left spinning under the new screen
++ * (which used to starve the job queue: taps did nothing). */
++#define UI_MAX_SESSIONS 8
++static void (*sess_cancel[UI_MAX_SESSIONS])(void);
++static bool g_home_pending;
++
++void ui_session_open(void (*cancel)(void))
++{
++    for (int i = 0; i < UI_MAX_SESSIONS; i++)
++    {
++        if (sess_cancel[i] == cancel)
++            return;                       /* already registered */
++        if (sess_cancel[i] == NULL)
++        {
++            sess_cancel[i] = cancel;
++            /* a session that opens while Home is unwinding must close
++             * itself too, or the teardown would wait for it */
++            if (g_home_pending)
++                cancel();
++            return;
++        }
++    }
++}
++
++void ui_session_close(void (*cancel)(void))
++{
++    for (int i = 0; i < UI_MAX_SESSIONS; i++)
++    {
++        if (sess_cancel[i] == cancel)
++        {
++            sess_cancel[i] = NULL;
++            return;
++        }
++    }
++}
++
++bool ui_home_pending(void)
++{
++    return g_home_pending;
++}
++
++void ui_home_request(void)
++{
++    g_home_pending = true;
++    for (int i = 0; i < UI_MAX_SESSIONS; i++)
++        if (sess_cancel[i])
++            sess_cancel[i]();
++}
++
++static int wait_count;              /* blocking waits currently pumping */
++
++/* Simple blocking dialogs (yes/no, keyboard, list pickers, text pages)
++ * wait through this instead of a bare pump loop: Home makes it return
++ * false so the caller can close up and report "cancelled". */
++bool ui_wait(volatile bool *done)
++{
++    wait_count++;
++    while (!*done && !g_home_pending)
++        lvgui_pump();
++    wait_count--;
++    return !g_home_pending;
++}
++
++static bool sessions_active(void)
++{
++    if (wait_count > 0)
++        return true;
++    for (int i = 0; i < UI_MAX_SESSIONS; i++)
++        if (sess_cancel[i])
++            return true;
++    return false;
++}
++
 +/* Return to Home, tearing down every screen above it. Deferred like
 + * nav_pop_do: callers typically sit in an event cb on the screen that
-+ * would be deleted underneath them. */
++ * would be deleted underneath them, and open sessions need a couple of
++ * pump cycles to unwind before their screens may go away. */
 +static void nav_home_do(void *param)
 +{
++    static int waits;
 +    (void)param;
-+    if (nav_depth <= 1)
++    if (sessions_active() && ++waits < 60)
++    {
++        lv_async_call(nav_home_do, NULL);   /* let them finish */
 +        return;
-+    /* A menu job may still be looping under these screens.  Its screen is
-+     * about to be deleted as part of "go Home", which the DELETE handler
-+     * would otherwise read as a one-level cancel and rebuild the parent
-+     * menu right back on top of Home.  Tell it to stop instead. */
-+    lvgui_menu_abort();
++    }
++    waits = 0;
 +    lv_scr_load(nav_stack[0]);            /* switch away FIRST */
 +    while (nav_depth > 1)
 +        lv_obj_del(nav_stack[--nav_depth]);
 +    shell_toast_clear();
++    g_home_pending = false;
 +}
 +
 +void shell_nav_home(void)
 +{
++    ui_home_request();
 +    lv_async_call(nav_home_do, NULL);
 +}
 +
@@ -555688,11 +555812,10 @@ index 0000000000..cdc907ecc1
 +    lv_obj_clear_flag(g_kbd_scrim, LV_OBJ_FLAG_HIDDEN);
 +    lv_obj_move_foreground(g_kbd_scrim);
 +
-+    while (!g_kbd_done)
-+        lvgui_pump();
++    bool ok = ui_wait(&g_kbd_done);
 +
 +    int ret = -1;
-+    if (g_kbd_ok)
++    if (ok && g_kbd_ok)
 +    {
 +        strlcpy(text, lv_textarea_get_text(g_kbd_ta), buflen);
 +        ret = 0;
@@ -555789,10 +555912,9 @@ index 0000000000..cdc907ecc1
 +    lv_obj_clear_flag(g_yesno_scrim, LV_OBJ_FLAG_HIDDEN);
 +    lv_obj_move_foreground(g_yesno_scrim);
 +
-+    while (!g_yesno_done)
-+        lvgui_pump();
++    bool ok = ui_wait(&g_yesno_done);
 +
-+    int ret = g_yesno_res;
++    int ret = ok ? g_yesno_res : 1;   /* Home means "no" */
 +    lv_obj_add_flag(g_yesno_scrim, LV_OBJ_FLAG_HIDDEN);
 +    return ret;
 +}
@@ -556120,13 +556242,12 @@ index 0000000000..cdc907ecc1
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_refr_now(NULL);
 +
-+    while (!g_pick_done)
-+        lvgui_pump();
++    bool ok = ui_wait(&g_pick_done);
 +    lvgui_pump();               /* let the deferred nav pop run */
 +    g_pick_icns = NULL;
 +    g_pick_grads = NULL;
 +
-+    return g_pick_res;
++    return ok ? g_pick_res : -1;
 +}
 +
 +/* ---- live-refresh status list (netfm / bt-rx / wifi / dlna simplelists) --
@@ -556215,14 +556336,13 @@ index 0000000000..cdc907ecc1
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_refr_now(NULL);
 +
-+    while (!g_rfr_done)
-+        lvgui_pump();
++    bool ok = ui_wait(&g_rfr_done);
 +    lv_timer_del(tm);
 +    memset(g_rfr_rows, 0, sizeof g_rfr_rows);
 +    lvgui_pump();               /* let the deferred nav pop run */
 +    g_pick_icns = NULL;
 +    g_pick_grads = NULL;
-+    return g_rfr_res;
++    return ok ? g_rfr_res : -1;
 +}
 +
 +/* Live-preview variant for option_screen: on_move fires on every highlight
@@ -556255,11 +556375,10 @@ index 0000000000..cdc907ecc1
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_refr_now(NULL);
 +
-+    while (!g_pick_done)
-+        lvgui_pump();
++    bool ok = ui_wait(&g_pick_done);
 +    lvgui_pump();
 +
-+    int ret = g_pick_confirmed ? g_pick_res : -1;
++    int ret = (ok && g_pick_confirmed) ? g_pick_res : -1;
 +    free(g_pick_rows);
 +    g_pick_rows = NULL;
 +    g_pick_icns = NULL;
