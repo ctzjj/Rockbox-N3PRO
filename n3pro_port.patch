@@ -542985,10 +542985,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..6a7ea28a54
+index 0000000000..14f71e8a72
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,169 @@
+@@ -0,0 +1,174 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543106,6 +543106,10 @@ index 0000000000..6a7ea28a54
 +            if (dy > SWIPE_PX)
 +            {
 +                lvgui_control_open();
++                /* the panel was just created and lv_timer_handler runs in
++                 * this same pump pass: end the press now or the pull lands
++                 * straight on the volume/brightness sliders */
++                g_last_touch.state = LV_INDEV_STATE_RELEASED;
 +                top_armed = false;
 +                edge_armed = false;
 +            }
@@ -543125,6 +543129,7 @@ index 0000000000..6a7ea28a54
 +            else if (top_armed && dy > SWIPE_PX)
 +            {
 +                lvgui_control_open();
++                g_last_touch.state = LV_INDEV_STATE_RELEASED;
 +            }
 +            else if (((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
 +                      (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX)) &&

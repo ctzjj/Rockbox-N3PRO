@@ -115,6 +115,10 @@ void lvgui_input_feed(int button, intptr_t data)
             if (dy > SWIPE_PX)
             {
                 lvgui_control_open();
+                /* the panel was just created and lv_timer_handler runs in
+                 * this same pump pass: end the press now or the pull lands
+                 * straight on the volume/brightness sliders */
+                g_last_touch.state = LV_INDEV_STATE_RELEASED;
                 top_armed = false;
                 edge_armed = false;
             }
@@ -134,6 +138,7 @@ void lvgui_input_feed(int button, intptr_t data)
             else if (top_armed && dy > SWIPE_PX)
             {
                 lvgui_control_open();
+                g_last_touch.state = LV_INDEV_STATE_RELEASED;
             }
             else if (((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
                       (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX)) &&
