@@ -820,13 +820,37 @@ void lvgui_control_track_start(void)
     g_tracking = true;
 }
 
+/* input events arrive sparse and uneven; a short chase animation turns
+ * the steps into continuous motion (the panel homes in on the finger) */
+static lv_coord_t g_track_target;
+static void track_exec_cb(void *var, lv_coord_t v)
+{
+    lv_obj_set_y((lv_obj_t *)var, v);
+}
+
 void lvgui_control_track_move(int y)
 {
     if (!g_tracking || !g_ctl)
         return;
     if (y < 0) y = 0;
     if (y > CTL_PANEL_H) y = CTL_PANEL_H;
-    lv_obj_set_y(g_ctl, y - CTL_PANEL_H);
+    lv_coord_t target = y - CTL_PANEL_H;
+    if (target == g_track_target)
+        return;
+    g_track_target = target;
+
+    lv_anim_del(g_ctl, track_exec_cb);
+    lv_coord_t cur = lv_obj_get_y(g_ctl);
+    int dist = target - cur;
+    if (dist < 0) dist = -dist;
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, g_ctl);
+    lv_anim_set_exec_cb(&a, track_exec_cb);
+    lv_anim_set_values(&a, cur, target);
+    lv_anim_set_time(&a, 40 + dist);        /* short: stays on the finger */
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_start(&a);
 }
 
 static void track_ready_cb(lv_anim_t *a)
@@ -842,6 +866,7 @@ void lvgui_control_track_end(bool open)
     g_tracking = false;
     if (!g_ctl)
         return;
+    lv_anim_del(g_ctl, track_exec_cb);
     lv_coord_t cur = lv_obj_get_y(g_ctl);
     lv_coord_t target = open ? 0 : -CTL_PANEL_H;
     lv_anim_t a;
@@ -868,6 +893,7 @@ void lvgui_control_close(void)
         return;
     if (g_tracking)                     /* tracking has its own settle */
         return;
+    lv_anim_del(g_ctl, track_exec_cb);
     lv_coord_t cur = lv_obj_get_y(g_ctl);
     if (cur != 0)                       /* already sliding: let it be */
         return;
