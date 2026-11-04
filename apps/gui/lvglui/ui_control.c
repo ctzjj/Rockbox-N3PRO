@@ -18,6 +18,12 @@ static bool g_open;
 /* set while the opening gesture is still in flight: the panel must ignore
  * touches until the finger that pulled it down has been lifted */
 static bool g_swallow;
+
+/* finger-tracking pull-down: while set the panel's bottom edge follows the
+ * finger; the release either settles it open or slides it back out */
+static bool g_tracking;
+#define CTL_PANEL_H   480      /* full panel height (== screen height) */
+#define CTL_TRACK_ON  132      /* release below this: settle closed */
 static lv_obj_t *g_med_art;      /* cover parent (accent tile) */
 static lv_obj_t *g_med_img;      /* cover image */
 static lv_obj_t *g_med_title;    /* scrolling title */
@@ -804,9 +810,77 @@ void lvgui_control_open(void)
 bool lvgui_control_swallow(void) { return g_swallow; }
 void lvgui_control_swallow_clear(void) { g_swallow = false; }
 
+bool lvgui_control_tracking(void) { return g_tracking; }
+
+void lvgui_control_track_start(void)
+{
+    if (g_open || g_tracking)
+        return;
+    ctl_build();                      /* full panel; g_open = true */
+    g_tracking = true;
+    lv_obj_set_y(g_ctl, -CTL_PANEL_H + 8);   /* a sliver to follow from */
+}
+
+void lvgui_control_track_move(int y)
+{
+    if (!g_tracking || !g_ctl)
+        return;
+    if (y < 0) y = 0;
+    if (y > CTL_PANEL_H) y = CTL_PANEL_H;
+    lv_obj_set_y(g_ctl, y - CTL_PANEL_H);
+}
+
+static void track_ready_cb(lv_anim_t *a)
+{
+    if ((lv_coord_t)(intptr_t)a->user_data != 0)
+        ctl_close();                  /* slid back out: remove the panel */
+}
+
+void lvgui_control_track_end(bool open)
+{
+    if (!g_tracking)
+        return;
+    g_tracking = false;
+    if (!g_ctl)
+        return;
+    lv_coord_t cur = lv_obj_get_y(g_ctl);
+    lv_coord_t target = open ? 0 : -CTL_PANEL_H;
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, g_ctl);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_anim_set_values(&a, cur, target);
+    lv_anim_set_time(&a, open ? 260 : 200);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_ready_cb(&a, track_ready_cb);
+    lv_anim_set_user_data(&a, (void *)(intptr_t)target);
+    lv_anim_start(&a);
+}
+
+static void close_ready_cb(lv_anim_t *a)
+{
+    (void)a;
+    ctl_close();
+}
+
 void lvgui_control_close(void)
 {
-    ctl_close();
+    if (!g_open || !g_ctl)
+        return;
+    if (g_tracking)                     /* tracking has its own settle */
+        return;
+    lv_coord_t cur = lv_obj_get_y(g_ctl);
+    if (cur != 0)                       /* already sliding: let it be */
+        return;
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, g_ctl);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_anim_set_values(&a, cur, -CTL_PANEL_H);
+    lv_anim_set_time(&a, 220);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
+    lv_anim_set_ready_cb(&a, close_ready_cb);
+    lv_anim_start(&a);
 }
 
 #endif /* HAVE_LVGL_UI */

@@ -108,19 +108,21 @@ void lvgui_input_feed(int button, intptr_t data)
              * the finger has actually dragged down past SWIPE_PX */
         }
         else if (g_last_touch.state == LV_INDEV_STATE_PRESSED &&
-                 edge_prev == LV_INDEV_STATE_PRESSED &&
-                 top_armed && !lvgui_control_is_open())
+                 edge_prev == LV_INDEV_STATE_PRESSED && top_armed)
         {
             int dy = g_last_touch.point.y - edge_start_y;
-            if (dy > SWIPE_PX)
+            /* engage the panel after a short travel, then let its bottom
+             * edge follow the finger (Android-style pull-down) */
+            if (!lvgui_control_is_open() && dy > 10)
+                lvgui_control_track_start();
+            if (lvgui_control_tracking())
             {
-                lvgui_control_open();
-                /* the panel was just created and lv_timer_handler runs in
-                 * this same pump pass: end the press now or the pull lands
-                 * straight on the volume/brightness sliders */
+                lvgui_control_track_move(g_last_touch.point.y);
+                /* the panel must not see this press (its sliders start
+                 * right where the finger comes down) */
                 g_last_touch.state = LV_INDEV_STATE_RELEASED;
-                top_armed = false;
-                edge_armed = false;
+                edge_prev = LV_INDEV_STATE_PRESSED;
+                return;
             }
         }
         else if (g_last_touch.state == LV_INDEV_STATE_RELEASED)
@@ -130,15 +132,18 @@ void lvgui_input_feed(int button, intptr_t data)
             bool swiped = dx > SWIPE_PX || dx < -SWIPE_PX ||
                           dy > SWIPE_PX || dy < -SWIPE_PX;
 
-            if (lvgui_control_is_open())
+            if (lvgui_control_tracking())
+            {
+                /* settle the pull-down: open past the threshold or when
+                 * the finger flung far enough, else slide back out */
+                bool open = g_last_touch.point.y >= 132 ||
+                            dy >= 90;
+                lvgui_control_track_end(open);
+            }
+            else if (lvgui_control_is_open())
             {
                 if (close_armed && swiped)
                     lvgui_control_close();
-            }
-            else if (top_armed && dy > SWIPE_PX)
-            {
-                lvgui_control_open();
-                g_last_touch.state = LV_INDEV_STATE_RELEASED;
             }
             else if (((edge_start_x < EDGE_PX && dx > SWIPE_PX) ||
                       (edge_start_x > 360 - EDGE_PX && dx < -SWIPE_PX)) &&

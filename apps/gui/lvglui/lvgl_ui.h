@@ -86,6 +86,10 @@ void lvgui_control_close(void);
 bool lvgui_control_is_open(void);
 bool lvgui_control_swallow(void);
 void lvgui_control_swallow_clear(void);
+bool lvgui_control_tracking(void);
+void lvgui_control_track_start(void);
+void lvgui_control_track_move(int y);
+void lvgui_control_track_end(bool open);
 /* Bluetooth menu (native do_menu tree) */
 int lvgui_bt_menu(void);
 /* stock resume-playback entry (home play row) */
