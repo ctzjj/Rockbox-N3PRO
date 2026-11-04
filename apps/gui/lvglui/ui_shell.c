@@ -1419,12 +1419,8 @@ static void pick_live_row_cb(lv_event_t *e)
  * shell_menu_row_new(); on_close fires on LV_EVENT_DELETE (the global
  * edge-swipe gesture pops the nav stack). */
 /* build (or rebuild) the contents of a menu screen */
-static void menu_screen_build(lv_obj_t *scr, const char *title,
-                              lv_obj_t **list_out, lv_event_cb_t on_close)
+static lv_obj_t *menu_list_build(lv_obj_t *scr)
 {
-    shell_statusbar_build(scr);
-    shell_header(scr, title ? title : "");
-
     lv_obj_t *list = lv_obj_create(scr);
     lv_obj_set_size(list, 360, 480 - 74);
     lv_obj_set_pos(list, 0, 74);
@@ -1442,6 +1438,16 @@ static void menu_screen_build(lv_obj_t *scr, const char *title,
     lv_obj_set_style_bg_color(list, th->fg_text, LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(list, LV_OPA_30, LV_PART_SCROLLBAR);
     shell_style_shadow_off(list);
+    return list;
+}
+
+static void menu_screen_build(lv_obj_t *scr, const char *title,
+                              lv_obj_t **list_out, lv_event_cb_t on_close)
+{
+    shell_statusbar_build(scr);
+    shell_header(scr, title ? title : "");
+
+    lv_obj_t *list = menu_list_build(scr);
     if (list_out)
         *list_out = list;
     if (on_close)
@@ -1456,6 +1462,51 @@ void shell_menu_screen_rebuild(lv_obj_t *scr, const char *title,
 {
     lv_obj_clean(scr);
     menu_screen_build(scr, title, list_out, NULL);
+}
+
+static void slide_done_cb(lv_anim_t *a)
+{
+    lv_obj_t *old = lv_anim_get_user_data(a);
+    if (old && lv_obj_is_valid(old))
+        lv_obj_del(old);
+}
+
+/* Submenu levels reuse one screen, so no nav-stack transition happens.
+ * Slide instead: the outgoing list leaves and the fresh one comes in
+ * (deeper from the right, back from the left), so the screen is never
+ * empty between two levels. */
+void shell_menu_screen_slide(lv_obj_t *scr, const char *title,
+                             lv_obj_t **list_out, lv_obj_t *old_list, int dir)
+{
+    shell_header_set(scr, title ? title : "");
+    lv_obj_t *list = menu_list_build(scr);
+    if (list_out)
+        *list_out = list;
+
+    lv_coord_t from = (dir > 0) ? 360 : -360;
+    lv_obj_set_x(list, from);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, list);
+    lv_anim_set_values(&a, from, 0);
+    lv_anim_set_time(&a, 220);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
+    lv_anim_start(&a);
+
+    if (old_list && lv_obj_is_valid(old_list))
+    {
+        lv_anim_init(&a);
+        lv_anim_set_var(&a, old_list);
+        lv_anim_set_values(&a, 0, -from);
+        lv_anim_set_time(&a, 220);
+        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
+        lv_anim_set_ready_cb(&a, slide_done_cb);
+        lv_anim_set_user_data(&a, old_list);
+        lv_anim_start(&a);
+    }
 }
 
 lv_obj_t *shell_menu_screen_push(const char *title, lv_obj_t **list_out,
@@ -2488,6 +2539,22 @@ void shell_header(lv_obj_t *scr, const char *title)
     lv_obj_set_style_text_color(t, COL_TEXT, 0);
     lv_obj_set_style_text_font(t, th->font_title, 0);
     lv_obj_align(t, LV_ALIGN_TOP_LEFT, 12, 26);
+    lv_obj_add_flag(t, LV_OBJ_FLAG_USER_1);   /* findable by shell_header_set */
+}
+
+void shell_header_set(lv_obj_t *scr, const char *title)
+{
+    uint32_t n = lv_obj_get_child_cnt(scr);
+    for (uint32_t i = 0; i < n; i++)
+    {
+        lv_obj_t *c = lv_obj_get_child(scr, i);
+        if (lv_obj_has_flag(c, LV_OBJ_FLAG_USER_1))
+        {
+            lv_label_set_text(c, title);
+            return;
+        }
+    }
+    shell_header(scr, title);
 }
 
 lv_color_t shell_col_text(void) { return COL_TEXT; }

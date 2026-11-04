@@ -94,8 +94,14 @@ bool lvgui_menu_cancel(void)
     return true;
 }
 
+static lv_obj_t *g_menu_list;   /* rows of the live level only */
+
 static void menu_row_cb(lv_event_t *e)
 {
+    /* during a level slide the outgoing list is still on screen; its rows
+     * must not answer for the new level */
+    if (lv_obj_get_parent(lv_event_get_current_target(e)) != g_menu_list)
+        return;
     g_menu_row = (int)(intptr_t)lv_event_get_user_data(e);
 }
 
@@ -306,9 +312,15 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
     {
         /* coming back from a submenu: stay where the user was instead of
          * resetting the list to the top */
-        if (last_list && lv_obj_is_valid(last_list))
+        /* descending starts at the top; going back (or returning from a
+         * picker) stays where the user was */
+        if (g_menu_dir <= 0 && last_list && lv_obj_is_valid(last_list))
             keep_y = lv_obj_get_scroll_y(last_list);
-        shell_menu_screen_rebuild(g_menu_scr, title, &list);
+        if (g_menu_dir)
+            shell_menu_screen_slide(g_menu_scr, title, &list, last_list,
+                                    g_menu_dir);
+        else
+            shell_menu_screen_rebuild(g_menu_scr, title, &list);
         scr = g_menu_scr;
     }
     else
@@ -351,6 +363,7 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
             selrow = row;
     }
     last_list = list;
+    g_menu_list = list;
     /* the fresh rows have not been laid out yet: without this the scroll
      * range is still zero and scroll_to_y clamps back to the top */
     lv_obj_update_layout(list);
@@ -366,23 +379,7 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
         if (ra.y1 < la.y1 || ra.y2 > la.y2)
             lv_obj_scroll_to_view(selrow, LV_ANIM_OFF);
     }
-    if (g_menu_dir)
-    {
-        /* submenu levels share one screen, so the nav-stack slide can not
-         * show: slide the rebuilt list instead. Deeper levels come in from
-         * the right, going back comes in from the left. */
-        lv_coord_t from = (g_menu_dir > 0) ? 360 : -360;
-        lv_obj_set_x(list, from);
-        lv_anim_t a;
-        lv_anim_init(&a);
-        lv_anim_set_var(&a, list);
-        lv_anim_set_values(&a, from, 0);
-        lv_anim_set_time(&a, 220);
-        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
-        lv_anim_start(&a);
-        g_menu_dir = 0;
-    }
+    g_menu_dir = 0;
     lv_obj_invalidate(lv_scr_act());
     lv_refr_now(NULL);
 

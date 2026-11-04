@@ -77,6 +77,9 @@ int shell_list_pick(const char *title, const char **items, int count,
                     int preselect);
 /* rebuild a menu screen's contents in place (no navigation) */
 void shell_menu_screen_rebuild(lv_obj_t *scr, const char *title, lv_obj_t **list_out);
+void shell_menu_screen_slide(lv_obj_t *scr, const char *title, lv_obj_t **list_out,
+                             lv_obj_t *old_list, int dir);
+void shell_header_set(lv_obj_t *scr, const char *title);
 /* drop list-picker screens left on top when a job ends */
 void shell_pick_cleanup(void);
 

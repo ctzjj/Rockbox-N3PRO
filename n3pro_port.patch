@@ -543381,10 +543381,10 @@ index 0000000000..fb0589e3d9
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..9179d91ff1
+index 0000000000..793cebf1fc
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,171 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543464,6 +543464,9 @@ index 0000000000..9179d91ff1
 +                    int preselect);
 +/* rebuild a menu screen's contents in place (no navigation) */
 +void shell_menu_screen_rebuild(lv_obj_t *scr, const char *title, lv_obj_t **list_out);
++void shell_menu_screen_slide(lv_obj_t *scr, const char *title, lv_obj_t **list_out,
++                             lv_obj_t *old_list, int dir);
++void shell_header_set(lv_obj_t *scr, const char *title);
 +/* drop list-picker screens left on top when a job ends */
 +void shell_pick_cleanup(void);
 +
@@ -550208,10 +550211,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..4a02d90dd1
+index 0000000000..b8e467aa5f
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2951 @@
+@@ -0,0 +1,2948 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550308,8 +550311,14 @@ index 0000000000..4a02d90dd1
 +    return true;
 +}
 +
++static lv_obj_t *g_menu_list;   /* rows of the live level only */
++
 +static void menu_row_cb(lv_event_t *e)
 +{
++    /* during a level slide the outgoing list is still on screen; its rows
++     * must not answer for the new level */
++    if (lv_obj_get_parent(lv_event_get_current_target(e)) != g_menu_list)
++        return;
 +    g_menu_row = (int)(intptr_t)lv_event_get_user_data(e);
 +}
 +
@@ -550520,9 +550529,15 @@ index 0000000000..4a02d90dd1
 +    {
 +        /* coming back from a submenu: stay where the user was instead of
 +         * resetting the list to the top */
-+        if (last_list && lv_obj_is_valid(last_list))
++        /* descending starts at the top; going back (or returning from a
++         * picker) stays where the user was */
++        if (g_menu_dir <= 0 && last_list && lv_obj_is_valid(last_list))
 +            keep_y = lv_obj_get_scroll_y(last_list);
-+        shell_menu_screen_rebuild(g_menu_scr, title, &list);
++        if (g_menu_dir)
++            shell_menu_screen_slide(g_menu_scr, title, &list, last_list,
++                                    g_menu_dir);
++        else
++            shell_menu_screen_rebuild(g_menu_scr, title, &list);
 +        scr = g_menu_scr;
 +    }
 +    else
@@ -550565,6 +550580,7 @@ index 0000000000..4a02d90dd1
 +            selrow = row;
 +    }
 +    last_list = list;
++    g_menu_list = list;
 +    /* the fresh rows have not been laid out yet: without this the scroll
 +     * range is still zero and scroll_to_y clamps back to the top */
 +    lv_obj_update_layout(list);
@@ -550580,23 +550596,7 @@ index 0000000000..4a02d90dd1
 +        if (ra.y1 < la.y1 || ra.y2 > la.y2)
 +            lv_obj_scroll_to_view(selrow, LV_ANIM_OFF);
 +    }
-+    if (g_menu_dir)
-+    {
-+        /* submenu levels share one screen, so the nav-stack slide can not
-+         * show: slide the rebuilt list instead. Deeper levels come in from
-+         * the right, going back comes in from the left. */
-+        lv_coord_t from = (g_menu_dir > 0) ? 360 : -360;
-+        lv_obj_set_x(list, from);
-+        lv_anim_t a;
-+        lv_anim_init(&a);
-+        lv_anim_set_var(&a, list);
-+        lv_anim_set_values(&a, from, 0);
-+        lv_anim_set_time(&a, 220);
-+        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-+        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
-+        lv_anim_start(&a);
-+        g_menu_dir = 0;
-+    }
++    g_menu_dir = 0;
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_refr_now(NULL);
 +
@@ -554367,10 +554367,10 @@ index 0000000000..e30efc057b
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..5abffd2ba5
+index 0000000000..b5e3e02360
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2559 @@
+@@ -0,0 +1,2626 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -555792,12 +555792,8 @@ index 0000000000..5abffd2ba5
 + * shell_menu_row_new(); on_close fires on LV_EVENT_DELETE (the global
 + * edge-swipe gesture pops the nav stack). */
 +/* build (or rebuild) the contents of a menu screen */
-+static void menu_screen_build(lv_obj_t *scr, const char *title,
-+                              lv_obj_t **list_out, lv_event_cb_t on_close)
++static lv_obj_t *menu_list_build(lv_obj_t *scr)
 +{
-+    shell_statusbar_build(scr);
-+    shell_header(scr, title ? title : "");
-+
 +    lv_obj_t *list = lv_obj_create(scr);
 +    lv_obj_set_size(list, 360, 480 - 74);
 +    lv_obj_set_pos(list, 0, 74);
@@ -555815,6 +555811,16 @@ index 0000000000..5abffd2ba5
 +    lv_obj_set_style_bg_color(list, th->fg_text, LV_PART_SCROLLBAR);
 +    lv_obj_set_style_bg_opa(list, LV_OPA_30, LV_PART_SCROLLBAR);
 +    shell_style_shadow_off(list);
++    return list;
++}
++
++static void menu_screen_build(lv_obj_t *scr, const char *title,
++                              lv_obj_t **list_out, lv_event_cb_t on_close)
++{
++    shell_statusbar_build(scr);
++    shell_header(scr, title ? title : "");
++
++    lv_obj_t *list = menu_list_build(scr);
 +    if (list_out)
 +        *list_out = list;
 +    if (on_close)
@@ -555829,6 +555835,51 @@ index 0000000000..5abffd2ba5
 +{
 +    lv_obj_clean(scr);
 +    menu_screen_build(scr, title, list_out, NULL);
++}
++
++static void slide_done_cb(lv_anim_t *a)
++{
++    lv_obj_t *old = lv_anim_get_user_data(a);
++    if (old && lv_obj_is_valid(old))
++        lv_obj_del(old);
++}
++
++/* Submenu levels reuse one screen, so no nav-stack transition happens.
++ * Slide instead: the outgoing list leaves and the fresh one comes in
++ * (deeper from the right, back from the left), so the screen is never
++ * empty between two levels. */
++void shell_menu_screen_slide(lv_obj_t *scr, const char *title,
++                             lv_obj_t **list_out, lv_obj_t *old_list, int dir)
++{
++    shell_header_set(scr, title ? title : "");
++    lv_obj_t *list = menu_list_build(scr);
++    if (list_out)
++        *list_out = list;
++
++    lv_coord_t from = (dir > 0) ? 360 : -360;
++    lv_obj_set_x(list, from);
++
++    lv_anim_t a;
++    lv_anim_init(&a);
++    lv_anim_set_var(&a, list);
++    lv_anim_set_values(&a, from, 0);
++    lv_anim_set_time(&a, 220);
++    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
++    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
++    lv_anim_start(&a);
++
++    if (old_list && lv_obj_is_valid(old_list))
++    {
++        lv_anim_init(&a);
++        lv_anim_set_var(&a, old_list);
++        lv_anim_set_values(&a, 0, -from);
++        lv_anim_set_time(&a, 220);
++        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
++        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
++        lv_anim_set_ready_cb(&a, slide_done_cb);
++        lv_anim_set_user_data(&a, old_list);
++        lv_anim_start(&a);
++    }
 +}
 +
 +lv_obj_t *shell_menu_screen_push(const char *title, lv_obj_t **list_out,
@@ -556861,6 +556912,22 @@ index 0000000000..5abffd2ba5
 +    lv_obj_set_style_text_color(t, COL_TEXT, 0);
 +    lv_obj_set_style_text_font(t, th->font_title, 0);
 +    lv_obj_align(t, LV_ALIGN_TOP_LEFT, 12, 26);
++    lv_obj_add_flag(t, LV_OBJ_FLAG_USER_1);   /* findable by shell_header_set */
++}
++
++void shell_header_set(lv_obj_t *scr, const char *title)
++{
++    uint32_t n = lv_obj_get_child_cnt(scr);
++    for (uint32_t i = 0; i < n; i++)
++    {
++        lv_obj_t *c = lv_obj_get_child(scr, i);
++        if (lv_obj_has_flag(c, LV_OBJ_FLAG_USER_1))
++        {
++            lv_label_set_text(c, title);
++            return;
++        }
++    }
++    shell_header(scr, title);
 +}
 +
 +lv_color_t shell_col_text(void) { return COL_TEXT; }
