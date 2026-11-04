@@ -550236,10 +550236,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..6875603ca1
+index 0000000000..1deba04cd0
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2959 @@
+@@ -0,0 +1,2967 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550368,7 +550368,10 @@ index 0000000000..6875603ca1
 +void lvgui_menu_abort(void)
 +{
 +    g_menu_abort = true;
-+    g_menu_cancel = false;
++    /* the loop blocks in "wait for a row or cancel" while pumping LVGL;
++     * cancel is what wakes it up.  The abort flag is checked first at the
++     * top of the loop, so the level is not rebuilt. */
++    g_menu_cancel = true;
 +    g_menu_row = -1;
 +}
 +
@@ -550881,6 +550884,11 @@ index 0000000000..6875603ca1
 +
 +        while (g_menu_row < 0 && !g_menu_cancel)
 +            lvgui_pump();
++
++        /* Home tore our screen down: leave through the abort branch
++         * instead of treating the wakeup as "cancel one level" */
++        if (g_menu_abort)
++            continue;
 +
 +        int row = g_menu_row;
 +        bool cancel = g_menu_cancel;

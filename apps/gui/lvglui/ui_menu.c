@@ -126,7 +126,10 @@ static void menu_close_cb(lv_event_t *e)
 void lvgui_menu_abort(void)
 {
     g_menu_abort = true;
-    g_menu_cancel = false;
+    /* the loop blocks in "wait for a row or cancel" while pumping LVGL;
+     * cancel is what wakes it up.  The abort flag is checked first at the
+     * top of the loop, so the level is not rebuilt. */
+    g_menu_cancel = true;
     g_menu_row = -1;
 }
 
@@ -639,6 +642,11 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
 
         while (g_menu_row < 0 && !g_menu_cancel)
             lvgui_pump();
+
+        /* Home tore our screen down: leave through the abort branch
+         * instead of treating the wakeup as "cancel one level" */
+        if (g_menu_abort)
+            continue;
 
         int row = g_menu_row;
         bool cancel = g_menu_cancel;
