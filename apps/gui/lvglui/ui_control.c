@@ -263,7 +263,7 @@ static void ctl_media_timer_cb(lv_timer_t *t)
                                                : LV_SYMBOL_PLAY);
 }
 
-static void ctl_build(void);
+static void ctl_build(lv_coord_t y);
 
 static void ctl_close(void)
 {
@@ -291,7 +291,7 @@ static void ctl_rebuild(void)
 {
     bool was = g_open;
     ctl_close();
-    if (was) ctl_build();
+    if (was) ctl_build(0);
 }
 
 static void ctl_bg_cb(lv_event_t *e) { (void)e; }
@@ -602,12 +602,12 @@ static void ctl_slider(lv_obj_t *parent, int x, int val, const char *icon,
         ctl_sun(parent, x - 3, 172);
 }
 
-static void ctl_build(void)
+static void ctl_build(lv_coord_t y)
 {
     lv_obj_t *top = lv_layer_top();
     g_ctl = lv_obj_create(top);
     lv_obj_set_size(g_ctl, 360, 480);
-    lv_obj_set_pos(g_ctl, 0, 0);
+    lv_obj_set_pos(g_ctl, 0, y);
     lv_obj_clear_flag(g_ctl, LV_OBJ_FLAG_SCROLLABLE);
     /* scrim: dims the page so text is not legible, colour survives */
     lv_obj_set_style_bg_color(g_ctl, lv_color_hex(0x0b0f16), 0);
@@ -803,7 +803,7 @@ static void ctl_build(void)
 void lvgui_control_open(void)
 {
     if (g_open) return;
-    ctl_build();
+    ctl_build(0);
     g_swallow = true;      /* the pull-down gesture ends on the sliders */
 }
 
@@ -816,9 +816,8 @@ void lvgui_control_track_start(void)
 {
     if (g_open || g_tracking)
         return;
-    ctl_build();                      /* full panel; g_open = true */
+    ctl_build(-CTL_PANEL_H + 8);      /* a sliver: no full-frame flash */
     g_tracking = true;
-    lv_obj_set_y(g_ctl, -CTL_PANEL_H + 8);   /* a sliver to follow from */
 }
 
 void lvgui_control_track_move(int y)
