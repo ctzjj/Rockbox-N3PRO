@@ -139,7 +139,16 @@ void lvgui_pump(void)
      * user has been idle for 3 s (halves the wakeups while nothing moves). */
     static long last_input;
     long now_ms = lv_tick_get();
-    int tmo = (last_input && now_ms - last_input < 3000) ? HZ / 20 : HZ / 10;
+    /* While a finger is down poll at 100 Hz: the touch driver emits 50 Hz
+     * samples, and if the pump is slower LVGL's 30 ms indev read often
+     * lands on a repeat event with unchanged coordinates - it then resets
+     * its gesture accumulator, so swipes never reach the gesture limit
+     * (the player's pull-up drawer and the cover page swipes). */
+    bool lvgui_port_pressed(void);
+    int tmo = lvgui_port_pressed()
+                  ? HZ / 100
+                  : ((last_input && now_ms - last_input < 3000) ? HZ / 20
+                                                                : HZ / 10);
     int button = button_get_w_tmo(tmo);
     if (button)
         last_input = now_ms;

@@ -156,12 +156,24 @@ void lvgui_input_feed(int button, intptr_t data)
                 if (!lvgui_menu_cancel())
                     shell_nav_pop();   /* deferred internally */
             }
+            else if (shell_player_swipe((int)dx, (int)dy))
+            {
+                /* the player's pull-up drawer; geometry beats LVGL's
+                 * gesture accumulator on this touch stream */
+            }
             edge_armed = false;
             top_armed = false;
             close_armed = false;
         }
         edge_prev = g_last_touch.state;
     }
+}
+
+/* a finger is down: the pump has to run fast enough for LVGL's indev reads
+ * to always see the newest coordinates (see lvgui_pump's tmo) */
+bool lvgui_port_pressed(void)
+{
+    return g_last_touch.state == LV_INDEV_STATE_PRESSED;
 }
 
 static void pointer_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)

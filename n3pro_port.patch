@@ -542985,10 +542985,10 @@ index 0000000000..52e57e2611
 +
 diff --git a/apps/gui/lvglui/lvgl_port_input.c b/apps/gui/lvglui/lvgl_port_input.c
 new file mode 100644
-index 0000000000..40a2f4eae2
+index 0000000000..534b5824e1
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_port_input.c
-@@ -0,0 +1,179 @@
+@@ -0,0 +1,191 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543147,12 +543147,24 @@ index 0000000000..40a2f4eae2
 +                if (!lvgui_menu_cancel())
 +                    shell_nav_pop();   /* deferred internally */
 +            }
++            else if (shell_player_swipe((int)dx, (int)dy))
++            {
++                /* the player's pull-up drawer; geometry beats LVGL's
++                 * gesture accumulator on this touch stream */
++            }
 +            edge_armed = false;
 +            top_armed = false;
 +            close_armed = false;
 +        }
 +        edge_prev = g_last_touch.state;
 +    }
++}
++
++/* a finger is down: the pump has to run fast enough for LVGL's indev reads
++ * to always see the newest coordinates (see lvgui_pump's tmo) */
++bool lvgui_port_pressed(void)
++{
++    return g_last_touch.state == LV_INDEV_STATE_PRESSED;
 +}
 +
 +static void pointer_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
@@ -543170,10 +543182,10 @@ index 0000000000..40a2f4eae2
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..fb0589e3d9
+index 0000000000..d252df0022
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,205 @@
+@@ -0,0 +1,214 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543315,7 +543327,16 @@ index 0000000000..fb0589e3d9
 +     * user has been idle for 3 s (halves the wakeups while nothing moves). */
 +    static long last_input;
 +    long now_ms = lv_tick_get();
-+    int tmo = (last_input && now_ms - last_input < 3000) ? HZ / 20 : HZ / 10;
++    /* While a finger is down poll at 100 Hz: the touch driver emits 50 Hz
++     * samples, and if the pump is slower LVGL's 30 ms indev read often
++     * lands on a repeat event with unchanged coordinates - it then resets
++     * its gesture accumulator, so swipes never reach the gesture limit
++     * (the player's pull-up drawer and the cover page swipes). */
++    bool lvgui_port_pressed(void);
++    int tmo = lvgui_port_pressed()
++                  ? HZ / 100
++                  : ((last_input && now_ms - last_input < 3000) ? HZ / 20
++                                                                : HZ / 10);
 +    int button = button_get_w_tmo(tmo);
 +    if (button)
 +        last_input = now_ms;
@@ -543381,10 +543402,10 @@ index 0000000000..fb0589e3d9
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..793cebf1fc
+index 0000000000..1406b8eaed
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,171 @@
+@@ -0,0 +1,172 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543552,6 +543573,7 @@ index 0000000000..793cebf1fc
 +
 +/* M3 now-playing screen (ui_player.c) */
 +void shell_player_show(void);
++bool shell_player_swipe(int dx, int dy);
 +void shell_playlist_show(void);
 +
 +#endif /* HAVE_LVGL_UI */
@@ -553165,10 +553187,10 @@ index 0000000000..b8e467aa5f
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_player.c b/apps/gui/lvglui/ui_player.c
 new file mode 100644
-index 0000000000..e30efc057b
+index 0000000000..7d0ca25d96
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_player.c
-@@ -0,0 +1,1196 @@
+@@ -0,0 +1,1232 @@
 +/* ui_player.c — M3 now-playing screen (WPS equivalent, LVGL edition)
 + *
 + * Follows the approved design mock (brainstorm 587, screen 21/21b):
@@ -553338,6 +553360,39 @@ index 0000000000..e30efc057b
 +    player_t *p = lv_event_get_user_data(e);
 +    if (gest_blocked(p)) return;
 +    be_player_next();
++}
++
++static player_t *g_pl;          /* the live player screen (see shell_player_swipe) */
++
++/* Geometric swipe fallback for the input port. LVGL's gesture accumulator
++ * resets on every indev read with unchanged coordinates, and this touch
++ * driver's 50 Hz sample stream lands on those often enough that a slow
++ * pull-up never reaches the gesture limit. The port therefore reports the
++ * release displacement here and the drawer is driven from raw geometry. */
++bool shell_player_swipe(int dx, int dy)
++{
++    player_t *p = g_pl;
++    if (!p || lv_scr_act() != p->scr || p->seeking)
++        return false;
++    int adx = dx < 0 ? -dx : dx;
++    int ady = dy < 0 ? -dy : dy;
++    if (dy < -60 && ady > adx)                 /* pull up */
++    {
++        if (p->drawer)
++            return false;
++        p->gest_ts = lv_tick_get();
++        drawer_open(p);
++        return true;
++    }
++    if (dy > 60 && ady > adx)                  /* pull down */
++    {
++        if (!p->drawer)
++            return false;
++        p->gest_ts = lv_tick_get();
++        drawer_close(p);
++        return true;
++    }
++    return false;
 +}
 +
 +/* swipe up: settings drawer, swipe down: close it */
@@ -553729,6 +553784,8 @@ index 0000000000..e30efc057b
 +static void player_delete_cb(lv_event_t *e)
 +{
 +    player_t *p = lv_event_get_user_data(e);
++    if (g_pl == p)
++        g_pl = NULL;
 +    if (p->timer)
 +        lv_timer_del(p->timer);
 +    if (p->lr_timer)
@@ -554356,6 +554413,7 @@ index 0000000000..e30efc057b
 +    lv_obj_add_event_cb(scr, scr_gesture_cb, LV_EVENT_GESTURE, p);
 +
 +    p->scr = scr;
++    g_pl = p;
 +    p->path[0] = '\0';
 +    p->lr_path[0] = '\0';
 +    shell_nav_push(scr);
@@ -554367,10 +554425,10 @@ index 0000000000..e30efc057b
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..b5e3e02360
+index 0000000000..2360bf2e8a
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2626 @@
+@@ -0,0 +1,2630 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -555001,7 +555059,11 @@ index 0000000000..b5e3e02360
 +lv_obj_t *shell_modal_open(const char *title, const char *body,
 +                           const shell_modal_btn_t *buttons)
 +{
-+    lv_obj_t *scr = lv_scr_act();
++    /* the top layer, not the active screen: shell_nav_pop() animates and
++     * only switches act_scr on the next frame, so a modal attached to the
++     * screen right after a pop landed on the screen being deleted (the
++     * delete confirm vanished at once) */
++    lv_obj_t *scr = lv_layer_top();
 +
 +    lv_obj_t *scrim = lv_obj_create(scr);
 +    lv_obj_set_size(scrim, 360, 480);

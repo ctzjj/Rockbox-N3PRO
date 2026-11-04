@@ -169,6 +169,39 @@ static void btn_next_cb(lv_event_t *e)
     be_player_next();
 }
 
+static player_t *g_pl;          /* the live player screen (see shell_player_swipe) */
+
+/* Geometric swipe fallback for the input port. LVGL's gesture accumulator
+ * resets on every indev read with unchanged coordinates, and this touch
+ * driver's 50 Hz sample stream lands on those often enough that a slow
+ * pull-up never reaches the gesture limit. The port therefore reports the
+ * release displacement here and the drawer is driven from raw geometry. */
+bool shell_player_swipe(int dx, int dy)
+{
+    player_t *p = g_pl;
+    if (!p || lv_scr_act() != p->scr || p->seeking)
+        return false;
+    int adx = dx < 0 ? -dx : dx;
+    int ady = dy < 0 ? -dy : dy;
+    if (dy < -60 && ady > adx)                 /* pull up */
+    {
+        if (p->drawer)
+            return false;
+        p->gest_ts = lv_tick_get();
+        drawer_open(p);
+        return true;
+    }
+    if (dy > 60 && ady > adx)                  /* pull down */
+    {
+        if (!p->drawer)
+            return false;
+        p->gest_ts = lv_tick_get();
+        drawer_close(p);
+        return true;
+    }
+    return false;
+}
+
 /* swipe up: settings drawer, swipe down: close it */
 static void scr_gesture_cb(lv_event_t *e)
 {
@@ -558,6 +591,8 @@ static void cover_set_page(player_t *p, int page)
 static void player_delete_cb(lv_event_t *e)
 {
     player_t *p = lv_event_get_user_data(e);
+    if (g_pl == p)
+        g_pl = NULL;
     if (p->timer)
         lv_timer_del(p->timer);
     if (p->lr_timer)
@@ -1185,6 +1220,7 @@ void shell_player_show(void)
     lv_obj_add_event_cb(scr, scr_gesture_cb, LV_EVENT_GESTURE, p);
 
     p->scr = scr;
+    g_pl = p;
     p->path[0] = '\0';
     p->lr_path[0] = '\0';
     shell_nav_push(scr);

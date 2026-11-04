@@ -628,7 +628,11 @@ lv_obj_t *shell_style_shadow_off(lv_obj_t *o)
 lv_obj_t *shell_modal_open(const char *title, const char *body,
                            const shell_modal_btn_t *buttons)
 {
-    lv_obj_t *scr = lv_scr_act();
+    /* the top layer, not the active screen: shell_nav_pop() animates and
+     * only switches act_scr on the next frame, so a modal attached to the
+     * screen right after a pop landed on the screen being deleted (the
+     * delete confirm vanished at once) */
+    lv_obj_t *scr = lv_layer_top();
 
     lv_obj_t *scrim = lv_obj_create(scr);
     lv_obj_set_size(scrim, 360, 480);

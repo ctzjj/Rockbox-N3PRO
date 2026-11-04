@@ -165,6 +165,7 @@ void lvui_art_free(lvui_art_t *art);
 
 /* M3 now-playing screen (ui_player.c) */
 void shell_player_show(void);
+bool shell_player_swipe(int dx, int dy);
 void shell_playlist_show(void);
 
 #endif /* HAVE_LVGL_UI */
