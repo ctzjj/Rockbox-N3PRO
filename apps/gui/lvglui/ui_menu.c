@@ -77,6 +77,9 @@ static bool g_menu_abort;
 static bool g_menu_rebuild;
 /* a menu loop is waiting for input (edge-swipe back = cancel a level) */
 static bool g_menu_active;
+/* level direction for the next in-place rebuild: +1 descending into a
+ * submenu, -1 returning to the parent, 0 = plain rebuild (no slide) */
+static int  g_menu_dir;
 
 bool lvgui_menu_cancel(void)
 {
@@ -306,6 +309,7 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
         if (last_list && lv_obj_is_valid(last_list))
             keep_y = lv_obj_get_scroll_y(last_list);
         shell_menu_screen_rebuild(g_menu_scr, title, &list);
+        scr = g_menu_scr;
     }
     else
     {
@@ -361,6 +365,23 @@ static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
         lv_obj_get_coords(list, &la);
         if (ra.y1 < la.y1 || ra.y2 > la.y2)
             lv_obj_scroll_to_view(selrow, LV_ANIM_OFF);
+    }
+    if (g_menu_dir)
+    {
+        /* submenu levels share one screen, so the nav-stack slide can not
+         * show: slide the rebuilt list instead. Deeper levels come in from
+         * the right, going back comes in from the left. */
+        lv_coord_t from = (g_menu_dir > 0) ? 360 : -360;
+        lv_obj_set_x(list, from);
+        lv_anim_t a;
+        lv_anim_init(&a);
+        lv_anim_set_var(&a, list);
+        lv_anim_set_values(&a, from, 0);
+        lv_anim_set_time(&a, 220);
+        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
+        lv_anim_start(&a);
+        g_menu_dir = 0;
     }
     lv_obj_invalidate(lv_scr_act());
     lv_refr_now(NULL);
@@ -636,6 +657,7 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
                 top--;
                 menu = stk[top].menu;
                 selected = stk[top].selected;
+                g_menu_dir = -1;
             }
             else
             {
@@ -669,6 +691,7 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
                 top++;
                 menu = item;
                 selected = 0;
+                g_menu_dir = 1;
             }
             break;
 
@@ -680,6 +703,7 @@ int lvgui_do_menu(const struct menu_item_ex *start_menu, int *start_selected)
                 top++;
                 menu = item;
                 selected = 0;
+                g_menu_dir = 1;
             }
             break;
 

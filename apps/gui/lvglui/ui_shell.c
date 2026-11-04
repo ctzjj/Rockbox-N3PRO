@@ -334,7 +334,9 @@ void shell_nav_push(lv_obj_t *scr)
     }
     shell_toast_clear();          /* a new screen hides a sticky splash */
     nav_stack[nav_depth++] = scr;
-    lv_scr_load(scr);
+    /* forward navigation slides in from the right (matches the back
+     * gesture rolling it out to the right below) */
+    lv_scr_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
 }
 
 /* Delete-and-load must not run inside a widget event callback (the
@@ -347,8 +349,11 @@ static void nav_pop_do(void *param)
     if (nav_depth <= 1)
         return;                    /* never pop Home */
     lv_obj_t *scr = nav_stack[--nav_depth];
-    lv_scr_load(nav_stack[nav_depth - 1]);   /* switch away FIRST */
-    lv_obj_del(scr);                          /* then delete */
+    /* roll the outgoing screen out to the right, Android-style: the
+     * parent slides in from the left; auto_del frees the popped screen
+     * when the animation is done (never delete the active screen) */
+    lv_scr_load_anim(nav_stack[nav_depth - 1], LV_SCR_LOAD_ANIM_MOVE_RIGHT,
+                     200, 0, true);
     shell_toast_clear();                      /* parent screen is shown now */
 }
 

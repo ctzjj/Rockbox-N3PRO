@@ -550208,10 +550208,10 @@ index 0000000000..39641e6bca
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..ba02f33dc8
+index 0000000000..4a02d90dd1
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2927 @@
+@@ -0,0 +1,2951 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550291,6 +550291,9 @@ index 0000000000..ba02f33dc8
 +static bool g_menu_rebuild;
 +/* a menu loop is waiting for input (edge-swipe back = cancel a level) */
 +static bool g_menu_active;
++/* level direction for the next in-place rebuild: +1 descending into a
++ * submenu, -1 returning to the parent, 0 = plain rebuild (no slide) */
++static int  g_menu_dir;
 +
 +bool lvgui_menu_cancel(void)
 +{
@@ -550520,6 +550523,7 @@ index 0000000000..ba02f33dc8
 +        if (last_list && lv_obj_is_valid(last_list))
 +            keep_y = lv_obj_get_scroll_y(last_list);
 +        shell_menu_screen_rebuild(g_menu_scr, title, &list);
++        scr = g_menu_scr;
 +    }
 +    else
 +    {
@@ -550575,6 +550579,23 @@ index 0000000000..ba02f33dc8
 +        lv_obj_get_coords(list, &la);
 +        if (ra.y1 < la.y1 || ra.y2 > la.y2)
 +            lv_obj_scroll_to_view(selrow, LV_ANIM_OFF);
++    }
++    if (g_menu_dir)
++    {
++        /* submenu levels share one screen, so the nav-stack slide can not
++         * show: slide the rebuilt list instead. Deeper levels come in from
++         * the right, going back comes in from the left. */
++        lv_coord_t from = (g_menu_dir > 0) ? 360 : -360;
++        lv_obj_set_x(list, from);
++        lv_anim_t a;
++        lv_anim_init(&a);
++        lv_anim_set_var(&a, list);
++        lv_anim_set_values(&a, from, 0);
++        lv_anim_set_time(&a, 220);
++        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
++        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
++        lv_anim_start(&a);
++        g_menu_dir = 0;
 +    }
 +    lv_obj_invalidate(lv_scr_act());
 +    lv_refr_now(NULL);
@@ -550850,6 +550871,7 @@ index 0000000000..ba02f33dc8
 +                top--;
 +                menu = stk[top].menu;
 +                selected = stk[top].selected;
++                g_menu_dir = -1;
 +            }
 +            else
 +            {
@@ -550883,6 +550905,7 @@ index 0000000000..ba02f33dc8
 +                top++;
 +                menu = item;
 +                selected = 0;
++                g_menu_dir = 1;
 +            }
 +            break;
 +
@@ -550894,6 +550917,7 @@ index 0000000000..ba02f33dc8
 +                top++;
 +                menu = item;
 +                selected = 0;
++                g_menu_dir = 1;
 +            }
 +            break;
 +
@@ -554343,10 +554367,10 @@ index 0000000000..e30efc057b
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..583573ceb8
+index 0000000000..5abffd2ba5
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2554 @@
+@@ -0,0 +1,2559 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -554683,7 +554707,9 @@ index 0000000000..583573ceb8
 +    }
 +    shell_toast_clear();          /* a new screen hides a sticky splash */
 +    nav_stack[nav_depth++] = scr;
-+    lv_scr_load(scr);
++    /* forward navigation slides in from the right (matches the back
++     * gesture rolling it out to the right below) */
++    lv_scr_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
 +}
 +
 +/* Delete-and-load must not run inside a widget event callback (the
@@ -554696,8 +554722,11 @@ index 0000000000..583573ceb8
 +    if (nav_depth <= 1)
 +        return;                    /* never pop Home */
 +    lv_obj_t *scr = nav_stack[--nav_depth];
-+    lv_scr_load(nav_stack[nav_depth - 1]);   /* switch away FIRST */
-+    lv_obj_del(scr);                          /* then delete */
++    /* roll the outgoing screen out to the right, Android-style: the
++     * parent slides in from the left; auto_del frees the popped screen
++     * when the animation is done (never delete the active screen) */
++    lv_scr_load_anim(nav_stack[nav_depth - 1], LV_SCR_LOAD_ANIM_MOVE_RIGHT,
++                     200, 0, true);
 +    shell_toast_clear();                      /* parent screen is shown now */
 +}
 +
