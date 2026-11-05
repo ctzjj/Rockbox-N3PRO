@@ -1339,7 +1339,7 @@ void be_media_toggle(void)
  * next track, which must not stall the UI thread. */
 static struct event_queue step_q;
 static bool step_q_ready;
-static char step_stack[2048];
+static long step_stack[(8*1024) / sizeof(long)];
 
 static void step_thread(void)
 {

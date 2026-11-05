@@ -543182,10 +543182,10 @@ index 0000000000..534b5824e1
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..d252df0022
+index 0000000000..f04517b669
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,214 @@
+@@ -0,0 +1,228 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543219,6 +543219,7 @@ index 0000000000..d252df0022
 +#include "events.h"
 +#include "misc.h"
 +#include "lvgl_ui.h"
++#include "ui_backend.h"
 +
 +/* The panel loses its content while asleep; LVGL thinks nothing changed.
 + * On wake, mark the whole screen dirty so it gets re-flushed. */
@@ -543361,6 +543362,19 @@ index 0000000000..d252df0022
 +            if (!(button & (BUTTON_REL | BUTTON_REPEAT)))
 +                lvgui_home_key();
 +            button &= ~BUTTON_HOME;
++        }
++        /* the three side keys are transport keys everywhere: the native
++         * screens have no classic action loop, so whoever drains the
++         * button queue has to run them (the same backend calls as the
++         * on-screen transport buttons) */
++        if (!(button & (BUTTON_REL | BUTTON_REPEAT)))
++        {
++            if (button & BUTTON_PLAY)
++                be_media_toggle();
++            else if (button & BUTTON_NEXT)
++                be_media_step(1);
++            else if (button & BUTTON_PREV)
++                be_media_step(-1);
 +        }
 +        lvgui_input_feed(button, button_get_data());
 +    }
@@ -543605,7 +543619,7 @@ index 0000000000..9d3d7648ea
 +#include "../../../lib/lvgl/src/extra/libs/png/lv_png.c"
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..06ff8b7c37
+index 0000000000..f46b1c1b80
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
 @@ -0,0 +1,1647 @@
@@ -544950,7 +544964,7 @@ index 0000000000..06ff8b7c37
 + * next track, which must not stall the UI thread. */
 +static struct event_queue step_q;
 +static bool step_q_ready;
-+static char step_stack[2048];
++static long step_stack[(8*1024) / sizeof(long)];
 +
 +static void step_thread(void)
 +{
@@ -614670,7 +614684,7 @@ index a1b4194ec3..4b7fd128ba 100644
  {
      /* cap range, just in case */
 diff --git a/firmware/target/hosted/button-devinput.c b/firmware/target/hosted/button-devinput.c
-index 1c5e2abea2..b77b5c3504 100644
+index 1c5e2abea2..5efcda9bb6 100644
 --- a/firmware/target/hosted/button-devinput.c
 +++ b/firmware/target/hosted/button-devinput.c
 @@ -33,6 +33,7 @@
@@ -614710,6 +614724,26 @@ index 1c5e2abea2..b77b5c3504 100644
  /* Do _NOT_ change this.  Unofficial Linux API */
  #define EVENT_VALUE_TOUCHSCREEN_RELEASE  -1
  /* This is only used as an arbitrary placeholder */
+@@ -279,9 +284,17 @@ int button_read_device(BDATA)
+                         break;
+                     }
+                 }
++                /* EOF or a hard error means the node is gone.  Without
++                 * this, poll keeps reporting POLLIN (together with
++                 * POLLHUP) on the dead descriptor and read() returns 0
++                 * forever, spinning this loop at 100% and starving the
++                 * button queue: the whole UI freezes.  A hot-plugged
++                 * Bluetooth AVRCP node produces exactly that. */
++                else if (size <= 0) {
++                    button_remove_input_device(i);
++                }
+             }
+-            /* device was removed/disconnected — close it to stop poll returning POLLHUP forever */
+-            else if (poll_fds[i].revents & (POLLERR | POLLHUP)) {
++            else if (poll_fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                 button_remove_input_device(i);
+             }
+         }
 diff --git a/firmware/target/hosted/button-devinput.h b/firmware/target/hosted/button-devinput.h
 index 20c76cab4b..03b3dbf2bf 100644
 --- a/firmware/target/hosted/button-devinput.h

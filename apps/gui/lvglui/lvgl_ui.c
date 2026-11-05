@@ -31,6 +31,7 @@
 #include "events.h"
 #include "misc.h"
 #include "lvgl_ui.h"
+#include "ui_backend.h"
 
 /* The panel loses its content while asleep; LVGL thinks nothing changed.
  * On wake, mark the whole screen dirty so it gets re-flushed. */
@@ -173,6 +174,19 @@ void lvgui_pump(void)
             if (!(button & (BUTTON_REL | BUTTON_REPEAT)))
                 lvgui_home_key();
             button &= ~BUTTON_HOME;
+        }
+        /* the three side keys are transport keys everywhere: the native
+         * screens have no classic action loop, so whoever drains the
+         * button queue has to run them (the same backend calls as the
+         * on-screen transport buttons) */
+        if (!(button & (BUTTON_REL | BUTTON_REPEAT)))
+        {
+            if (button & BUTTON_PLAY)
+                be_media_toggle();
+            else if (button & BUTTON_NEXT)
+                be_media_step(1);
+            else if (button & BUTTON_PREV)
+                be_media_step(-1);
         }
         lvgui_input_feed(button, button_get_data());
     }
