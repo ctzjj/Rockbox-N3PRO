@@ -543182,10 +543182,10 @@ index 0000000000..534b5824e1
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..f04517b669
+index 0000000000..ecf69d4c3a
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,228 @@
+@@ -0,0 +1,230 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543365,16 +543365,18 @@ index 0000000000..f04517b669
 +        }
 +        /* the three side keys are transport keys everywhere: the native
 +         * screens have no classic action loop, so whoever drains the
-+         * button queue has to run them (the same backend calls as the
-+         * on-screen transport buttons) */
++         * button queue has to run them.  Use the classic WPS calls (not
++         * a bare audio_next/prev) so skip length, prevent-skip and
++         * "prev restarts the track first" behave exactly as in stock
++         * rockbox, and identically to the player's own buttons. */
 +        if (!(button & (BUTTON_REL | BUTTON_REPEAT)))
 +        {
 +            if (button & BUTTON_PLAY)
-+                be_media_toggle();
++                be_player_toggle_pause();
 +            else if (button & BUTTON_NEXT)
-+                be_media_step(1);
++                be_player_next();
 +            else if (button & BUTTON_PREV)
-+                be_media_step(-1);
++                be_player_prev();
 +        }
 +        lvgui_input_feed(button, button_get_data());
 +    }

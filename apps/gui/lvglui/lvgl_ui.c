@@ -177,16 +177,18 @@ void lvgui_pump(void)
         }
         /* the three side keys are transport keys everywhere: the native
          * screens have no classic action loop, so whoever drains the
-         * button queue has to run them (the same backend calls as the
-         * on-screen transport buttons) */
+         * button queue has to run them.  Use the classic WPS calls (not
+         * a bare audio_next/prev) so skip length, prevent-skip and
+         * "prev restarts the track first" behave exactly as in stock
+         * rockbox, and identically to the player's own buttons. */
         if (!(button & (BUTTON_REL | BUTTON_REPEAT)))
         {
             if (button & BUTTON_PLAY)
-                be_media_toggle();
+                be_player_toggle_pause();
             else if (button & BUTTON_NEXT)
-                be_media_step(1);
+                be_player_next();
             else if (button & BUTTON_PREV)
-                be_media_step(-1);
+                be_player_prev();
         }
         lvgui_input_feed(button, button_get_data());
     }
