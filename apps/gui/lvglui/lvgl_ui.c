@@ -115,6 +115,24 @@ static void lvgui_home_key(void)
  * low battery): only record it here, the toast has to be built on the
  * GUI thread. */
 static volatile bool g_shutdown_pending;
+static bool g_shutdown_notified;
+
+/* sys_poweroff() only asks the main loop to shut down and the power
+ * thread force-powers-off 20 s later.  The classic main loop used to die
+ * within that window; here the UI keeps running, so a shutdown requested
+ * while a paused track sat idle used to fire long after the user had
+ * resumed playback.  Any input (or a track starting by itself, e.g. from
+ * a remote) cancels the request before the grace period runs out. */
+static void shutdown_cancel(void)
+{
+    if (!g_shutdown_pending)
+        return;
+    g_shutdown_pending = false;
+    g_shutdown_notified = false;
+    cancel_shutdown();
+    shell_toast_clear();
+}
+
 static void lvgui_shutdown_event(unsigned short id, void *data)
 {
     (void)id;
@@ -124,9 +142,9 @@ static void lvgui_shutdown_event(unsigned short id, void *data)
 
 void lvgui_pump(void)
 {
-    if (g_shutdown_pending)
+    if (g_shutdown_pending && !g_shutdown_notified)
     {
-        g_shutdown_pending = false;
+        g_shutdown_notified = true;
         shell_shutdown_notice();
     }
     if (g_wake_dirty)
@@ -160,6 +178,7 @@ void lvgui_pump(void)
          * framebuffer content lost while the panel slept. */
         backlight_on();
         reset_poweroff_timer();
+        shutdown_cancel();   /* the user is back: don't die in 20 s */
         /* The N3Pro's rotary encoder is the volume knob; button-n3pro.c
          * maps it to the scroll buttons (FWD = down, BACK = up). Drive
          * the rockbox volume core so every screen (and the status bar)
@@ -191,6 +210,12 @@ void lvgui_pump(void)
                 be_player_prev();
         }
         lvgui_input_feed(button, button_get_data());
+    }
+    else if (g_shutdown_pending && be_media_playing())
+    {
+        /* playback came back without local input (remote, AVRCP, a
+         * queued resume): the pending shutdown is stale */
+        shutdown_cancel();
     }
     lv_timer_handler();
 }
