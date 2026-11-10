@@ -262,12 +262,30 @@ static void player_set_repeat(player_t *p)
 
 LV_IMG_DECLARE(ui_icon_repeat);
 
+/* The setting's own callback (settings_list.c repeat_mode_callback) has to
+ * run for the change to reach the playlist: the buffered track list is
+ * rebuilt so the *current* track's successor is recomputed.  Setting the
+ * global alone only changed the label - repeat-one kept skipping to the
+ * next track. */
+static void player_cycle_repeat(player_t *p)
+{
+    int r = global_settings.repeat_mode;
+    if (r < REPEAT_OFF || r > REPEAT_ONE)
+        r = REPEAT_OFF;
+    else
+        r = (r == REPEAT_ONE) ? REPEAT_OFF : r + 1;
+    global_settings.repeat_mode = r;
+    settings_save();
+    if ((audio_status() & AUDIO_STATUS_PLAY) == AUDIO_STATUS_PLAY)
+        audio_flush_and_reload_tracks();
+    player_set_repeat(p);
+}
+
 static void btn_repeat_cb(lv_event_t *e)
 {
     player_t *p = lv_event_get_user_data(e);
     if (gest_blocked(p)) return;
-    global_settings.repeat_mode = (global_settings.repeat_mode + 1) % 3;
-    player_set_repeat(p);
+    player_cycle_repeat(p);
 }
 
 /* ---- seek bar (draggable) ------------------------------------------------ */
@@ -451,8 +469,7 @@ static lv_obj_t *dr_chip(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
 static void dr_rep_cb(lv_event_t *e)
 {
     player_t *p = lv_event_get_user_data(e);
-    global_settings.repeat_mode = (global_settings.repeat_mode + 1) % 3;
-    player_set_repeat(p);
+    player_cycle_repeat(p);
     static char names[3][48];
     static const int modes[3] = { LANG_OFF, LANG_ALL, LANG_REPEAT_ONE };
     for (int i = 0; i < 3; i++)
@@ -544,7 +561,10 @@ static void drawer_open(player_t *p)
     snprintf(sb, sizeof sb, "%s · %s", str(LANG_SHUFFLE),
              global_settings.playlist_shuffle ? str(LANG_SET_BOOL_YES)
                                               : str(LANG_SET_BOOL_NO));
-    p->dr_rep = dr_chip(d, 16, 60, rb[global_settings.repeat_mode],
+    p->dr_rep = dr_chip(d, 16, 60,
+                        rb[(global_settings.repeat_mode >= 0 &&
+                            global_settings.repeat_mode <= 2)
+                           ? global_settings.repeat_mode : 0],
                         dr_rep_cb, p);
     p->dr_shf = dr_chip(d, 196, 60, sb, dr_shf_cb, p);
 
