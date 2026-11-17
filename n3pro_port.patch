@@ -543443,10 +543443,10 @@ index 0000000000..74f83933cf
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..32794ec4cd
+index 0000000000..22c5069abe
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,188 @@
+@@ -0,0 +1,193 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543547,6 +543547,11 @@ index 0000000000..32794ec4cd
 + * (returns false then).  Use instead of a bare "while (!done) pump" loop
 + * so no blocking screen can outlive the teardown. */
 +bool ui_wait(volatile bool *done);
++
++/* True while Home has been pressed and the UI is unwinding: stock code
++ * that loops over its own menus (simplelist loops, netfm/bt/dlna
++ * screens) must stop instead of re-entering the UI for another round. */
++bool lvgui_home_wanted(void);
 +
 +/* pull-down control centre */
 +void lvgui_control_open(void);
@@ -550290,10 +550295,10 @@ index 0000000000..89fb13269d
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..55d091e29d
+index 0000000000..81caad4d1d
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,2997 @@
+@@ -0,0 +1,3001 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -553006,7 +553011,7 @@ index 0000000000..55d091e29d
 +    lv_obj_invalidate(scr);
 +    lv_refr_now(NULL);
 +
-+    ui_wait((volatile bool *)&g_ns.done);
++    bool ui_closed = ui_wait((volatile bool *)&g_ns.done);
 +    lv_timer_del(g_ns.tm);
 +    g_ns.v = NULL;
 +    if (g_ns.art_dsc)
@@ -553021,7 +553026,11 @@ index 0000000000..55d091e29d
 +    }
 +    g_ns.art_img = g_ns.tile = g_ns.art_box = NULL;
 +    g_ns.art_gen = 0;
-+    lvgui_pump();               /* let the deferred nav pop run */
++    /* Home already tore the stack down / is about to: do not run another
++     * timer cycle here, the job must unwind so the teardown can finish
++     * outside it (the screen below must not be re-opened on the way). */
++    if (ui_closed)
++        lvgui_pump();           /* let the deferred nav pop run */
 +    return g_ns.stop_req;
 +}
 +
@@ -554551,10 +554560,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..a77c7c790b
+index 0000000000..a34346c89b
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2713 @@
+@@ -0,0 +1,2719 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -554994,6 +555003,12 @@ index 0000000000..a77c7c790b
 +    wait_count--;
 +    return !g_home_pending;
 +}
++
++bool lvgui_home_wanted(void)
++{
++    return g_home_pending;
++}
++
 +
 +static bool sessions_active(void)
 +{
@@ -596447,10 +596462,10 @@ index 0000000000..50c9153b5f
 +#endif
 diff --git a/apps/netfm.c b/apps/netfm.c
 new file mode 100644
-index 0000000000..3f6a4b8c0c
+index 0000000000..2cd82c2a8b
 --- /dev/null
 +++ b/apps/netfm.c
-@@ -0,0 +1,443 @@
+@@ -0,0 +1,459 @@
 +#include "config.h"
 +#ifdef HAVE_NETFM
 +#include <stdio.h>
@@ -596823,6 +596838,15 @@ index 0000000000..3f6a4b8c0c
 +        struct simplelist_info info;
 +        struct netfm_station station;
 +        struct netfm_station *s;
++#ifdef HAVE_LVGL_UI
++        /* Home pressed while the play screen was open: the stack is gone
++         * and this loop must not re-open the station list. */
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +        simplelist_info_init(&info, str(LANG_NETFM), station_count, NULL);
 +        info.get_name = station_name_cb;
 +#ifdef HAVE_LVGL_UI
@@ -596831,6 +596855,13 @@ index 0000000000..3f6a4b8c0c
 +        info.selection = -1;
 +        info.title_icon = Icon_Submenu;
 +        simplelist_show_list(&info);
++#ifdef HAVE_LVGL_UI
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +        if (info.selection < 0)
 +            break;
 +        s = stations_ptr();

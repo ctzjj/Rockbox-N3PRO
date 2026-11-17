@@ -99,6 +99,11 @@ void ui_home_request(void);
  * so no blocking screen can outlive the teardown. */
 bool ui_wait(volatile bool *done);
 
+/* True while Home has been pressed and the UI is unwinding: stock code
+ * that loops over its own menus (simplelist loops, netfm/bt/dlna
+ * screens) must stop instead of re-entering the UI for another round. */
+bool lvgui_home_wanted(void);
+
 /* pull-down control centre */
 void lvgui_control_open(void);
 void lvgui_control_close(void);

@@ -438,6 +438,12 @@ bool ui_wait(volatile bool *done)
     return !g_home_pending;
 }
 
+bool lvgui_home_wanted(void)
+{
+    return g_home_pending;
+}
+
+
 static bool sessions_active(void)
 {
     if (wait_count > 0)

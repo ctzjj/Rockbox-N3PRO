@@ -2710,7 +2710,7 @@ static int lvgui_netsrc_screen(const struct netsrc_view *v)
     lv_obj_invalidate(scr);
     lv_refr_now(NULL);
 
-    ui_wait((volatile bool *)&g_ns.done);
+    bool ui_closed = ui_wait((volatile bool *)&g_ns.done);
     lv_timer_del(g_ns.tm);
     g_ns.v = NULL;
     if (g_ns.art_dsc)
@@ -2725,7 +2725,11 @@ static int lvgui_netsrc_screen(const struct netsrc_view *v)
     }
     g_ns.art_img = g_ns.tile = g_ns.art_box = NULL;
     g_ns.art_gen = 0;
-    lvgui_pump();               /* let the deferred nav pop run */
+    /* Home already tore the stack down / is about to: do not run another
+     * timer cycle here, the job must unwind so the teardown can finish
+     * outside it (the screen below must not be re-opened on the way). */
+    if (ui_closed)
+        lvgui_pump();           /* let the deferred nav pop run */
     return g_ns.stop_req;
 }
 
