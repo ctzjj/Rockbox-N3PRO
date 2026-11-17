@@ -589,6 +589,13 @@ int wifi_menu(void)
 {
     while (true)
     {
+#ifdef HAVE_LVGL_UI
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+                break;
+        }
+#endif
         bool on = wifi_hal_is_up();
         int count = 5;
 #ifdef HAVE_WIFI_SSH
@@ -622,6 +629,13 @@ int wifi_menu(void)
         info.title_icon = Icon_Submenu;
 
         simplelist_show_list(&info);
+#ifdef HAVE_LVGL_UI
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+                break;
+        }
+#endif
         if (info.selection < 0)
             break;
 

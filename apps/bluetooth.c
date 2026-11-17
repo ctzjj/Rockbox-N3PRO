@@ -350,6 +350,13 @@ static int bt_output_menu(void)
 
     while (true)
     {
+#ifdef HAVE_LVGL_UI
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+                break;
+        }
+#endif
         struct simplelist_info info;
 
         simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
@@ -362,6 +369,13 @@ static int bt_output_menu(void)
         info.title_icon = Icon_Submenu;
 
         simplelist_show_list(&info);
+#ifdef HAVE_LVGL_UI
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+                break;
+        }
+#endif
         action = info.selection;
         if (action < 0)
             break;
@@ -669,6 +683,13 @@ int bluetooth_menu(void)
 {
     while (true)
     {
+#ifdef HAVE_LVGL_UI
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+                break;
+        }
+#endif
         struct simplelist_info info;
 
         simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
@@ -680,6 +701,13 @@ int bluetooth_menu(void)
         info.title_icon = Icon_Submenu;
 
         simplelist_show_list(&info);
+#ifdef HAVE_LVGL_UI
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+                break;
+        }
+#endif
         if (info.selection < 0)
             break;
 

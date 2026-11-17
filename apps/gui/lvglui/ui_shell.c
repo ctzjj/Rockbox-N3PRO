@@ -2175,6 +2175,8 @@ void shell_start_screen_apply(void)
     }
 }
 int lvgui_dlna_view(void);
+int lvgui_netfm_play(struct netfm_stream_status *);
+int lvgui_bt_rx_view(void);
 
 static void wps_job(void *p)
 {
@@ -2193,11 +2195,30 @@ static void dlna_view_job(void *p)
     lvgui_dlna_view();
 }
 
+static void netfm_view_job(void *p)
+{
+    (void)p;
+    lvgui_netfm_play(NULL);
+}
+
+static void bt_rx_view_job(void *p)
+{
+    (void)p;
+    lvgui_bt_rx_view();
+}
+
+/* The dock shows whatever is playing, so a tap has to open the screen of
+ * that source: the network radio and the Bluetooth receiver have their own
+ * status screens, only local playback opens the player. */
 static void open_wps(lv_event_t *e)
 {
     (void)e;
     if (be_dlna_active())
         lvgui_run_job(dlna_view_job, NULL);
+    else if (be_netfm_active())
+        lvgui_run_job(netfm_view_job, NULL);
+    else if (be_bt_rx_connected())
+        lvgui_run_job(bt_rx_view_job, NULL);
     else
         lvgui_run_job(wps_job, NULL);
 }

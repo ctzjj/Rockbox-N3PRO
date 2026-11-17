@@ -187,10 +187,10 @@ index 9812851388..1411aca776 100644
  toolsicon.130x130x16.bmp
 diff --git a/apps/bluetooth.c b/apps/bluetooth.c
 new file mode 100644
-index 0000000000..1f0e175d32
+index 0000000000..7b60f2cbe3
 --- /dev/null
 +++ b/apps/bluetooth.c
-@@ -0,0 +1,704 @@
+@@ -0,0 +1,732 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -543,6 +543,13 @@ index 0000000000..1f0e175d32
 +
 +    while (true)
 +    {
++#ifdef HAVE_LVGL_UI
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +        struct simplelist_info info;
 +
 +        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
@@ -555,6 +562,13 @@ index 0000000000..1f0e175d32
 +        info.title_icon = Icon_Submenu;
 +
 +        simplelist_show_list(&info);
++#ifdef HAVE_LVGL_UI
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +        action = info.selection;
 +        if (action < 0)
 +            break;
@@ -862,6 +876,13 @@ index 0000000000..1f0e175d32
 +{
 +    while (true)
 +    {
++#ifdef HAVE_LVGL_UI
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +        struct simplelist_info info;
 +
 +        simplelist_info_init(&info, bt_str(LANG_BLUETOOTH), 3, NULL);
@@ -873,6 +894,13 @@ index 0000000000..1f0e175d32
 +        info.title_icon = Icon_Submenu;
 +
 +        simplelist_show_list(&info);
++#ifdef HAVE_LVGL_UI
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +        if (info.selection < 0)
 +            break;
 +
@@ -1213,10 +1241,10 @@ index 0000000000..051b32c3d0
 +gmr/xmlescape.c
 diff --git a/apps/dlna/dlna.c b/apps/dlna/dlna.c
 new file mode 100644
-index 0000000000..3f07cf5777
+index 0000000000..fa47cd448f
 --- /dev/null
 +++ b/apps/dlna/dlna.c
-@@ -0,0 +1,427 @@
+@@ -0,0 +1,435 @@
 +/* DLNA screen - UPnP MediaRenderer front-end (GMediaRender + pupnp).
 + *
 + * UI modelled after apps/netfm.c: entering the screen brings the
@@ -1443,6 +1471,14 @@ index 0000000000..3f07cf5777
 +    {
 +        int dur;
 +        unsigned int ms;
++
++#ifdef HAVE_LVGL_UI
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +
 +        dlna_stream_get_status(&st);
 +        if (!dlna_stream_is_active() ||
@@ -554560,10 +554596,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..a34346c89b
+index 0000000000..7769efcbc8
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2719 @@
+@@ -0,0 +1,2740 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -556741,6 +556777,8 @@ index 0000000000..a34346c89b
 +    }
 +}
 +int lvgui_dlna_view(void);
++int lvgui_netfm_play(struct netfm_stream_status *);
++int lvgui_bt_rx_view(void);
 +
 +static void wps_job(void *p)
 +{
@@ -556759,11 +556797,30 @@ index 0000000000..a34346c89b
 +    lvgui_dlna_view();
 +}
 +
++static void netfm_view_job(void *p)
++{
++    (void)p;
++    lvgui_netfm_play(NULL);
++}
++
++static void bt_rx_view_job(void *p)
++{
++    (void)p;
++    lvgui_bt_rx_view();
++}
++
++/* The dock shows whatever is playing, so a tap has to open the screen of
++ * that source: the network radio and the Bluetooth receiver have their own
++ * status screens, only local playback opens the player. */
 +static void open_wps(lv_event_t *e)
 +{
 +    (void)e;
 +    if (be_dlna_active())
 +        lvgui_run_job(dlna_view_job, NULL);
++    else if (be_netfm_active())
++        lvgui_run_job(netfm_view_job, NULL);
++    else if (be_bt_rx_connected())
++        lvgui_run_job(bt_rx_view_job, NULL);
 +    else
 +        lvgui_run_job(wps_job, NULL);
 +}
@@ -612216,10 +612273,10 @@ index 0000000000..931c362d29
 +#endif /* _WEB_CONTROL_H_ */
 diff --git a/apps/wifi_menu.c b/apps/wifi_menu.c
 new file mode 100644
-index 0000000000..968f1d6fb0
+index 0000000000..1800bd6c50
 --- /dev/null
 +++ b/apps/wifi_menu.c
-@@ -0,0 +1,719 @@
+@@ -0,0 +1,733 @@
 +/***************************************************************************
 + * Generic WiFi menu (framework only).
 + *
@@ -612811,6 +612868,13 @@ index 0000000000..968f1d6fb0
 +{
 +    while (true)
 +    {
++#ifdef HAVE_LVGL_UI
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +        bool on = wifi_hal_is_up();
 +        int count = 5;
 +#ifdef HAVE_WIFI_SSH
@@ -612844,6 +612908,13 @@ index 0000000000..968f1d6fb0
 +        info.title_icon = Icon_Submenu;
 +
 +        simplelist_show_list(&info);
++#ifdef HAVE_LVGL_UI
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++                break;
++        }
++#endif
 +        if (info.selection < 0)
 +            break;
 +
