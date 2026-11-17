@@ -160,10 +160,32 @@ index f81261f766..d4a0e10adb 100644
 +keymaps/keymap-n3pro.c
  #endif
 diff --git a/apps/action.c b/apps/action.c
-index a9029457f8..b3202e0771 100644
+index a9029457f8..fc8917d42e 100644
 --- a/apps/action.c
 +++ b/apps/action.c
-@@ -937,7 +937,7 @@ static inline void do_softlock(action_last_t *last, action_cur_t *cur)
+@@ -326,6 +326,21 @@ static inline bool action_poll_button(action_last_t *last, action_cur_t *cur)
+ 
+     *button = button_get_w_tmo(cur->timeout);
+ 
++#ifdef HAVE_LVGL_UI
++    /* HOME is global: it always returns to the start screen, never a
++     * per-screen action.  Classic loops (simplelists, plugin screens)
++     * read the queue here, so the key must be taken before the keymap
++     * turns it into ACTION_STD_MENU - otherwise the screen consumed it
++     * and the shell stayed where it was (Home looked like "back"). */
++    if ((*button & BUTTON_HOME) && !(*button & (BUTTON_REL | BUTTON_REPEAT)))
++    {
++        void lvgui_home_key(void);
++        lvgui_home_key();
++        *button = ACTION_STD_CANCEL;   /* leave this loop now */
++        return true;
++    }
++#endif
++
+    /* ********************************************************
+     * Can return button immediately, sys_event & multimedia
+     * button presses don't use the action system, Data from
+@@ -937,7 +952,7 @@ static inline void do_softlock(action_last_t *last, action_cur_t *cur)
  
      if (notify_user)
      {
@@ -543240,10 +543262,10 @@ index 0000000000..534b5824e1
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..74f83933cf
+index 0000000000..b507dee537
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,255 @@
+@@ -0,0 +1,256 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543346,7 +543368,7 @@ index 0000000000..74f83933cf
 +    shell_home_rebuild();
 +}
 +
-+static void lvgui_home_key(void)
++void lvgui_home_key(void)
 +{
 +    extern int lvgl_shell_locked;
 +    /* the lock screen owns the device: only the swipe unlocks */
@@ -543464,6 +543486,7 @@ index 0000000000..74f83933cf
 +        shutdown_cancel();
 +    }
 +    lv_timer_handler();
++    lvgui_home_tick();
 +}
 +
 +void lvgui_main(void)
@@ -543501,10 +543524,10 @@ index 0000000000..74f83933cf
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.h b/apps/gui/lvglui/lvgl_ui.h
 new file mode 100644
-index 0000000000..22c5069abe
+index 0000000000..68d72dd4c8
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.h
-@@ -0,0 +1,193 @@
+@@ -0,0 +1,194 @@
 +#ifndef LVGL_UI_H
 +#define LVGL_UI_H
 +#ifdef HAVE_LVGL_UI
@@ -543610,6 +543633,7 @@ index 0000000000..22c5069abe
 + * that loops over its own menus (simplelist loops, netfm/bt/dlna
 + * screens) must stop instead of re-entering the UI for another round. */
 +bool lvgui_home_wanted(void);
++void lvgui_home_tick(void);
 +
 +/* pull-down control centre */
 +void lvgui_control_open(void);
@@ -554625,10 +554649,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..2db4b5360d
+index 0000000000..3942cca1e9
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2741 @@
+@@ -0,0 +1,2767 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -555090,16 +555114,30 @@ index 0000000000..2db4b5360d
 + * nav_pop_do: callers typically sit in an event cb on the screen that
 + * would be deleted underneath them, and open sessions need a couple of
 + * pump cycles to unwind before their screens may go away. */
++/* Retries of the CURRENT request: reset by shell_nav_home(), so a long
++ * stay on some screen (every pump retries once) cannot eat the budget of
++ * a request that has not been made yet. */
++static int g_home_waits;
++/* One teardown attempt per pump.  A self-re-arming lv_async_call is NOT
++ * usable here: LVGL drains its async list in a while() loop, so the
++ * callback would spin 240 times inside a single lv_timer_handler() while
++ * the waiting job never got control back to see the request. */
++static bool g_home_tick;
++
 +static void nav_home_do(void *param)
 +{
-+    static int waits;
 +    (void)param;
-+    if (sessions_active() && ++waits < 60)
++    /* Never tear the stack down while a UI job is still running: the job
++     * is between statements (it cannot yield), so it would keep touching
++     * widgets that the teardown just deleted - that was a use-after-free
++     * (and, when it survived, the job went on to re-open its own screen
++     * on top of Home).  Wait for the job to return to the main loop. */
++    if ((sessions_active() || lvgui_in_job()) && ++g_home_waits < 240)
 +    {
-+        lv_async_call(nav_home_do, NULL);   /* let them finish */
++        g_home_tick = true;                 /* retry on the next pump */
 +        return;
 +    }
-+    waits = 0;
++    g_home_waits = 0;
 +    lv_scr_load(nav_stack[0]);            /* switch away FIRST */
 +    while (nav_depth > 1)
 +        lv_obj_del(nav_stack[--nav_depth]);
@@ -555109,8 +555147,20 @@ index 0000000000..2db4b5360d
 +
 +void shell_nav_home(void)
 +{
++    g_home_waits = 0;
 +    ui_home_request();
-+    lv_async_call(nav_home_do, NULL);
++    g_home_tick = true;
++}
++
++/* Called at the end of every pump: runs the pending teardown attempt
++ * outside lv_timer_handler's callback context. */
++void lvgui_home_tick(void)
++{
++    if (g_home_tick)
++    {
++        g_home_tick = false;
++        nav_home_do(NULL);
++    }
 +}
 +
 +static void obj_del_do(void *param)
@@ -596549,10 +596599,10 @@ index 0000000000..50c9153b5f
 +#endif
 diff --git a/apps/netfm.c b/apps/netfm.c
 new file mode 100644
-index 0000000000..669d6927b5
+index 0000000000..ddcdf1cdf3
 --- /dev/null
 +++ b/apps/netfm.c
-@@ -0,0 +1,463 @@
+@@ -0,0 +1,467 @@
 +#include "config.h"
 +#ifdef HAVE_NETFM
 +#include <stdio.h>
@@ -596881,7 +596931,11 @@ index 0000000000..669d6927b5
 +        int lvgui_netfm_play(struct netfm_stream_status *);
 +        if (lvgui_in_job())
 +        {
-+            if (lvgui_netfm_play(&status))
++            int r = lvgui_netfm_play(&status);
++            {
++                bool lvgui_home_wanted(void);
++            }
++            if (r)
 +                netfm_stream_stop();    /* the stop button was pressed */
 +            return;
 +        }

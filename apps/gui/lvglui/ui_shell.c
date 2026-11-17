@@ -459,16 +459,30 @@ static bool sessions_active(void)
  * nav_pop_do: callers typically sit in an event cb on the screen that
  * would be deleted underneath them, and open sessions need a couple of
  * pump cycles to unwind before their screens may go away. */
+/* Retries of the CURRENT request: reset by shell_nav_home(), so a long
+ * stay on some screen (every pump retries once) cannot eat the budget of
+ * a request that has not been made yet. */
+static int g_home_waits;
+/* One teardown attempt per pump.  A self-re-arming lv_async_call is NOT
+ * usable here: LVGL drains its async list in a while() loop, so the
+ * callback would spin 240 times inside a single lv_timer_handler() while
+ * the waiting job never got control back to see the request. */
+static bool g_home_tick;
+
 static void nav_home_do(void *param)
 {
-    static int waits;
     (void)param;
-    if (sessions_active() && ++waits < 60)
+    /* Never tear the stack down while a UI job is still running: the job
+     * is between statements (it cannot yield), so it would keep touching
+     * widgets that the teardown just deleted - that was a use-after-free
+     * (and, when it survived, the job went on to re-open its own screen
+     * on top of Home).  Wait for the job to return to the main loop. */
+    if ((sessions_active() || lvgui_in_job()) && ++g_home_waits < 240)
     {
-        lv_async_call(nav_home_do, NULL);   /* let them finish */
+        g_home_tick = true;                 /* retry on the next pump */
         return;
     }
-    waits = 0;
+    g_home_waits = 0;
     lv_scr_load(nav_stack[0]);            /* switch away FIRST */
     while (nav_depth > 1)
         lv_obj_del(nav_stack[--nav_depth]);
@@ -478,8 +492,20 @@ static void nav_home_do(void *param)
 
 void shell_nav_home(void)
 {
+    g_home_waits = 0;
     ui_home_request();
-    lv_async_call(nav_home_do, NULL);
+    g_home_tick = true;
+}
+
+/* Called at the end of every pump: runs the pending teardown attempt
+ * outside lv_timer_handler's callback context. */
+void lvgui_home_tick(void)
+{
+    if (g_home_tick)
+    {
+        g_home_tick = false;
+        nav_home_do(NULL);
+    }
 }
 
 static void obj_del_do(void *param)

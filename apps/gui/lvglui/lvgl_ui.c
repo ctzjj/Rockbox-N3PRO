@@ -100,7 +100,7 @@ void lvgui_lang_changed(void)
     shell_home_rebuild();
 }
 
-static void lvgui_home_key(void)
+void lvgui_home_key(void)
 {
     extern int lvgl_shell_locked;
     /* the lock screen owns the device: only the swipe unlocks */
@@ -218,6 +218,7 @@ void lvgui_pump(void)
         shutdown_cancel();
     }
     lv_timer_handler();
+    lvgui_home_tick();
 }
 
 void lvgui_main(void)

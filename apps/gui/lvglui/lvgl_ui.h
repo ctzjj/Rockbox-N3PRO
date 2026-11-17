@@ -103,6 +103,7 @@ bool ui_wait(volatile bool *done);
  * that loops over its own menus (simplelist loops, netfm/bt/dlna
  * screens) must stop instead of re-entering the UI for another round. */
 bool lvgui_home_wanted(void);
+void lvgui_home_tick(void);
 
 /* pull-down control centre */
 void lvgui_control_open(void);
