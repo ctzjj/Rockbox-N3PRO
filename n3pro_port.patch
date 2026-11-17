@@ -10913,7 +10913,7 @@ index fc4a67df8b..d7cb40109e 100644
      struct rgb_pick rgb;
  
 diff --git a/apps/gui/list.c b/apps/gui/list.c
-index 12f17cefef..14b65b86e4 100644
+index 12f17cefef..e0fb6df8bf 100644
 --- a/apps/gui/list.c
 +++ b/apps/gui/list.c
 @@ -45,6 +45,22 @@
@@ -11110,6 +11110,28 @@ index 12f17cefef..14b65b86e4 100644
      struct gui_synclist lists;
      int action, old_line_count = simplelist_line_count;
      list_get_name *getname;
+@@ -938,6 +1097,21 @@ bool simplelist_show_list(struct simplelist_info *info)
+         if (info->timeout == TIMEOUT_NOBLOCK)
+             yield();
+ 
++#ifdef HAVE_LVGL_UI
++        /* Home was pressed: the native shell is tearing the stack down
++         * right now.  This loop belongs to a (possibly nested) menu item
++         * action that the menu engine cannot unwind, so report "cancelled"
++         * and let every caller break out of its own loop too. */
++        {
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++            {
++                info->selection = -1;
++                break;
++            }
++        }
++#endif
++
+         if (info->action_callback)
+         {
+             bool stdok = action==ACTION_STD_OK;
 diff --git a/apps/gui/lvglui/fonts/NotoSansSC_14.c b/apps/gui/lvglui/fonts/NotoSansSC_14.c
 new file mode 100644
 index 0000000000..95696b755c
@@ -550331,10 +550353,10 @@ index 0000000000..89fb13269d
 +}
 diff --git a/apps/gui/lvglui/ui_menu.c b/apps/gui/lvglui/ui_menu.c
 new file mode 100644
-index 0000000000..81caad4d1d
+index 0000000000..4ce308ee13
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_menu.c
-@@ -0,0 +1,3001 @@
+@@ -0,0 +1,3008 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -550632,8 +550654,15 @@ index 0000000000..81caad4d1d
 +static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
 +                            int *vis, int *nvis, int selected)
 +{
-+    g_menu_row = -1;
-+    g_menu_cancel = false;
++    /* A Home press may land while this level is being built: the cancel
++     * flags must survive so the engine leaves through the abort branch.
++     * Clearing them here used to swallow the request and the menu then
++     * re-opened its screen on top of Home (Home looked like "back"). */
++    if (!ui_home_pending())
++    {
++        g_menu_row = -1;
++        g_menu_cancel = false;
++    }
 +
 +    int count = MENU_GET_COUNT(menu->flags);
 +    if (count > MAX_MENU_ITEMS)
@@ -554596,10 +554625,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..7769efcbc8
+index 0000000000..2db4b5360d
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2740 @@
+@@ -0,0 +1,2741 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -554927,6 +554956,8 @@ index 0000000000..7769efcbc8
 +        lv_obj_set_style_bg_img_src(o, &backdrop_dsc, 0);
 +}
 +
++static bool g_home_pending;   /* set by ui_home_request */
++
 +void shell_nav_push(lv_obj_t *scr)
 +{
 +    if (nav_depth >= NAV_DEPTH)
@@ -554981,7 +555012,6 @@ index 0000000000..7769efcbc8
 + * (which used to starve the job queue: taps did nothing). */
 +#define UI_MAX_SESSIONS 8
 +static void (*sess_cancel[UI_MAX_SESSIONS])(void);
-+static bool g_home_pending;
 +
 +void ui_session_open(void (*cancel)(void))
 +{
@@ -596519,10 +596549,10 @@ index 0000000000..50c9153b5f
 +#endif
 diff --git a/apps/netfm.c b/apps/netfm.c
 new file mode 100644
-index 0000000000..2cd82c2a8b
+index 0000000000..669d6927b5
 --- /dev/null
 +++ b/apps/netfm.c
-@@ -0,0 +1,459 @@
+@@ -0,0 +1,463 @@
 +#include "config.h"
 +#ifdef HAVE_NETFM
 +#include <stdio.h>
@@ -596901,7 +596931,9 @@ index 0000000000..2cd82c2a8b
 +        {
 +            bool lvgui_home_wanted(void);
 +            if (lvgui_home_wanted())
++            {
 +                break;
++            }
 +        }
 +#endif
 +        simplelist_info_init(&info, str(LANG_NETFM), station_count, NULL);
@@ -596916,7 +596948,9 @@ index 0000000000..2cd82c2a8b
 +        {
 +            bool lvgui_home_wanted(void);
 +            if (lvgui_home_wanted())
++            {
 +                break;
++            }
 +        }
 +#endif
 +        if (info.selection < 0)
@@ -612273,10 +612307,10 @@ index 0000000000..931c362d29
 +#endif /* _WEB_CONTROL_H_ */
 diff --git a/apps/wifi_menu.c b/apps/wifi_menu.c
 new file mode 100644
-index 0000000000..1800bd6c50
+index 0000000000..d18122dc22
 --- /dev/null
 +++ b/apps/wifi_menu.c
-@@ -0,0 +1,733 @@
+@@ -0,0 +1,737 @@
 +/***************************************************************************
 + * Generic WiFi menu (framework only).
 + *
@@ -612872,7 +612906,9 @@ index 0000000000..1800bd6c50
 +        {
 +            bool lvgui_home_wanted(void);
 +            if (lvgui_home_wanted())
++            {
 +                break;
++            }
 +        }
 +#endif
 +        bool on = wifi_hal_is_up();
@@ -612912,7 +612948,9 @@ index 0000000000..1800bd6c50
 +        {
 +            bool lvgui_home_wanted(void);
 +            if (lvgui_home_wanted())
++            {
 +                break;
++            }
 +        }
 +#endif
 +        if (info.selection < 0)

@@ -593,7 +593,9 @@ int wifi_menu(void)
         {
             bool lvgui_home_wanted(void);
             if (lvgui_home_wanted())
+            {
                 break;
+            }
         }
 #endif
         bool on = wifi_hal_is_up();
@@ -633,7 +635,9 @@ int wifi_menu(void)
         {
             bool lvgui_home_wanted(void);
             if (lvgui_home_wanted())
+            {
                 break;
+            }
         }
 #endif
         if (info.selection < 0)

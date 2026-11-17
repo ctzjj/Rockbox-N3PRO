@@ -325,6 +325,8 @@ void shell_backdrop_apply(lv_obj_t *o)
         lv_obj_set_style_bg_img_src(o, &backdrop_dsc, 0);
 }
 
+static bool g_home_pending;   /* set by ui_home_request */
+
 void shell_nav_push(lv_obj_t *scr)
 {
     if (nav_depth >= NAV_DEPTH)
@@ -379,7 +381,6 @@ void shell_nav_pop_now(void)
  * (which used to starve the job queue: taps did nothing). */
 #define UI_MAX_SESSIONS 8
 static void (*sess_cancel[UI_MAX_SESSIONS])(void);
-static bool g_home_pending;
 
 void ui_session_open(void (*cancel)(void))
 {

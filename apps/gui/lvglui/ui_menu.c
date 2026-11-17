@@ -295,8 +295,15 @@ const char *lvgui_menu_icon(int icon_id, int *grad)
 static lv_obj_t *menu_build(const struct menu_item_ex *menu, const char *title,
                             int *vis, int *nvis, int selected)
 {
-    g_menu_row = -1;
-    g_menu_cancel = false;
+    /* A Home press may land while this level is being built: the cancel
+     * flags must survive so the engine leaves through the abort branch.
+     * Clearing them here used to swallow the request and the menu then
+     * re-opened its screen on top of Home (Home looked like "back"). */
+    if (!ui_home_pending())
+    {
+        g_menu_row = -1;
+        g_menu_cancel = false;
+    }
 
     int count = MENU_GET_COUNT(menu->flags);
     if (count > MAX_MENU_ITEMS)
