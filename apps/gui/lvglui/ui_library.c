@@ -531,7 +531,8 @@ static void vrow_make(vrow_t *r, lv_obj_t *parent, int kind)
 
     r->t = lv_label_create(r->row);
     lv_obj_set_style_text_color(r->t, shell_col_text(), 0);
-    lv_label_set_long_mode(r->t, LV_LABEL_LONG_DOT);
+    /* file/folder names never wrap: wider than the row means it scrolls */
+    lv_label_set_long_mode(r->t, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_width(r->t, 340 - ix - 14);
 
     if (kind != 'S')

@@ -1662,7 +1662,8 @@ lv_obj_t *shell_menu_row_new(lv_obj_t *list, const char *icon, bool sym,
     lv_obj_set_style_text_color(l, sel ? th->fg_inverse : COL_TEXT, 0);
     lv_obj_set_style_text_font(l, th->font_cjk, 0);
     lv_obj_align(l, LV_ALIGN_LEFT_MID, (icon && *icon) ? 52 : 18, 0);
-    lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+    /* list options never wrap: a name wider than the row scrolls instead */
+    lv_label_set_long_mode(l, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_width(l, (icon && *icon) ? (336 - 52 - 26)
                                         : (336 - 18 - 14));
 

@@ -548402,10 +548402,10 @@ index 0000000000..1f2b1a0705
 +};
 diff --git a/apps/gui/lvglui/ui_library.c b/apps/gui/lvglui/ui_library.c
 new file mode 100644
-index 0000000000..77be92cdf9
+index 0000000000..89fb13269d
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_library.c
-@@ -0,0 +1,1881 @@
+@@ -0,0 +1,1882 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -548939,7 +548939,8 @@ index 0000000000..77be92cdf9
 +
 +    r->t = lv_label_create(r->row);
 +    lv_obj_set_style_text_color(r->t, shell_col_text(), 0);
-+    lv_label_set_long_mode(r->t, LV_LABEL_LONG_DOT);
++    /* file/folder names never wrap: wider than the row means it scrolls */
++    lv_label_set_long_mode(r->t, LV_LABEL_LONG_SCROLL_CIRCULAR);
 +    lv_obj_set_width(r->t, 340 - ix - 14);
 +
 +    if (kind != 'S')
@@ -554550,10 +554551,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..8d0e58ac7f
+index 0000000000..a77c7c790b
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2712 @@
+@@ -0,0 +1,2713 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -556218,7 +556219,8 @@ index 0000000000..8d0e58ac7f
 +    lv_obj_set_style_text_color(l, sel ? th->fg_inverse : COL_TEXT, 0);
 +    lv_obj_set_style_text_font(l, th->font_cjk, 0);
 +    lv_obj_align(l, LV_ALIGN_LEFT_MID, (icon && *icon) ? 52 : 18, 0);
-+    lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
++    /* list options never wrap: a name wider than the row scrolls instead */
++    lv_label_set_long_mode(l, LV_LABEL_LONG_SCROLL_CIRCULAR);
 +    lv_obj_set_width(l, (icon && *icon) ? (336 - 52 - 26)
 +                                        : (336 - 18 - 14));
 +
