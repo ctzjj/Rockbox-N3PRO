@@ -209,10 +209,10 @@ index 9812851388..1411aca776 100644
  toolsicon.130x130x16.bmp
 diff --git a/apps/bluetooth.c b/apps/bluetooth.c
 new file mode 100644
-index 0000000000..0be72bab47
+index 0000000000..7b60f2cbe3
 --- /dev/null
 +++ b/apps/bluetooth.c
-@@ -0,0 +1,782 @@
+@@ -0,0 +1,732 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -309,9 +309,9 @@ index 0000000000..0be72bab47
 +}
 +static enum themable_icons bt_action_icon_cb(int selected, void *data)
 +{
-+    static const int ic[4] = { -5, -3, -9, -4 };  /* status / devices / off / codec */
++    static const int ic[3] = { -5, -3, -9 };  /* status / devices / off */
 +    (void)data;
-+    if (selected < 0 || selected > 3)
++    if (selected < 0 || selected > 2)
 +        return (enum themable_icons)0;
 +    return (enum themable_icons)ic[selected];
 +}
@@ -336,16 +336,9 @@ index 0000000000..0be72bab47
 +{
 +    static const unsigned short ids[] =
 +    {
-+        LANG_BT_STATUS, LANG_BT_DEVICES, LANG_BT_DISCONNECT, LANG_BT_CODEC
++        LANG_BT_STATUS, LANG_BT_DEVICES, LANG_BT_DISCONNECT
 +    };
 +    (void)data;
-+
-+    if (selected_item == 3)
-+    {
-+        snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_CODEC),
-+                 bt_audio_quality_stable() ? "SBC" : (char *)str(LANG_AUTO));
-+        return buffer;
-+    }
 +
 +    if (selected_item < 0 || selected_item >= 3)
 +    {
@@ -536,12 +529,7 @@ index 0000000000..0be72bab47
 +        simplelist_addline("%s: %s", bt_str(LANG_BT_LINK),
 +                           bt_audio_linked(sel)
 +                               ? bt_str(LANG_ON) : bt_str(LANG_OFF));
-+        {
-+            const char *codec = bt_audio_codec();
-+            simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC),
-+                               (codec && !strcmp(codec, "Auto"))
-+                                   ? str(LANG_AUTO) : codec);
-+        }
++        simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC), bt_audio_codec());
 +    }
 +    else
 +    {
@@ -556,41 +544,6 @@ index 0000000000..0be72bab47
 +
 +    info.count = simplelist_get_line_count();
 +    simplelist_show_list(&info);
-+}
-+
-+/* A2DP quality: SBC is the safe one on this link; "auto" hands the
-+ * choice back to bluetoothd (LDAC sounds better but stutters here). */
-+static const char *bt_quality_name_cb(int selected_item, void *data,
-+    char *buffer, size_t buffer_len)
-+{
-+    (void)data;
-+
-+    if (selected_item == 0)
-+        snprintf(buffer, buffer_len, "%s", "SBC");
-+    else if (selected_item == 1)
-+        snprintf(buffer, buffer_len, "%s", str(LANG_AUTO));
-+    else
-+        buffer[0] = '\0';
-+    return buffer;
-+}
-+
-+static void bt_choose_quality(void)
-+{
-+    struct simplelist_info info;
-+    int sel = bt_audio_quality_stable() ? 0 : 1;
-+
-+    simplelist_info_init(&info, bt_str(LANG_BT_CODEC), 2, NULL);
-+    info.get_name = bt_quality_name_cb;
-+    info.action_callback = bt_simplelist_ok_cancel;
-+    info.selection = sel;
-+    info.title_icon = Icon_Submenu;
-+
-+    simplelist_show_list(&info);
-+    if (info.selection < 0)
-+        return;
-+
-+    bt_audio_set_quality(info.selection == 0);
-+    splash(HZ, info.selection == 0 ? "SBC" : (char *)str(LANG_AUTO));
 +}
 +
 +/* Bluetooth output submenu: status, device list, disconnect. */
@@ -621,7 +574,7 @@ index 0000000000..0be72bab47
 +#endif
 +        struct simplelist_info info;
 +
-+        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 4, NULL);
++        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
 +        info.get_name = bt_action_name_cb;
 +#ifdef HAVE_LVGL_UI
 +        info.get_icon = bt_action_icon_cb;
@@ -656,9 +609,6 @@ index 0000000000..0be72bab47
 +                bt_audio_busy(true);
 +                bt_audio_disconnect();
 +                bt_audio_busy(false);
-+                break;
-+            case 3:
-+                bt_choose_quality();
 +                break;
 +            default:
 +                break;
@@ -543312,10 +543262,10 @@ index 0000000000..534b5824e1
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..30c0515713
+index 0000000000..b507dee537
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,267 @@
+@@ -0,0 +1,256 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543390,18 +543340,7 @@ index 0000000000..30c0515713
 + * shell_kbd_input while it blocks a stock handler. */
 +void lvgui_idle_pump(void)
 +{
-+    /* Long stock operations (bluetooth scan, connect probes) pump the UI
-+     * through this while they own the thread; nothing else is reading the
-+     * button queue at that moment, so HOME must be taken here - otherwise
-+     * it sat in the queue until the operation finished and the user was
-+     * stuck looking at the modal screen (and got a flash when it finally
-+     * unwound).  Other buttons are dropped on purpose: the operation is
-+     * modal. */
-+    int button = button_get_w_tmo(0);
-+    if ((button & BUTTON_HOME) && !(button & (BUTTON_REL | BUTTON_REPEAT)))
-+        lvgui_home_key();
 +    lv_timer_handler();
-+    lvgui_home_tick();
 +}
 +
 +/* Run the plugin queued by the stock tree (plugin_open()), then repaint
@@ -554710,10 +554649,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..dfc65bf0a2
+index 0000000000..3942cca1e9
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2846 @@
+@@ -0,0 +1,2767 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -555043,27 +554982,6 @@ index 0000000000..dfc65bf0a2
 +
 +static bool g_home_pending;   /* set by ui_home_request */
 +
-+/* Animate a freshly loaded screen from just off-screen to x = 0.
-+ * dir = +1: comes in from the right (going deeper), -1: from the left
-+ * (going back).  Purely a property animation on the screen object. */
-+static void shell_slide_in(lv_obj_t *scr, int dir)
-+{
-+    lv_coord_t sw = lv_disp_get_hor_res(NULL);
-+    lv_coord_t from = dir > 0 ? sw : -sw;
-+
-+    lv_anim_del(scr, NULL);
-+    lv_obj_set_x(scr, from);
-+
-+    lv_anim_t a;
-+    lv_anim_init(&a);
-+    lv_anim_set_var(&a, scr);
-+    lv_anim_set_values(&a, from, 0);
-+    lv_anim_set_time(&a, 200);
-+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
-+    lv_anim_start(&a);
-+}
-+
 +void shell_nav_push(lv_obj_t *scr)
 +{
 +    if (nav_depth >= NAV_DEPTH)
@@ -555073,27 +554991,9 @@ index 0000000000..dfc65bf0a2
 +    }
 +    shell_toast_clear();          /* a new screen hides a sticky splash */
 +    nav_stack[nav_depth++] = scr;
-+
-+    /* Home asked for the start screen: a stock flow can still push one
-+     * more list while it unwinds.  Build it silently (the stack entry is
-+     * deleted by the teardown) instead of flashing a half-built screen. */
-+    if (ui_home_pending())
-+        return;
-+
-+    /* Switch immediately, then slide the NEW screen in over the
-+     * background.  Never lv_scr_load_anim(): it parks the target in
-+     * disp->scr_to_load and keeps it there until the animation's timer
-+     * runs; when the next navigation deletes that screen first, LVGL
-+     * later dereferences the stale pointer (lv_obj_remove_local_style_prop
-+     * on a freed screen -> crash in the style getters, addr 0x20 - that is
-+     * the recurring white-screen crash).  Animating only the new screen
-+     * needs no internal state at all.
-+     *
-+     * Stock handlers (a job) push and pop several screens in a row, so
-+     * they skip the eye candy entirely. */
-+    lv_scr_load(scr);
-+    if (!lvgui_in_job())
-+        shell_slide_in(scr, 1);
++    /* forward navigation slides in from the right (matches the back
++     * gesture rolling it out to the right below) */
++    lv_scr_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
 +}
 +
 +/* Delete-and-load must not run inside a widget event callback (the
@@ -555106,15 +555006,12 @@ index 0000000000..dfc65bf0a2
 +    if (nav_depth <= 1)
 +        return;                    /* never pop Home */
 +    lv_obj_t *scr = nav_stack[--nav_depth];
-+    lv_obj_t *prev = nav_stack[nav_depth - 1];
-+
-+    /* switch first, then free the popped screen (it is no longer active
-+     * and no longer referenced by the nav stack) */
-+    lv_scr_load(prev);
-+    lv_obj_del(scr);
-+    shell_toast_clear();
-+    if (!lvgui_in_job())
-+        shell_slide_in(prev, -1);
++    /* roll the outgoing screen out to the right, Android-style: the
++     * parent slides in from the left; auto_del frees the popped screen
++     * when the animation is done (never delete the active screen) */
++    lv_scr_load_anim(nav_stack[nav_depth - 1], LV_SCR_LOAD_ANIM_MOVE_RIGHT,
++                     200, 0, true);
++    shell_toast_clear();                      /* parent screen is shown now */
 +}
 +
 +void shell_nav_pop(void)
@@ -555245,13 +555142,6 @@ index 0000000000..dfc65bf0a2
 +    while (nav_depth > 1)
 +        lv_obj_del(nav_stack[--nav_depth]);
 +    shell_toast_clear();
-+    /* Repaint the whole start screen before anything else pumps: after the
-+     * screens above it are deleted the panel would otherwise show whatever
-+     * the framebuffer held until the next refresh (the white flash on
-+     * HOME). */
-+    lv_obj_set_pos(nav_stack[0], 0, 0);
-+    lv_obj_invalidate(nav_stack[0]);
-+    lv_refr_now(NULL);
 +    g_home_pending = false;
 +}
 +
@@ -556236,7 +556126,7 @@ index 0000000000..dfc65bf0a2
 + * instead of exposing the parent for one frame (visible flash). */
 +static lv_obj_t *g_pick_stack[8];
 +static int g_pick_n;
-+static lv_obj_t *g_pick_scr;    /* the picker running right now, or NULL */
++static char g_pick_title[80];   /* title of the list currently on screen */
 +
 +static void picker_forget(lv_obj_t *scr)
 +{
@@ -556261,26 +556151,11 @@ index 0000000000..dfc65bf0a2
 +/* called when a job finishes: drop picker screens left on top */
 +void shell_pick_cleanup(void)
 +{
-+    /* Only ever drop a picker that is still a live screen: the registry
-+     * can hold pointers of screens its owner already popped (the delete
-+     * event runs later than the pop), and deleting one of those again is
-+     * a use-after-free. */
-+    for (int i = 0; i < g_pick_n; )
-+    {
-+        lv_obj_t *scr = g_pick_stack[i];
-+        if (!lv_obj_is_valid(scr))
-+        {
-+            picker_forget(scr);
-+            continue;
-+        }
-+        i++;
-+    }
 +    while (nav_depth > 1 && g_pick_n > 0 &&
 +           g_pick_stack[g_pick_n - 1] == lv_scr_act())
 +    {
-+        lv_obj_t *scr = g_pick_stack[--g_pick_n];
-+        if (scr == lv_scr_act())
-+            shell_nav_pop_now();
++        g_pick_n--;
++        shell_nav_pop_now();
 +    }
 +}
 +
@@ -556294,10 +556169,8 @@ index 0000000000..dfc65bf0a2
 +
 +static void pick_close_cb(lv_event_t *e)
 +{
-+    lv_obj_t *scr = lv_event_get_current_target(e);
-+
-+    picker_forget(scr);
-+    if (scr == g_pick_scr && !g_pick_done)
++    picker_forget(lv_event_get_current_target(e));
++    if (!g_pick_done)
 +    {
 +        g_pick_res = -1;
 +        g_pick_done = true;
@@ -556519,22 +556392,16 @@ index 0000000000..dfc65bf0a2
 +    if (count <= 0 || !items)
 +        return -1;
 +
++    /* Same list re-shown by its owner loop (same title, same screen):
++     * rebuild the CONTENTS in place — no navigation happens, so nothing
++     * flashes. A DIFFERENT list (e.g. scan results over the wifi menu)
++     * must PUSH: going back then reveals the menu underneath, and the
++     * push itself ends any sticky status toast ("扫描中…"). */
 +    lv_obj_t *list;
 +    lv_obj_t *scr;
-+
-+    /* A picker that is still the active screen is REUSED for the next
-+     * list, whatever its title.  Stock flows chain lists (Devices ->
-+     * device panel -> connect -> Devices -> ...); pushing every step made
-+     * the nav stack grow until NAV_DEPTH was hit, and a push onto a full
-+     * stack deletes the new screen while the caller keeps drawing into it
-+     * (the crash + white screen).  Reuse keeps the stack flat: each step
-+     * replaces the list the user is looking at, and Back returns to the
-+     * menu below instead of an intermediate list.  The registry pointer is
-+     * only trusted when the entry is still a live screen - a stale one
-+     * used to be handed to lv_obj_clean(). */
-+    bool same = (g_pick_n > 0 &&
-+                 g_pick_stack[g_pick_n - 1] == lv_scr_act() &&
-+                 lv_obj_is_valid(g_pick_stack[g_pick_n - 1]));
++    bool same = (g_pick_n > 0 && g_pick_stack[g_pick_n - 1] == lv_scr_act() &&
++                 g_pick_title[0] && title &&
++                 !strcmp(g_pick_title, title));
 +    if (same)
 +    {
 +        scr = g_pick_stack[--g_pick_n];
@@ -556545,12 +556412,10 @@ index 0000000000..dfc65bf0a2
 +    }
 +    else
 +    {
-+        while (shell_nav_full())
-+            shell_nav_pop_now(); /* make room instead of losing the screen */
 +        scr = shell_menu_screen_push(title, &list, pick_close_cb);
 +    }
++    snprintf(g_pick_title, sizeof g_pick_title, "%s", title ? title : "");
 +
-+    g_pick_scr = scr;
 +    g_pick_done = false;
 +    g_pick_res = -1;
 +    picker_add(scr);
@@ -556575,8 +556440,6 @@ index 0000000000..dfc65bf0a2
 +    lvgui_pump();               /* let the deferred nav pop run */
 +    g_pick_icns = NULL;
 +    g_pick_grads = NULL;
-+    if (g_pick_scr == scr)
-+        g_pick_scr = NULL;      /* this picker is over */
 +
 +    return ok ? g_pick_res : -1;
 +}
@@ -556748,9 +556611,6 @@ index 0000000000..dfc65bf0a2
 +{
 +    shell_toast_clear();
 +    if (!msg || !msg[0])
-+        return;
-+    /* leaving for Home: do not paint anything on the way out */
-+    if (ui_home_pending())
 +        return;
 +
 +    lv_obj_t *scr = lv_layer_top();
@@ -614071,10 +613931,10 @@ index c5a39ead75..962380ebd0 100644
      AUDIOHW_SETTING_ENT(EQ_BAND1_GAIN,      sound_set_hw_eq_band1_gain)
 diff --git a/firmware/export/bt_audio.h b/firmware/export/bt_audio.h
 new file mode 100644
-index 0000000000..587100d73d
+index 0000000000..d9df916fd9
 --- /dev/null
 +++ b/firmware/export/bt_audio.h
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,97 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -614156,11 +614016,6 @@ index 0000000000..587100d73d
 +
 +/* Active output name / codec for the status view. */
 +const char *bt_audio_codec(void);
-+
-+/* A2DP quality: stable (SBC, default - the high codecs bluetoothd would
-+ * negotiate do not survive this BT link) or auto (let it negotiate). */
-+bool bt_audio_quality_stable(void);
-+void bt_audio_set_quality(bool stable);
 +bool bt_audio_output_active(void);
 +
 +/* Output watchdog (falls back to the wired output on link loss) and the
@@ -614678,7 +614533,7 @@ index bea1edb376..319ca35e80 100644
      index = round_value_to_list32(samplerate, sink->caps.samprs, sink->caps.num_samprs, false);
  
 diff --git a/firmware/pcm_mixer.c b/firmware/pcm_mixer.c
-index 7c17255990..d383c3e79c 100644
+index 7c17255990..92bc02291f 100644
 --- a/firmware/pcm_mixer.c
 +++ b/firmware/pcm_mixer.c
 @@ -453,6 +453,22 @@ enum channel_status mixer_channel_status(enum pcm_mixer_channel channel)
@@ -614704,16 +614559,19 @@ index 7c17255990..d383c3e79c 100644
  /* Returns amount data remaining in channel before next callback */
  size_t mixer_channel_get_bytes_waiting(enum pcm_mixer_channel channel)
  {
-@@ -526,6 +542,12 @@ void mixer_reset(void)
+@@ -526,6 +542,15 @@ void mixer_reset(void)
  /* Set output samplerate */
  void mixer_set_frequency(unsigned int samplerate)
  {
-+    /* A fixed-rate sink (bluetooth) must still go through this path: it is
-+     * pcm_set_frequency() that clamps the request to the sink's rate, and
-+     * mixer_handle_sampr_change() that tells the DSP/decoder to resample to
-+     * it.  Skipping both (an earlier "optimisation") left the chain
-+     * producing at the file's rate while the earphones ran at the sink's,
-+     * i.e. a constant pitch shift plus underruns. */
++#if defined(CAYIN_N3PRO)
++    /* A fixed-rate output is already where it must be: don't stop and
++     * reconfigure it for a rate it cannot adopt. */
++    {
++        unsigned int fixed = pcm_sink_fixed_rate();
++        if (fixed && pcm_get_frequency() == fixed)
++            return;
++    }
++#endif
      if(pcm_get_frequency() == samplerate)
          return;
  
@@ -616043,10 +615901,10 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..41332cd28f
+index 0000000000..cb7e8a0dcc
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1844 @@
+@@ -0,0 +1,1767 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -616533,7 +616391,6 @@ index 0000000000..41332cd28f
 +
 +    if (pid == 0)
 +    {
-+        setpgid(0, 0);              /* helpers spawn children: kill them all */
 +        execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
 +        _exit(127);
 +    }
@@ -616542,18 +616399,6 @@ index 0000000000..41332cd28f
 +    while (waitpid(pid, &status, WNOHANG) == 0)
 +    {
 +        bt_pump();
-+        {
-+            /* Home pressed: stop the helper instead of making the user
-+             * wait out the whole inquiry. */
-+            bool lvgui_home_wanted(void);
-+            if (lvgui_home_wanted())
-+            {
-+                kill(-pid, SIGKILL);
-+                kill(pid, SIGKILL);
-+                waitpid(pid, &status, 0);
-+                return;
-+            }
-+        }
 +        sleep(HZ / 10);
 +        waited += HZ / 10;
 +        if (waited >= HZ * 20)
@@ -616631,17 +616476,6 @@ index 0000000000..41332cd28f
 +    {
 +        if (bt_audio_idle_hook)
 +            bt_audio_idle_hook();
-+        {
-+            /* Home pressed during the inquiry: stop it right away (the
-+             * shell teardown waits for this job to return). */
-+            bool lvgui_home_wanted(void);
-+            if (lvgui_home_wanted())
-+            {
-+                kill(pid, SIGKILL);
-+                waitpid(pid, &status, 0);
-+                break;
-+            }
-+        }
 +        sleep(HZ / 10);
 +        waited += HZ / 10;
 +        if (waited >= HZ * 20)
@@ -616873,106 +616707,76 @@ index 0000000000..41332cd28f
 +    fclose(f);
 +}
 +
-+/* The stock stack negotiates A2DP itself: /etc/bluetooth/audio.conf
-+ * advertises every source codec (SBC/LDAC/APTX/AAC/UAT = 1) and bluetoothd
-+ * picks the best one both ends share.  A DefaultCodec line *pins* the
-+ * codec instead (that is what /usr/bin/bt_codec writes when the user picks
-+ * one), and pinning LDAC on an SBC-only earphone is exactly what produced
-+ * the "BT_GET_CAPABILITIES failed" probe failures.  Leave the choice to
-+ * the negotiation. */
-+/* Quality preference: /data/bt_quality.txt holds "stable" or "auto"
-+ * (default).  Auto is what the stock player does: no DefaultCodec line, so
-+ * bluetoothd negotiates the codec.  Stable pins SBC, the mandatory profile
-+ * every sink must accept - a fallback for links where the negotiated codec
-+ * cannot keep up. */
-+#define BT_QUALITY_FILE "/data/bt_quality.txt"
-+
-+bool bt_audio_quality_stable(void)
++/* High bitrate first (same idea as the R1 port): keep the best codec the
++ * earphone actually accepts.  The stock ALSA plugin reads DefaultCodec from
++ * /etc/bluetooth/audio.conf when it opens the PCM, so a codec change means
++ * rewriting that file and renegotiating the A2DP transport. */
++static const char *const bt_codec_pref[] =
 +{
-+    FILE *f = fopen(BT_QUALITY_FILE, "r");
-+    char buf[16] = "";
-+    bool stable = false;            /* default: let it negotiate */
++    "LDAC_HQ", "APTX", "AAC", "SBC", NULL
++};
 +
-+    if (f)
-+    {
-+        if (fgets(buf, sizeof buf, f))
-+            stable = strncmp(buf, "stable", 6) == 0;
-+        fclose(f);
-+    }
-+    return stable;
++static void bt_set_codec(const char *codec)
++{
++    char cmd[64];
++
++    snprintf(cmd, sizeof(cmd), "/usr/bin/bt_codec %s >/dev/null 2>&1", codec);
++    system(cmd);
 +}
 +
-+static void bt_codec_apply(void);
-+
-+void bt_audio_set_quality(bool stable)
++/* Walk the preference list: set the codec, renegotiate the link and probe
++ * the plugin.  The first codec whose transport comes up wins. */
++static const char *bt_pick_codec(const char *mac)
 +{
-+    FILE *f = fopen(BT_QUALITY_FILE, "w");
++    char cmd[96];
++    int i, t;
 +
-+    if (f)
++    for (i = 0; bt_codec_pref[i] != NULL; i++)
 +    {
-+        fputs(stable ? "stable\n" : "auto\n", f);
-+        fclose(f);
-+    }
-+    bt_codec_apply();
-+}
++        /* Give the first attempt (on the link the caller just made) time
++         * to come up before stepping down the codec list. */
++        int probes = (i == 0) ? 12 : 6;
 +
-+static void bt_codec_auto(void)
-+{
-+    bt_codec_apply();
-+}
++        bt_set_codec(bt_codec_pref[i]);
 +
-+static void bt_codec_apply(void)
-+{
-+    FILE *f;
-+    char line[256];
-+    bool has_sbc = false;
-+    bool stable = bt_audio_quality_stable();
-+
-+    /* Always drop a pinned codec first: it is either replaced by SBC
-+     * below (stable) or left to the negotiation (auto). */
-+    system("sed -i '/^DefaultCodec=/d' /etc/bluetooth/audio.conf 2>/dev/null");
-+
-+    if (!stable)
-+        return;
-+
-+    f = fopen("/etc/bluetooth/audio.conf", "r");
-+    if (f)
-+    {
-+        while (fgets(line, sizeof line, f))
++        /* The codec is fixed when the A2DP transport is set up, so a new
++         * codec needs a fresh connection.  Only ever renegotiate while
++         * the link is really up: toggling a link that is not up wedges
++         * the stock bluetooth stack (reboot required). */
++        if (i > 0)
 +        {
-+            if (strstr(line, "SBCSources=1"))
++            if (!bt_peer_linked(mac))
 +            {
-+                has_sbc = true;
 +                break;
 +            }
++
++            snprintf(cmd, sizeof(cmd),
++                     "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
++            system(cmd);
++            sleep(HZ / 2);
++            snprintf(cmd, sizeof(cmd),
++                     "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
++            system(cmd);
 +        }
-+        fclose(f);
-+    }
 +
-+    f = fopen("/etc/bluetooth/audio.conf", "a");
-+    if (!f)
-+        return;
-+    if (!has_sbc)
-+        fputs("SBCSources=1\n", f);
-+    fputs("DefaultCodec=SBC\n", f);
-+    fclose(f);
-+}
++        for (t = 0; t < probes; t++)
++        {
++            if (pcm_alsa_bt_probe() == 0)
++            {
++                return bt_codec_pref[i];
++            }
++            sleep(HZ / 4);
++        }
 +
-+/* Wait for the A2DP transport the vendor stack is opening: probe the ALSA
-+ * plugin until it accepts the PCM.  Never re-dials the link. */
-+static bool bt_wait_transport(const char *mac, int ms)
-+{
-+    int i;
-+
-+    for (i = 0; i < ms / 250; i++)
-+    {
-+        if (pcm_alsa_bt_probe() == 0)
-+            return true;
++        /* Nothing came up and the link is gone: cycling would only wedge
++         * the stack further. */
 +        if (!bt_peer_linked(mac))
-+            return false;
-+        bt_sleep(HZ / 4);
++        {
++            break;
++        }
 +    }
-+    return pcm_alsa_bt_probe() == 0;
++
++    return NULL;
 +}
 +
 +/* Rockbox has a single volume, so the bluetooth and wired outputs each keep
@@ -617060,20 +616864,22 @@ index 0000000000..41332cd28f
 +
 +static bool bt_route_to_bluetooth(const char *mac)
 +{
++
 +    if (!mac || !mac[0])
 +        return false;
 +
 +    bt_write_asound(mac);
 +
-+    /* The A2DP transport is negotiated when the link comes up (the stock
-+     * player leaves the codec to bluetoothd, and so do we), so all this
-+     * does is wait for the transport the vendor stack is opening.  Never
-+     * re-dial the link here: that is what made earphones drop right after
-+     * "connected" in the old codec walk. */
-+    if (!bt_wait_transport(mac, 2000))
++    /* Pick the highest codec the earphone supports; on success the A2DP
++     * transport is already up, so no extra wait is needed. */
 +    {
-+        bt_route_to_local(false);
-+        return false;
++        const char *codec = bt_pick_codec(mac);
++
++        if (!codec)
++        {
++            bt_route_to_local(false);
++            return false;
++        }
 +    }
 +
 +    if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0 &&
@@ -617164,10 +616970,7 @@ index 0000000000..41332cd28f
 +    }
 +
 +    fclose(f);
-+    /* No DefaultCodec line means bluetoothd negotiates the best codec the
-+     * earphone shares with us (that is the stock behaviour); report that
-+     * instead of the misleading "Unknown". */
-+    return codec[0] ? codec : "Auto";
++    return codec[0] ? codec : "Unknown";
 +}
 +
 +/* The stock HiByOS control daemon is started by /etc/init.d/S50sys_server,
@@ -617190,10 +616993,6 @@ index 0000000000..41332cd28f
 +    int i;
 +
 +    bt_ensure_sys_server();
-+
-+    /* also covers the auto-reconnect paths that never go through
-+     * bt_connect_device(): never leave a pinned codec behind */
-+    bt_codec_auto();
 +
 +    bt_run_cmd("bt_enable >/dev/null 2>&1");
 +
@@ -617255,17 +617054,11 @@ index 0000000000..41332cd28f
 +    mac = device->mac;
 +    splash(0, bt_str(LANG_BT_CONNECTING));
 +
-+    /* Auto-negotiate: drop any pinned codec so bluetoothd picks the best
-+     * codec the earphone shares with us (LDAC / aptX / AAC / SBC). */
-+    bt_codec_auto();
-+
 +    if (!bt_prepare_stack())
 +    {
 +        splash(HZ * 2, bt_str(LANG_BT_UNAVAILABLE));
 +        return;
 +    }
-+
-+    connect_reply_ok = true;
 +
 +    if (!device->paired)
 +    {
@@ -617275,19 +617068,7 @@ index 0000000000..41332cd28f
 +        if (pair_reply_ok)
 +            sleep(HZ / 2);
 +    }
-+    else if (bt_peer_linked(mac))
-+    {
-+        /* Already up.  Dialling a live link is what wedges the vendor
-+         * stack (it has to be reset with a reboot): just take the route.
-+         * The earpiece auto-connecting on its own lands here too. */
-+        bt_set_selected_mac(mac);
-+        if (bt_route_to_bluetooth(mac))
-+            splash(HZ, bt_str(LANG_BT_CONNECTED));
-+        else
-+            splash(HZ * 2, bt_str(LANG_BT_NO_ROUTE));
-+        return;
-+    }
-+    else
++    else if (!bt_peer_linked(mac))
 +    {
 +        /* A ghost ACL left over from an unclean link drop is the usual
 +         * reason a connect to an already-paired device fails ("Stream
@@ -617295,11 +617076,11 @@ index 0000000000..41332cd28f
 +         * this after a fresh pairing -- the reset would interrupt the
 +         * pairing handshake that just completed. */
 +        bt_controller_reset();
-+
-+        snprintf(cmd, sizeof(cmd), "BT:CONNECT:%s", mac);
-+        ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
-+        connect_reply_ok = (ctl_rc == 0) && bt_sys_reply_ok(reply, "BT:CONNECT");
 +    }
++
++    snprintf(cmd, sizeof(cmd), "BT:CONNECT:%s", mac);
++    ctl_rc = bt_sys_command(cmd, reply, sizeof(reply));
++    connect_reply_ok = (ctl_rc == 0) && bt_sys_reply_ok(reply, "BT:CONNECT");
 +
 +    if (!pair_reply_ok && !device->paired)
 +    {
@@ -618520,10 +618301,10 @@ index 0000000000..0c9282bc85
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 new file mode 100644
-index 0000000000..69c9b5d4ae
+index 0000000000..b0d759a2d7
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
-@@ -0,0 +1,293 @@
+@@ -0,0 +1,285 @@
 +/***************************************************************************
 + * N3Pro dynamic PCM routing hooks for the shared hosted ALSA backend.
 + *
@@ -618694,16 +618475,8 @@ index 0000000000..69c9b5d4ae
 +{
 +    int err;
 +
-+    if (!handle)
++    if (!handle || rate == 0)
 +        return -1;
-+
-+    /* Never leave the handle at whatever the plugin defaults to: the
-+     * core reports pcm_sink_fixed_rate() from what set_hwparams()
-+     * negotiated, and a stale/zero rate there makes it feed the plugin at
-+     * the wrong rate (audible pitch shift plus underruns).  A2DP runs at
-+     * 44.1 kHz, so use that when no track has set a rate yet. */
-+    if (rate == 0)
-+        rate = 44100;
 +
 +    snd_pcm_drop(handle);
 +    last_sample_rate = rate;
@@ -618783,7 +618556,7 @@ index 0000000000..69c9b5d4ae
 +
 +    /* open_hwdev() resets last_sample_rate; keep the rate so the new
 +     * handle can be reconfigured in place. */
-+    rate = last_sample_rate ? last_sample_rate : (real_sample_rate ? real_sample_rate : 44100);
++    rate = last_sample_rate ? last_sample_rate : real_sample_rate;
 +
 +    open_hwdev(device, SND_PCM_STREAM_PLAYBACK);
 +    err = n3pro_pcm_reapply_nolock(rate);

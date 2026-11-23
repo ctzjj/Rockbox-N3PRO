@@ -327,27 +327,6 @@ void shell_backdrop_apply(lv_obj_t *o)
 
 static bool g_home_pending;   /* set by ui_home_request */
 
-/* Animate a freshly loaded screen from just off-screen to x = 0.
- * dir = +1: comes in from the right (going deeper), -1: from the left
- * (going back).  Purely a property animation on the screen object. */
-static void shell_slide_in(lv_obj_t *scr, int dir)
-{
-    lv_coord_t sw = lv_disp_get_hor_res(NULL);
-    lv_coord_t from = dir > 0 ? sw : -sw;
-
-    lv_anim_del(scr, NULL);
-    lv_obj_set_x(scr, from);
-
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, scr);
-    lv_anim_set_values(&a, from, 0);
-    lv_anim_set_time(&a, 200);
-    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
-    lv_anim_start(&a);
-}
-
 void shell_nav_push(lv_obj_t *scr)
 {
     if (nav_depth >= NAV_DEPTH)
@@ -357,27 +336,9 @@ void shell_nav_push(lv_obj_t *scr)
     }
     shell_toast_clear();          /* a new screen hides a sticky splash */
     nav_stack[nav_depth++] = scr;
-
-    /* Home asked for the start screen: a stock flow can still push one
-     * more list while it unwinds.  Build it silently (the stack entry is
-     * deleted by the teardown) instead of flashing a half-built screen. */
-    if (ui_home_pending())
-        return;
-
-    /* Switch immediately, then slide the NEW screen in over the
-     * background.  Never lv_scr_load_anim(): it parks the target in
-     * disp->scr_to_load and keeps it there until the animation's timer
-     * runs; when the next navigation deletes that screen first, LVGL
-     * later dereferences the stale pointer (lv_obj_remove_local_style_prop
-     * on a freed screen -> crash in the style getters, addr 0x20 - that is
-     * the recurring white-screen crash).  Animating only the new screen
-     * needs no internal state at all.
-     *
-     * Stock handlers (a job) push and pop several screens in a row, so
-     * they skip the eye candy entirely. */
-    lv_scr_load(scr);
-    if (!lvgui_in_job())
-        shell_slide_in(scr, 1);
+    /* forward navigation slides in from the right (matches the back
+     * gesture rolling it out to the right below) */
+    lv_scr_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
 }
 
 /* Delete-and-load must not run inside a widget event callback (the
@@ -390,15 +351,12 @@ static void nav_pop_do(void *param)
     if (nav_depth <= 1)
         return;                    /* never pop Home */
     lv_obj_t *scr = nav_stack[--nav_depth];
-    lv_obj_t *prev = nav_stack[nav_depth - 1];
-
-    /* switch first, then free the popped screen (it is no longer active
-     * and no longer referenced by the nav stack) */
-    lv_scr_load(prev);
-    lv_obj_del(scr);
-    shell_toast_clear();
-    if (!lvgui_in_job())
-        shell_slide_in(prev, -1);
+    /* roll the outgoing screen out to the right, Android-style: the
+     * parent slides in from the left; auto_del frees the popped screen
+     * when the animation is done (never delete the active screen) */
+    lv_scr_load_anim(nav_stack[nav_depth - 1], LV_SCR_LOAD_ANIM_MOVE_RIGHT,
+                     200, 0, true);
+    shell_toast_clear();                      /* parent screen is shown now */
 }
 
 void shell_nav_pop(void)
@@ -529,13 +487,6 @@ static void nav_home_do(void *param)
     while (nav_depth > 1)
         lv_obj_del(nav_stack[--nav_depth]);
     shell_toast_clear();
-    /* Repaint the whole start screen before anything else pumps: after the
-     * screens above it are deleted the panel would otherwise show whatever
-     * the framebuffer held until the next refresh (the white flash on
-     * HOME). */
-    lv_obj_set_pos(nav_stack[0], 0, 0);
-    lv_obj_invalidate(nav_stack[0]);
-    lv_refr_now(NULL);
     g_home_pending = false;
 }
 
@@ -1520,7 +1471,7 @@ static void *g_pick_move_ud;
  * instead of exposing the parent for one frame (visible flash). */
 static lv_obj_t *g_pick_stack[8];
 static int g_pick_n;
-static lv_obj_t *g_pick_scr;    /* the picker running right now, or NULL */
+static char g_pick_title[80];   /* title of the list currently on screen */
 
 static void picker_forget(lv_obj_t *scr)
 {
@@ -1545,26 +1496,11 @@ static void picker_add(lv_obj_t *scr)
 /* called when a job finishes: drop picker screens left on top */
 void shell_pick_cleanup(void)
 {
-    /* Only ever drop a picker that is still a live screen: the registry
-     * can hold pointers of screens its owner already popped (the delete
-     * event runs later than the pop), and deleting one of those again is
-     * a use-after-free. */
-    for (int i = 0; i < g_pick_n; )
-    {
-        lv_obj_t *scr = g_pick_stack[i];
-        if (!lv_obj_is_valid(scr))
-        {
-            picker_forget(scr);
-            continue;
-        }
-        i++;
-    }
     while (nav_depth > 1 && g_pick_n > 0 &&
            g_pick_stack[g_pick_n - 1] == lv_scr_act())
     {
-        lv_obj_t *scr = g_pick_stack[--g_pick_n];
-        if (scr == lv_scr_act())
-            shell_nav_pop_now();
+        g_pick_n--;
+        shell_nav_pop_now();
     }
 }
 
@@ -1578,10 +1514,8 @@ static void pick_row_cb(lv_event_t *e)
 
 static void pick_close_cb(lv_event_t *e)
 {
-    lv_obj_t *scr = lv_event_get_current_target(e);
-
-    picker_forget(scr);
-    if (scr == g_pick_scr && !g_pick_done)
+    picker_forget(lv_event_get_current_target(e));
+    if (!g_pick_done)
     {
         g_pick_res = -1;
         g_pick_done = true;
@@ -1803,22 +1737,16 @@ int shell_list_pick(const char *title, const char **items, int count,
     if (count <= 0 || !items)
         return -1;
 
+    /* Same list re-shown by its owner loop (same title, same screen):
+     * rebuild the CONTENTS in place — no navigation happens, so nothing
+     * flashes. A DIFFERENT list (e.g. scan results over the wifi menu)
+     * must PUSH: going back then reveals the menu underneath, and the
+     * push itself ends any sticky status toast ("扫描中…"). */
     lv_obj_t *list;
     lv_obj_t *scr;
-
-    /* A picker that is still the active screen is REUSED for the next
-     * list, whatever its title.  Stock flows chain lists (Devices ->
-     * device panel -> connect -> Devices -> ...); pushing every step made
-     * the nav stack grow until NAV_DEPTH was hit, and a push onto a full
-     * stack deletes the new screen while the caller keeps drawing into it
-     * (the crash + white screen).  Reuse keeps the stack flat: each step
-     * replaces the list the user is looking at, and Back returns to the
-     * menu below instead of an intermediate list.  The registry pointer is
-     * only trusted when the entry is still a live screen - a stale one
-     * used to be handed to lv_obj_clean(). */
-    bool same = (g_pick_n > 0 &&
-                 g_pick_stack[g_pick_n - 1] == lv_scr_act() &&
-                 lv_obj_is_valid(g_pick_stack[g_pick_n - 1]));
+    bool same = (g_pick_n > 0 && g_pick_stack[g_pick_n - 1] == lv_scr_act() &&
+                 g_pick_title[0] && title &&
+                 !strcmp(g_pick_title, title));
     if (same)
     {
         scr = g_pick_stack[--g_pick_n];
@@ -1829,12 +1757,10 @@ int shell_list_pick(const char *title, const char **items, int count,
     }
     else
     {
-        while (shell_nav_full())
-            shell_nav_pop_now(); /* make room instead of losing the screen */
         scr = shell_menu_screen_push(title, &list, pick_close_cb);
     }
+    snprintf(g_pick_title, sizeof g_pick_title, "%s", title ? title : "");
 
-    g_pick_scr = scr;
     g_pick_done = false;
     g_pick_res = -1;
     picker_add(scr);
@@ -1859,8 +1785,6 @@ int shell_list_pick(const char *title, const char **items, int count,
     lvgui_pump();               /* let the deferred nav pop run */
     g_pick_icns = NULL;
     g_pick_grads = NULL;
-    if (g_pick_scr == scr)
-        g_pick_scr = NULL;      /* this picker is over */
 
     return ok ? g_pick_res : -1;
 }
@@ -2032,9 +1956,6 @@ void shell_toast(int ticks, const char *msg, const char *icon)
 {
     shell_toast_clear();
     if (!msg || !msg[0])
-        return;
-    /* leaving for Home: do not paint anything on the way out */
-    if (ui_home_pending())
         return;
 
     lv_obj_t *scr = lv_layer_top();
