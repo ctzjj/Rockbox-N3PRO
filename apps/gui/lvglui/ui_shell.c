@@ -327,6 +327,27 @@ void shell_backdrop_apply(lv_obj_t *o)
 
 static bool g_home_pending;   /* set by ui_home_request */
 
+/* Animate a freshly loaded screen from just off-screen to x = 0.
+ * dir = +1: comes in from the right (going deeper), -1: from the left
+ * (going back).  Purely a property animation on the screen object. */
+static void shell_slide_in(lv_obj_t *scr, int dir)
+{
+    lv_coord_t sw = lv_disp_get_hor_res(NULL);
+    lv_coord_t from = dir > 0 ? sw : -sw;
+
+    lv_anim_del(scr, NULL);
+    lv_obj_set_x(scr, from);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, scr);
+    lv_anim_set_values(&a, from, 0);
+    lv_anim_set_time(&a, 200);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
+    lv_anim_start(&a);
+}
+
 void shell_nav_push(lv_obj_t *scr)
 {
     if (nav_depth >= NAV_DEPTH)
@@ -336,22 +357,20 @@ void shell_nav_push(lv_obj_t *scr)
     }
     shell_toast_clear();          /* a new screen hides a sticky splash */
     nav_stack[nav_depth++] = scr;
-    /* Stock handlers (a job) push and pop several screens in a row: an
-     * animated transition still in flight when the next one comes in makes
-     * LVGL delete the screen it was animating (lv_scr_load_anim's
-     * "another load in progress" branch with del_prev) - that is a
-     * use-after-free of a screen our nav stack still references (seen as
-     * spins in lv_obj_get_screen and crashes in the style getters).
-     * Jobs do not need the eye candy: load immediately and keep the stack
-     * consistent. */
-    if (lvgui_in_job())
-    {
-        lv_scr_load(scr);
-        return;
-    }
-    /* forward navigation slides in from the right (matches the back
-     * gesture rolling it out to the right below) */
-    lv_scr_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
+    /* Switch immediately, then slide the NEW screen in over the
+     * background.  Never lv_scr_load_anim(): it parks the target in
+     * disp->scr_to_load and keeps it there until the animation's timer
+     * runs; when the next navigation deletes that screen first, LVGL
+     * later dereferences the stale pointer (lv_obj_remove_local_style_prop
+     * on a freed screen -> crash in the style getters, addr 0x20 - that is
+     * the recurring white-screen crash).  Animating only the new screen
+     * needs no internal state at all.
+     *
+     * Stock handlers (a job) push and pop several screens in a row, so
+     * they skip the eye candy entirely. */
+    lv_scr_load(scr);
+    if (!lvgui_in_job())
+        shell_slide_in(scr, 1);
 }
 
 /* Delete-and-load must not run inside a widget event callback (the
@@ -364,22 +383,15 @@ static void nav_pop_do(void *param)
     if (nav_depth <= 1)
         return;                    /* never pop Home */
     lv_obj_t *scr = nav_stack[--nav_depth];
-    if (lvgui_in_job())
-    {
-        /* same reasoning as shell_nav_push(): no animation machinery for
-         * stock-driven navigation; switch first, then free the old screen
-         * (it is no longer active and not referenced by the nav stack) */
-        lv_scr_load(nav_stack[nav_depth - 1]);
-        lv_obj_del(scr);
-        shell_toast_clear();
-        return;
-    }
-    /* roll the outgoing screen out to the right, Android-style: the
-     * parent slides in from the left; auto_del frees the popped screen
-     * when the animation is done (never delete the active screen) */
-    lv_scr_load_anim(nav_stack[nav_depth - 1], LV_SCR_LOAD_ANIM_MOVE_RIGHT,
-                     200, 0, true);
-    shell_toast_clear();                      /* parent screen is shown now */
+    lv_obj_t *prev = nav_stack[nav_depth - 1];
+
+    /* switch first, then free the popped screen (it is no longer active
+     * and no longer referenced by the nav stack) */
+    lv_scr_load(prev);
+    lv_obj_del(scr);
+    shell_toast_clear();
+    if (!lvgui_in_job())
+        shell_slide_in(prev, -1);
 }
 
 void shell_nav_pop(void)
