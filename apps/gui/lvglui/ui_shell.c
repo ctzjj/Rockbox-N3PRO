@@ -1494,7 +1494,6 @@ static void *g_pick_move_ud;
  * instead of exposing the parent for one frame (visible flash). */
 static lv_obj_t *g_pick_stack[8];
 static int g_pick_n;
-static char g_pick_title[80];   /* title of the list currently on screen */
 static lv_obj_t *g_pick_scr;    /* the picker running right now, or NULL */
 
 static void picker_forget(lv_obj_t *scr)
@@ -1778,23 +1777,36 @@ int shell_list_pick(const char *title, const char **items, int count,
     if (count <= 0 || !items)
         return -1;
 
-    /* Same list re-shown by its owner loop (same title, same screen):
-     * rebuild the CONTENTS in place — no navigation happens, so nothing
-     * flashes. A DIFFERENT list (e.g. scan results over the wifi menu)
-     * must PUSH: going back then reveals the menu underneath, and the
-     * push itself ends any sticky status toast ("扫描中…"). */
     lv_obj_t *list;
     lv_obj_t *scr;
 
-    /* Always push a fresh screen.  Rebuilding "the same" list in place
-     * meant reusing a pointer from the registry, and that pointer may
-     * already be a deleted screen (its delete event can run after the pop
-     * that removed it from the stack) - lv_obj_clean() on it is a
-     * use-after-free.  A push costs one transition, never a crash. */
-    while (shell_nav_full())
-        shell_nav_pop_now();     /* make room instead of losing the screen */
-    scr = shell_menu_screen_push(title, &list, pick_close_cb);
-    snprintf(g_pick_title, sizeof g_pick_title, "%s", title ? title : "");
+    /* A picker that is still the active screen is REUSED for the next
+     * list, whatever its title.  Stock flows chain lists (Devices ->
+     * device panel -> connect -> Devices -> ...); pushing every step made
+     * the nav stack grow until NAV_DEPTH was hit, and a push onto a full
+     * stack deletes the new screen while the caller keeps drawing into it
+     * (the crash + white screen).  Reuse keeps the stack flat: each step
+     * replaces the list the user is looking at, and Back returns to the
+     * menu below instead of an intermediate list.  The registry pointer is
+     * only trusted when the entry is still a live screen - a stale one
+     * used to be handed to lv_obj_clean(). */
+    bool same = (g_pick_n > 0 &&
+                 g_pick_stack[g_pick_n - 1] == lv_scr_act() &&
+                 lv_obj_is_valid(g_pick_stack[g_pick_n - 1]));
+    if (same)
+    {
+        scr = g_pick_stack[--g_pick_n];
+        lv_obj_clean(scr);
+        lv_obj_remove_event_cb(scr, pick_close_cb);
+        menu_screen_build(scr, title, &list, pick_close_cb);
+        shell_toast_clear();  /* in-place rebuild does no navigation */
+    }
+    else
+    {
+        while (shell_nav_full())
+            shell_nav_pop_now(); /* make room instead of losing the screen */
+        scr = shell_menu_screen_push(title, &list, pick_close_cb);
+    }
 
     g_pick_scr = scr;
     g_pick_done = false;
@@ -1823,17 +1835,6 @@ int shell_list_pick(const char *title, const char **items, int count,
     g_pick_grads = NULL;
     if (g_pick_scr == scr)
         g_pick_scr = NULL;      /* this picker is over */
-
-    /* The selection is in.  If the action did not push its successor on
-     * top, this screen has no reason to stay on the stack (stock callers
-     * re-show lists in a loop and stale pickers would pile up until the
-     * nav stack overflows).  When a successor *was* pushed, keep it:
-     * going back must reveal this list again. */
-    if (lv_obj_is_valid(scr) && lv_scr_act() == scr)
-    {
-        shell_nav_pop_now();
-        lvgui_pump();
-    }
 
     return ok ? g_pick_res : -1;
 }
