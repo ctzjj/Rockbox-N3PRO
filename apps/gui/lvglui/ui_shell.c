@@ -351,19 +351,24 @@ static void shell_slide_in(lv_obj_t *scr, int dir)
     for (uint32_t i = 0; i < n; i++)
     {
         lv_obj_t *c = lv_obj_get_child(scr, i);
-        lv_coord_t x;
 
-        if (!c || !lv_obj_is_valid(c))
+        /* Only the menu list slides.  Screens that lay their children out
+         * themselves (the player: cover, title, seek bar, transport buttons
+         * - their x/size are driven by the player's own timers) must never
+         * be moved here; doing so left the seek bar permanently offset.
+         * The list always starts at x=0, so there is no accumulated drift
+         * when a transition interrupts another. */
+        if (!c || !lv_obj_is_valid(c) ||
+            !lv_obj_has_flag(c, LV_OBJ_FLAG_USER_2))
             continue;
 
-        x = lv_obj_get_x(c);
         lv_anim_del(c, (lv_anim_exec_xcb_t)slide_children_cb);
-        lv_obj_set_x(c, x + from);
+        lv_obj_set_x(c, from);
 
         lv_anim_t a;
         lv_anim_init(&a);
         lv_anim_set_var(&a, c);
-        lv_anim_set_values(&a, x + from, x);
+        lv_anim_set_values(&a, from, 0);
         lv_anim_set_time(&a, 200);
         lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
         lv_anim_set_exec_cb(&a, slide_children_cb);
@@ -1632,6 +1637,7 @@ static void pick_live_row_cb(lv_event_t *e)
 static lv_obj_t *menu_list_build(lv_obj_t *scr)
 {
     lv_obj_t *list = lv_obj_create(scr);
+    lv_obj_add_flag(list, LV_OBJ_FLAG_USER_2);   /* slideable content */
     lv_obj_set_size(list, 360, 480 - 74);
     lv_obj_set_pos(list, 0, 74);
     lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
