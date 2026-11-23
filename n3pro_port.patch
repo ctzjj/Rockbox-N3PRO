@@ -618516,7 +618516,7 @@ index 0000000000..0c9282bc85
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 new file mode 100644
-index 0000000000..80f73d98ec
+index 0000000000..69c9b5d4ae
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 @@ -0,0 +1,293 @@
@@ -618693,13 +618693,13 @@ index 0000000000..80f73d98ec
 +    if (!handle)
 +        return -1;
 +
-+    /* Nothing has been played yet (no sample rate known): the freshly
-+     * opened handle already carries the backend's defaults, so there is
-+     * nothing to re-apply.  Returning -1 here made the route switch fail
-+     * with "connected, but no audio output" whenever Bluetooth was
-+     * connected before the first track had ever started. */
++    /* Never leave the handle at whatever the plugin defaults to: the
++     * core reports pcm_sink_fixed_rate() from what set_hwparams()
++     * negotiated, and a stale/zero rate there makes it feed the plugin at
++     * the wrong rate (audible pitch shift plus underruns).  A2DP runs at
++     * 44.1 kHz, so use that when no track has set a rate yet. */
 +    if (rate == 0)
-+        return 0;
++        rate = 44100;
 +
 +    snd_pcm_drop(handle);
 +    last_sample_rate = rate;
@@ -618779,7 +618779,7 @@ index 0000000000..80f73d98ec
 +
 +    /* open_hwdev() resets last_sample_rate; keep the rate so the new
 +     * handle can be reconfigured in place. */
-+    rate = last_sample_rate ? last_sample_rate : real_sample_rate;
++    rate = last_sample_rate ? last_sample_rate : (real_sample_rate ? real_sample_rate : 44100);
 +
 +    open_hwdev(device, SND_PCM_STREAM_PLAYBACK);
 +    err = n3pro_pcm_reapply_nolock(rate);
