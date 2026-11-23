@@ -529,6 +529,13 @@ static void nav_home_do(void *param)
     while (nav_depth > 1)
         lv_obj_del(nav_stack[--nav_depth]);
     shell_toast_clear();
+    /* Repaint the whole start screen before anything else pumps: after the
+     * screens above it are deleted the panel would otherwise show whatever
+     * the framebuffer held until the next refresh (the white flash on
+     * HOME). */
+    lv_obj_set_pos(nav_stack[0], 0, 0);
+    lv_obj_invalidate(nav_stack[0]);
+    lv_refr_now(NULL);
     g_home_pending = false;
 }
 

@@ -554710,10 +554710,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..c80e7809ed
+index 0000000000..dfc65bf0a2
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2839 @@
+@@ -0,0 +1,2846 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -555245,6 +555245,13 @@ index 0000000000..c80e7809ed
 +    while (nav_depth > 1)
 +        lv_obj_del(nav_stack[--nav_depth]);
 +    shell_toast_clear();
++    /* Repaint the whole start screen before anything else pumps: after the
++     * screens above it are deleted the panel would otherwise show whatever
++     * the framebuffer held until the next refresh (the white flash on
++     * HOME). */
++    lv_obj_set_pos(nav_stack[0], 0, 0);
++    lv_obj_invalidate(nav_stack[0]);
++    lv_refr_now(NULL);
 +    g_home_pending = false;
 +}
 +
@@ -614671,7 +614678,7 @@ index bea1edb376..319ca35e80 100644
      index = round_value_to_list32(samplerate, sink->caps.samprs, sink->caps.num_samprs, false);
  
 diff --git a/firmware/pcm_mixer.c b/firmware/pcm_mixer.c
-index 7c17255990..92bc02291f 100644
+index 7c17255990..d383c3e79c 100644
 --- a/firmware/pcm_mixer.c
 +++ b/firmware/pcm_mixer.c
 @@ -453,6 +453,22 @@ enum channel_status mixer_channel_status(enum pcm_mixer_channel channel)
@@ -614697,19 +614704,16 @@ index 7c17255990..92bc02291f 100644
  /* Returns amount data remaining in channel before next callback */
  size_t mixer_channel_get_bytes_waiting(enum pcm_mixer_channel channel)
  {
-@@ -526,6 +542,15 @@ void mixer_reset(void)
+@@ -526,6 +542,12 @@ void mixer_reset(void)
  /* Set output samplerate */
  void mixer_set_frequency(unsigned int samplerate)
  {
-+#if defined(CAYIN_N3PRO)
-+    /* A fixed-rate output is already where it must be: don't stop and
-+     * reconfigure it for a rate it cannot adopt. */
-+    {
-+        unsigned int fixed = pcm_sink_fixed_rate();
-+        if (fixed && pcm_get_frequency() == fixed)
-+            return;
-+    }
-+#endif
++    /* A fixed-rate sink (bluetooth) must still go through this path: it is
++     * pcm_set_frequency() that clamps the request to the sink's rate, and
++     * mixer_handle_sampr_change() that tells the DSP/decoder to resample to
++     * it.  Skipping both (an earlier "optimisation") left the chain
++     * producing at the file's rate while the earphones ran at the sink's,
++     * i.e. a constant pitch shift plus underruns. */
      if(pcm_get_frequency() == samplerate)
          return;
  
