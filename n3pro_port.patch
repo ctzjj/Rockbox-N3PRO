@@ -209,10 +209,10 @@ index 9812851388..1411aca776 100644
  toolsicon.130x130x16.bmp
 diff --git a/apps/bluetooth.c b/apps/bluetooth.c
 new file mode 100644
-index 0000000000..7b60f2cbe3
+index 0000000000..0ed398d50e
 --- /dev/null
 +++ b/apps/bluetooth.c
-@@ -0,0 +1,732 @@
+@@ -0,0 +1,737 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -529,7 +529,12 @@ index 0000000000..7b60f2cbe3
 +        simplelist_addline("%s: %s", bt_str(LANG_BT_LINK),
 +                           bt_audio_linked(sel)
 +                               ? bt_str(LANG_ON) : bt_str(LANG_OFF));
-+        simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC), bt_audio_codec());
++        {
++            const char *codec = bt_audio_codec();
++            simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC),
++                               (codec && !strcmp(codec, "Auto"))
++                                   ? str(LANG_AUTO) : codec);
++        }
 +    }
 +    else
 +    {
@@ -615950,10 +615955,10 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..f859eefd87
+index 0000000000..df9c2fcaa5
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1730 @@
+@@ -0,0 +1,1733 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -616974,7 +616979,10 @@ index 0000000000..f859eefd87
 +    }
 +
 +    fclose(f);
-+    return codec[0] ? codec : "Unknown";
++    /* No DefaultCodec line means bluetoothd negotiates the best codec the
++     * earphone shares with us (that is the stock behaviour); report that
++     * instead of the misleading "Unknown". */
++    return codec[0] ? codec : "Auto";
 +}
 +
 +/* The stock HiByOS control daemon is started by /etc/init.d/S50sys_server,

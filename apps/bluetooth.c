@@ -314,7 +314,12 @@ static void bt_show_status(void)
         simplelist_addline("%s: %s", bt_str(LANG_BT_LINK),
                            bt_audio_linked(sel)
                                ? bt_str(LANG_ON) : bt_str(LANG_OFF));
-        simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC), bt_audio_codec());
+        {
+            const char *codec = bt_audio_codec();
+            simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC),
+                               (codec && !strcmp(codec, "Auto"))
+                                   ? str(LANG_AUTO) : codec);
+        }
     }
     else
     {
