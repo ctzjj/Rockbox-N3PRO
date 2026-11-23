@@ -616018,7 +616018,7 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..969811d1ea
+index 0000000000..8067a5b2a5
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 @@ -0,0 +1,1820 @@
@@ -616831,23 +616831,23 @@ index 0000000000..969811d1ea
 + * one), and pinning LDAC on an SBC-only earphone is exactly what produced
 + * the "BT_GET_CAPABILITIES failed" probe failures.  Leave the choice to
 + * the negotiation. */
-+/* Quality preference: /data/bt_quality.txt holds "stable" (default) or
-+ * "auto".  Stable pins SBC - the high-bitrate codecs bluetoothd negotiates
-+ * (LDAC in practice) do not survive this BT chip's air link and the sound
-+ * stutters; auto leaves the choice to the negotiation, for earphones and
-+ * links that can carry it. */
++/* Quality preference: /data/bt_quality.txt holds "stable" or "auto"
++ * (default).  Auto is what the stock player does: no DefaultCodec line, so
++ * bluetoothd negotiates the codec.  Stable pins SBC, the mandatory profile
++ * every sink must accept - a fallback for links where the negotiated codec
++ * cannot keep up. */
 +#define BT_QUALITY_FILE "/data/bt_quality.txt"
 +
 +bool bt_audio_quality_stable(void)
 +{
 +    FILE *f = fopen(BT_QUALITY_FILE, "r");
 +    char buf[16] = "";
-+    bool stable = true;
++    bool stable = false;            /* default: let it negotiate */
 +
 +    if (f)
 +    {
 +        if (fgets(buf, sizeof buf, f))
-+            stable = strncmp(buf, "auto", 4) != 0;
++            stable = strncmp(buf, "stable", 6) == 0;
 +        fclose(f);
 +    }
 +    return stable;
