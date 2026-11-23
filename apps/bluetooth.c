@@ -94,9 +94,9 @@ static enum themable_icons bt_top_icon_cb(int selected, void *data)
 }
 static enum themable_icons bt_action_icon_cb(int selected, void *data)
 {
-    static const int ic[3] = { -5, -3, -9 };  /* status / devices / off */
+    static const int ic[4] = { -5, -3, -9, -4 };  /* status / devices / off / codec */
     (void)data;
-    if (selected < 0 || selected > 2)
+    if (selected < 0 || selected > 3)
         return (enum themable_icons)0;
     return (enum themable_icons)ic[selected];
 }
@@ -121,9 +121,16 @@ static const char *bt_action_name_cb(int selected_item, void *data,
 {
     static const unsigned short ids[] =
     {
-        LANG_BT_STATUS, LANG_BT_DEVICES, LANG_BT_DISCONNECT
+        LANG_BT_STATUS, LANG_BT_DEVICES, LANG_BT_DISCONNECT, LANG_BT_CODEC
     };
     (void)data;
+
+    if (selected_item == 3)
+    {
+        snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_CODEC),
+                 bt_audio_quality_stable() ? "SBC" : (char *)str(LANG_AUTO));
+        return buffer;
+    }
 
     if (selected_item < 0 || selected_item >= 3)
     {
@@ -336,6 +343,41 @@ static void bt_show_status(void)
     simplelist_show_list(&info);
 }
 
+/* A2DP quality: SBC is the safe one on this link; "auto" hands the
+ * choice back to bluetoothd (LDAC sounds better but stutters here). */
+static const char *bt_quality_name_cb(int selected_item, void *data,
+    char *buffer, size_t buffer_len)
+{
+    (void)data;
+
+    if (selected_item == 0)
+        snprintf(buffer, buffer_len, "%s", "SBC");
+    else if (selected_item == 1)
+        snprintf(buffer, buffer_len, "%s", str(LANG_AUTO));
+    else
+        buffer[0] = '\0';
+    return buffer;
+}
+
+static void bt_choose_quality(void)
+{
+    struct simplelist_info info;
+    int sel = bt_audio_quality_stable() ? 0 : 1;
+
+    simplelist_info_init(&info, bt_str(LANG_BT_CODEC), 2, NULL);
+    info.get_name = bt_quality_name_cb;
+    info.action_callback = bt_simplelist_ok_cancel;
+    info.selection = sel;
+    info.title_icon = Icon_Submenu;
+
+    simplelist_show_list(&info);
+    if (info.selection < 0)
+        return;
+
+    bt_audio_set_quality(info.selection == 0);
+    splash(HZ, info.selection == 0 ? "SBC" : (char *)str(LANG_AUTO));
+}
+
 /* Bluetooth output submenu: status, device list, disconnect. */
 static int bt_output_menu(void)
 {
@@ -364,7 +406,7 @@ static int bt_output_menu(void)
 #endif
         struct simplelist_info info;
 
-        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
+        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 4, NULL);
         info.get_name = bt_action_name_cb;
 #ifdef HAVE_LVGL_UI
         info.get_icon = bt_action_icon_cb;
@@ -399,6 +441,9 @@ static int bt_output_menu(void)
                 bt_audio_busy(true);
                 bt_audio_disconnect();
                 bt_audio_busy(false);
+                break;
+            case 3:
+                bt_choose_quality();
                 break;
             default:
                 break;

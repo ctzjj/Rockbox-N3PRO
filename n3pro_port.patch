@@ -209,10 +209,10 @@ index 9812851388..1411aca776 100644
  toolsicon.130x130x16.bmp
 diff --git a/apps/bluetooth.c b/apps/bluetooth.c
 new file mode 100644
-index 0000000000..0ed398d50e
+index 0000000000..0be72bab47
 --- /dev/null
 +++ b/apps/bluetooth.c
-@@ -0,0 +1,737 @@
+@@ -0,0 +1,782 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -309,9 +309,9 @@ index 0000000000..0ed398d50e
 +}
 +static enum themable_icons bt_action_icon_cb(int selected, void *data)
 +{
-+    static const int ic[3] = { -5, -3, -9 };  /* status / devices / off */
++    static const int ic[4] = { -5, -3, -9, -4 };  /* status / devices / off / codec */
 +    (void)data;
-+    if (selected < 0 || selected > 2)
++    if (selected < 0 || selected > 3)
 +        return (enum themable_icons)0;
 +    return (enum themable_icons)ic[selected];
 +}
@@ -336,9 +336,16 @@ index 0000000000..0ed398d50e
 +{
 +    static const unsigned short ids[] =
 +    {
-+        LANG_BT_STATUS, LANG_BT_DEVICES, LANG_BT_DISCONNECT
++        LANG_BT_STATUS, LANG_BT_DEVICES, LANG_BT_DISCONNECT, LANG_BT_CODEC
 +    };
 +    (void)data;
++
++    if (selected_item == 3)
++    {
++        snprintf(buffer, buffer_len, "%s: %s", bt_str(LANG_BT_CODEC),
++                 bt_audio_quality_stable() ? "SBC" : (char *)str(LANG_AUTO));
++        return buffer;
++    }
 +
 +    if (selected_item < 0 || selected_item >= 3)
 +    {
@@ -551,6 +558,41 @@ index 0000000000..0ed398d50e
 +    simplelist_show_list(&info);
 +}
 +
++/* A2DP quality: SBC is the safe one on this link; "auto" hands the
++ * choice back to bluetoothd (LDAC sounds better but stutters here). */
++static const char *bt_quality_name_cb(int selected_item, void *data,
++    char *buffer, size_t buffer_len)
++{
++    (void)data;
++
++    if (selected_item == 0)
++        snprintf(buffer, buffer_len, "%s", "SBC");
++    else if (selected_item == 1)
++        snprintf(buffer, buffer_len, "%s", str(LANG_AUTO));
++    else
++        buffer[0] = '\0';
++    return buffer;
++}
++
++static void bt_choose_quality(void)
++{
++    struct simplelist_info info;
++    int sel = bt_audio_quality_stable() ? 0 : 1;
++
++    simplelist_info_init(&info, bt_str(LANG_BT_CODEC), 2, NULL);
++    info.get_name = bt_quality_name_cb;
++    info.action_callback = bt_simplelist_ok_cancel;
++    info.selection = sel;
++    info.title_icon = Icon_Submenu;
++
++    simplelist_show_list(&info);
++    if (info.selection < 0)
++        return;
++
++    bt_audio_set_quality(info.selection == 0);
++    splash(HZ, info.selection == 0 ? "SBC" : (char *)str(LANG_AUTO));
++}
++
 +/* Bluetooth output submenu: status, device list, disconnect. */
 +static int bt_output_menu(void)
 +{
@@ -579,7 +621,7 @@ index 0000000000..0ed398d50e
 +#endif
 +        struct simplelist_info info;
 +
-+        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 3, NULL);
++        simplelist_info_init(&info, bt_str(LANG_BT_AUDIO_OUT), 4, NULL);
 +        info.get_name = bt_action_name_cb;
 +#ifdef HAVE_LVGL_UI
 +        info.get_icon = bt_action_icon_cb;
@@ -614,6 +656,9 @@ index 0000000000..0ed398d50e
 +                bt_audio_busy(true);
 +                bt_audio_disconnect();
 +                bt_audio_busy(false);
++                break;
++            case 3:
++                bt_choose_quality();
 +                break;
 +            default:
 +                break;
@@ -613998,10 +614043,10 @@ index c5a39ead75..962380ebd0 100644
      AUDIOHW_SETTING_ENT(EQ_BAND1_GAIN,      sound_set_hw_eq_band1_gain)
 diff --git a/firmware/export/bt_audio.h b/firmware/export/bt_audio.h
 new file mode 100644
-index 0000000000..d9df916fd9
+index 0000000000..587100d73d
 --- /dev/null
 +++ b/firmware/export/bt_audio.h
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,102 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -614083,6 +614128,11 @@ index 0000000000..d9df916fd9
 +
 +/* Active output name / codec for the status view. */
 +const char *bt_audio_codec(void);
++
++/* A2DP quality: stable (SBC, default - the high codecs bluetoothd would
++ * negotiate do not survive this BT link) or auto (let it negotiate). */
++bool bt_audio_quality_stable(void);
++void bt_audio_set_quality(bool stable);
 +bool bt_audio_output_active(void);
 +
 +/* Output watchdog (falls back to the wired output on link loss) and the
@@ -615968,10 +616018,10 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..7a3b40e666
+index 0000000000..969811d1ea
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1747 @@
+@@ -0,0 +1,1820 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -616781,9 +616831,82 @@ index 0000000000..7a3b40e666
 + * one), and pinning LDAC on an SBC-only earphone is exactly what produced
 + * the "BT_GET_CAPABILITIES failed" probe failures.  Leave the choice to
 + * the negotiation. */
++/* Quality preference: /data/bt_quality.txt holds "stable" (default) or
++ * "auto".  Stable pins SBC - the high-bitrate codecs bluetoothd negotiates
++ * (LDAC in practice) do not survive this BT chip's air link and the sound
++ * stutters; auto leaves the choice to the negotiation, for earphones and
++ * links that can carry it. */
++#define BT_QUALITY_FILE "/data/bt_quality.txt"
++
++bool bt_audio_quality_stable(void)
++{
++    FILE *f = fopen(BT_QUALITY_FILE, "r");
++    char buf[16] = "";
++    bool stable = true;
++
++    if (f)
++    {
++        if (fgets(buf, sizeof buf, f))
++            stable = strncmp(buf, "auto", 4) != 0;
++        fclose(f);
++    }
++    return stable;
++}
++
++static void bt_codec_apply(void);
++
++void bt_audio_set_quality(bool stable)
++{
++    FILE *f = fopen(BT_QUALITY_FILE, "w");
++
++    if (f)
++    {
++        fputs(stable ? "stable\n" : "auto\n", f);
++        fclose(f);
++    }
++    bt_codec_apply();
++}
++
 +static void bt_codec_auto(void)
 +{
++    bt_codec_apply();
++}
++
++static void bt_codec_apply(void)
++{
++    FILE *f;
++    char line[256];
++    bool has_sbc = false;
++    bool stable = bt_audio_quality_stable();
++
++    /* Always drop a pinned codec first: it is either replaced by SBC
++     * below (stable) or left to the negotiation (auto). */
 +    system("sed -i '/^DefaultCodec=/d' /etc/bluetooth/audio.conf 2>/dev/null");
++
++    if (!stable)
++        return;
++
++    f = fopen("/etc/bluetooth/audio.conf", "r");
++    if (f)
++    {
++        while (fgets(line, sizeof line, f))
++        {
++            if (strstr(line, "SBCSources=1"))
++            {
++                has_sbc = true;
++                break;
++            }
++        }
++        fclose(f);
++    }
++
++    f = fopen("/etc/bluetooth/audio.conf", "a");
++    if (!f)
++        return;
++    if (!has_sbc)
++        fputs("SBCSources=1\n", f);
++    fputs("DefaultCodec=SBC\n", f);
++    fclose(f);
 +}
 +
 +/* Wait for the A2DP transport the vendor stack is opening: probe the ALSA
