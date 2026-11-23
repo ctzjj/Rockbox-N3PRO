@@ -615901,7 +615901,7 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..7fed194f9c
+index 0000000000..6df88a54db
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 @@ -0,0 +1,1732 @@
@@ -616707,16 +616707,16 @@ index 0000000000..7fed194f9c
 +    fclose(f);
 +}
 +
-+/* The stock ALSA plugin reads DefaultCodec from /etc/bluetooth/audio.conf
-+ * when it opens the PCM (the stock player drives /usr/bin/bt_codec the
-+ * same way).  The codec is fixed while the A2DP transport is set up, so
-+ * it must be chosen before connecting - see bt_connect_device(). */
-+static void bt_set_codec(const char *codec)
++/* The stock stack negotiates A2DP itself: /etc/bluetooth/audio.conf
++ * advertises every source codec (SBC/LDAC/APTX/AAC/UAT = 1) and bluetoothd
++ * picks the best one both ends share.  A DefaultCodec line *pins* the
++ * codec instead (that is what /usr/bin/bt_codec writes when the user picks
++ * one), and pinning LDAC on an SBC-only earphone is exactly what produced
++ * the "BT_GET_CAPABILITIES failed" probe failures.  Leave the choice to
++ * the negotiation. */
++static void bt_codec_auto(void)
 +{
-+    char cmd[64];
-+
-+    snprintf(cmd, sizeof(cmd), "/usr/bin/bt_codec %s >/dev/null 2>&1", codec);
-+    system(cmd);
++    system("sed -i '/^DefaultCodec=/d' /etc/bluetooth/audio.conf 2>/dev/null");
 +}
 +
 +/* Wait for the A2DP transport the vendor stack is opening: probe the ALSA
@@ -616951,6 +616951,10 @@ index 0000000000..7fed194f9c
 +
 +    bt_ensure_sys_server();
 +
++    /* also covers the auto-reconnect paths that never go through
++     * bt_connect_device(): never leave a pinned codec behind */
++    bt_codec_auto();
++
 +    bt_run_cmd("bt_enable >/dev/null 2>&1");
 +
 +    for (i = 0; i < 12; i++)
@@ -617011,13 +617015,9 @@ index 0000000000..7fed194f9c
 +    mac = device->mac;
 +    splash(0, bt_str(LANG_BT_CONNECTING));
 +
-+    /* The A2DP codec is fixed while the transport is set up, so it has to
-+     * be chosen before the connect.  LDAC_HQ was the previous default and
-+     * most earpieces only do SBC: the transport then came up as SBC while
-+     * the plugin asked for LDAC, the probe failed and the codec walk
-+     * re-dialled (and dropped) the link.  SBC is the universally
-+     * negotiated base profile; use it unless a codec is set explicitly. */
-+    bt_set_codec("SBC");
++    /* Auto-negotiate: drop any pinned codec so bluetoothd picks the best
++     * codec the earphone shares with us (LDAC / aptX / AAC / SBC). */
++    bt_codec_auto();
 +
 +    if (!bt_prepare_stack())
 +    {
