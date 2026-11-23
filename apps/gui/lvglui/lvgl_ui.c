@@ -72,7 +72,18 @@ void lvgui_run_job(void (*fn)(void *), void *param)
  * shell_kbd_input while it blocks a stock handler. */
 void lvgui_idle_pump(void)
 {
+    /* Long stock operations (bluetooth scan, connect probes) pump the UI
+     * through this while they own the thread; nothing else is reading the
+     * button queue at that moment, so HOME must be taken here - otherwise
+     * it sat in the queue until the operation finished and the user was
+     * stuck looking at the modal screen (and got a flash when it finally
+     * unwound).  Other buttons are dropped on purpose: the operation is
+     * modal. */
+    int button = button_get_w_tmo(0);
+    if ((button & BUTTON_HOME) && !(button & (BUTTON_REL | BUTTON_REPEAT)))
+        lvgui_home_key();
     lv_timer_handler();
+    lvgui_home_tick();
 }
 
 /* Run the plugin queued by the stock tree (plugin_open()), then repaint

@@ -209,10 +209,10 @@ index 9812851388..1411aca776 100644
  toolsicon.130x130x16.bmp
 diff --git a/apps/bluetooth.c b/apps/bluetooth.c
 new file mode 100644
-index 0000000000..7b60f2cbe3
+index 0000000000..0ed398d50e
 --- /dev/null
 +++ b/apps/bluetooth.c
-@@ -0,0 +1,732 @@
+@@ -0,0 +1,737 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -529,7 +529,12 @@ index 0000000000..7b60f2cbe3
 +        simplelist_addline("%s: %s", bt_str(LANG_BT_LINK),
 +                           bt_audio_linked(sel)
 +                               ? bt_str(LANG_ON) : bt_str(LANG_OFF));
-+        simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC), bt_audio_codec());
++        {
++            const char *codec = bt_audio_codec();
++            simplelist_addline("%s: %s", bt_str(LANG_BT_CODEC),
++                               (codec && !strcmp(codec, "Auto"))
++                                   ? str(LANG_AUTO) : codec);
++        }
 +    }
 +    else
 +    {
@@ -543262,10 +543267,10 @@ index 0000000000..534b5824e1
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..b507dee537
+index 0000000000..30c0515713
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,256 @@
+@@ -0,0 +1,267 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543340,7 +543345,18 @@ index 0000000000..b507dee537
 + * shell_kbd_input while it blocks a stock handler. */
 +void lvgui_idle_pump(void)
 +{
++    /* Long stock operations (bluetooth scan, connect probes) pump the UI
++     * through this while they own the thread; nothing else is reading the
++     * button queue at that moment, so HOME must be taken here - otherwise
++     * it sat in the queue until the operation finished and the user was
++     * stuck looking at the modal screen (and got a flash when it finally
++     * unwound).  Other buttons are dropped on purpose: the operation is
++     * modal. */
++    int button = button_get_w_tmo(0);
++    if ((button & BUTTON_HOME) && !(button & (BUTTON_REL | BUTTON_REPEAT)))
++        lvgui_home_key();
 +    lv_timer_handler();
++    lvgui_home_tick();
 +}
 +
 +/* Run the plugin queued by the stock tree (plugin_open()), then repaint
@@ -554649,10 +554665,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..3942cca1e9
+index 0000000000..bad2b4dabe
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2767 @@
+@@ -0,0 +1,2868 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -554982,6 +554998,50 @@ index 0000000000..3942cca1e9
 +
 +static bool g_home_pending;   /* set by ui_home_request */
 +
++static void slide_children_cb(void *var, int32_t v)
++{
++    lv_obj_set_x((lv_obj_t *)var, v);
++}
++
++/* Slide a freshly loaded screen's content in from the side.
++ * dir = +1: comes in from the right (going deeper), -1: from the left
++ * (going back).
++ *
++ * Sliding the *screen* itself meant it was active while parked off-screen,
++ * so a refreshed frame showed the bare panel - the white flash.  The
++ * screen stays at x=0 (its theme background is always drawn) and only its
++ * children are offset, which never leaves the panel empty. */
++static void shell_slide_in(lv_obj_t *scr, int dir)
++{
++    lv_coord_t from = (dir > 0) ? 360 : -360;
++    uint32_t n = lv_obj_get_child_cnt(scr);
++
++    if (n > 16)
++        n = 16;
++
++    for (uint32_t i = 0; i < n; i++)
++    {
++        lv_obj_t *c = lv_obj_get_child(scr, i);
++        lv_coord_t x;
++
++        if (!c || !lv_obj_is_valid(c))
++            continue;
++
++        x = lv_obj_get_x(c);
++        lv_anim_del(c, (lv_anim_exec_xcb_t)slide_children_cb);
++        lv_obj_set_x(c, x + from);
++
++        lv_anim_t a;
++        lv_anim_init(&a);
++        lv_anim_set_var(&a, c);
++        lv_anim_set_values(&a, x + from, x);
++        lv_anim_set_time(&a, 200);
++        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
++        lv_anim_set_exec_cb(&a, slide_children_cb);
++        lv_anim_start(&a);
++    }
++}
++
 +void shell_nav_push(lv_obj_t *scr)
 +{
 +    if (nav_depth >= NAV_DEPTH)
@@ -554991,9 +555051,27 @@ index 0000000000..3942cca1e9
 +    }
 +    shell_toast_clear();          /* a new screen hides a sticky splash */
 +    nav_stack[nav_depth++] = scr;
-+    /* forward navigation slides in from the right (matches the back
-+     * gesture rolling it out to the right below) */
-+    lv_scr_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
++
++    /* Home asked for the start screen: a stock flow can still push one
++     * more list while it unwinds.  Build it silently (the stack entry is
++     * deleted by the teardown) instead of flashing a half-built screen. */
++    if (ui_home_pending())
++        return;
++
++    /* Switch immediately, then slide the NEW screen in over the
++     * background.  Never lv_scr_load_anim(): it parks the target in
++     * disp->scr_to_load and keeps it there until the animation's timer
++     * runs; when the next navigation deletes that screen first, LVGL
++     * later dereferences the stale pointer (lv_obj_remove_local_style_prop
++     * on a freed screen -> crash in the style getters, addr 0x20 - that is
++     * the recurring white-screen crash).  Animating only the new screen
++     * needs no internal state at all.
++     *
++     * The slide is safe inside jobs too: it only animates the children of
++     * the screen that is already active, so no internal screen pointer is
++     * left behind. */
++    lv_scr_load(scr);
++    shell_slide_in(scr, 1);
 +}
 +
 +/* Delete-and-load must not run inside a widget event callback (the
@@ -555006,12 +555084,14 @@ index 0000000000..3942cca1e9
 +    if (nav_depth <= 1)
 +        return;                    /* never pop Home */
 +    lv_obj_t *scr = nav_stack[--nav_depth];
-+    /* roll the outgoing screen out to the right, Android-style: the
-+     * parent slides in from the left; auto_del frees the popped screen
-+     * when the animation is done (never delete the active screen) */
-+    lv_scr_load_anim(nav_stack[nav_depth - 1], LV_SCR_LOAD_ANIM_MOVE_RIGHT,
-+                     200, 0, true);
-+    shell_toast_clear();                      /* parent screen is shown now */
++    lv_obj_t *prev = nav_stack[nav_depth - 1];
++
++    /* switch first, then free the popped screen (it is no longer active
++     * and no longer referenced by the nav stack) */
++    lv_scr_load(prev);
++    lv_obj_del(scr);
++    shell_toast_clear();
++    shell_slide_in(prev, -1);
 +}
 +
 +void shell_nav_pop(void)
@@ -555142,6 +555222,13 @@ index 0000000000..3942cca1e9
 +    while (nav_depth > 1)
 +        lv_obj_del(nav_stack[--nav_depth]);
 +    shell_toast_clear();
++    /* Repaint the whole start screen before anything else pumps: after the
++     * screens above it are deleted the panel would otherwise show whatever
++     * the framebuffer held until the next refresh (the white flash on
++     * HOME). */
++    lv_obj_set_pos(nav_stack[0], 0, 0);
++    lv_obj_invalidate(nav_stack[0]);
++    lv_refr_now(NULL);
 +    g_home_pending = false;
 +}
 +
@@ -556126,7 +556213,7 @@ index 0000000000..3942cca1e9
 + * instead of exposing the parent for one frame (visible flash). */
 +static lv_obj_t *g_pick_stack[8];
 +static int g_pick_n;
-+static char g_pick_title[80];   /* title of the list currently on screen */
++static lv_obj_t *g_pick_scr;    /* the picker running right now, or NULL */
 +
 +static void picker_forget(lv_obj_t *scr)
 +{
@@ -556151,11 +556238,26 @@ index 0000000000..3942cca1e9
 +/* called when a job finishes: drop picker screens left on top */
 +void shell_pick_cleanup(void)
 +{
++    /* Only ever drop a picker that is still a live screen: the registry
++     * can hold pointers of screens its owner already popped (the delete
++     * event runs later than the pop), and deleting one of those again is
++     * a use-after-free. */
++    for (int i = 0; i < g_pick_n; )
++    {
++        lv_obj_t *scr = g_pick_stack[i];
++        if (!lv_obj_is_valid(scr))
++        {
++            picker_forget(scr);
++            continue;
++        }
++        i++;
++    }
 +    while (nav_depth > 1 && g_pick_n > 0 &&
 +           g_pick_stack[g_pick_n - 1] == lv_scr_act())
 +    {
-+        g_pick_n--;
-+        shell_nav_pop_now();
++        lv_obj_t *scr = g_pick_stack[--g_pick_n];
++        if (scr == lv_scr_act())
++            shell_nav_pop_now();
 +    }
 +}
 +
@@ -556169,8 +556271,10 @@ index 0000000000..3942cca1e9
 +
 +static void pick_close_cb(lv_event_t *e)
 +{
-+    picker_forget(lv_event_get_current_target(e));
-+    if (!g_pick_done)
++    lv_obj_t *scr = lv_event_get_current_target(e);
++
++    picker_forget(scr);
++    if (scr == g_pick_scr && !g_pick_done)
 +    {
 +        g_pick_res = -1;
 +        g_pick_done = true;
@@ -556392,16 +556496,22 @@ index 0000000000..3942cca1e9
 +    if (count <= 0 || !items)
 +        return -1;
 +
-+    /* Same list re-shown by its owner loop (same title, same screen):
-+     * rebuild the CONTENTS in place — no navigation happens, so nothing
-+     * flashes. A DIFFERENT list (e.g. scan results over the wifi menu)
-+     * must PUSH: going back then reveals the menu underneath, and the
-+     * push itself ends any sticky status toast ("扫描中…"). */
 +    lv_obj_t *list;
 +    lv_obj_t *scr;
-+    bool same = (g_pick_n > 0 && g_pick_stack[g_pick_n - 1] == lv_scr_act() &&
-+                 g_pick_title[0] && title &&
-+                 !strcmp(g_pick_title, title));
++
++    /* A picker that is still the active screen is REUSED for the next
++     * list, whatever its title.  Stock flows chain lists (Devices ->
++     * device panel -> connect -> Devices -> ...); pushing every step made
++     * the nav stack grow until NAV_DEPTH was hit, and a push onto a full
++     * stack deletes the new screen while the caller keeps drawing into it
++     * (the crash + white screen).  Reuse keeps the stack flat: each step
++     * replaces the list the user is looking at, and Back returns to the
++     * menu below instead of an intermediate list.  The registry pointer is
++     * only trusted when the entry is still a live screen - a stale one
++     * used to be handed to lv_obj_clean(). */
++    bool same = (g_pick_n > 0 &&
++                 g_pick_stack[g_pick_n - 1] == lv_scr_act() &&
++                 lv_obj_is_valid(g_pick_stack[g_pick_n - 1]));
 +    if (same)
 +    {
 +        scr = g_pick_stack[--g_pick_n];
@@ -556412,10 +556522,12 @@ index 0000000000..3942cca1e9
 +    }
 +    else
 +    {
++        while (shell_nav_full())
++            shell_nav_pop_now(); /* make room instead of losing the screen */
 +        scr = shell_menu_screen_push(title, &list, pick_close_cb);
 +    }
-+    snprintf(g_pick_title, sizeof g_pick_title, "%s", title ? title : "");
 +
++    g_pick_scr = scr;
 +    g_pick_done = false;
 +    g_pick_res = -1;
 +    picker_add(scr);
@@ -556440,6 +556552,8 @@ index 0000000000..3942cca1e9
 +    lvgui_pump();               /* let the deferred nav pop run */
 +    g_pick_icns = NULL;
 +    g_pick_grads = NULL;
++    if (g_pick_scr == scr)
++        g_pick_scr = NULL;      /* this picker is over */
 +
 +    return ok ? g_pick_res : -1;
 +}
@@ -556611,6 +556725,9 @@ index 0000000000..3942cca1e9
 +{
 +    shell_toast_clear();
 +    if (!msg || !msg[0])
++        return;
++    /* leaving for Home: do not paint anything on the way out */
++    if (ui_home_pending())
 +        return;
 +
 +    lv_obj_t *scr = lv_layer_top();
@@ -615901,10 +616018,10 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..cb7e8a0dcc
+index 0000000000..cb7f71ae3f
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1767 @@
+@@ -0,0 +1,1723 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -616707,76 +616824,32 @@ index 0000000000..cb7e8a0dcc
 +    fclose(f);
 +}
 +
-+/* High bitrate first (same idea as the R1 port): keep the best codec the
-+ * earphone actually accepts.  The stock ALSA plugin reads DefaultCodec from
-+ * /etc/bluetooth/audio.conf when it opens the PCM, so a codec change means
-+ * rewriting that file and renegotiating the A2DP transport. */
-+static const char *const bt_codec_pref[] =
++/* The stock player lets bluetoothd negotiate the A2DP codec: audio.conf
++ * advertises every source codec and no DefaultCodec line pins one.  A
++ * pinned codec is only applied when the transport is set up, and stepping
++ * through them meant re-dialling a live link, which wedges the vendor
++ * stack - so never pin anything here. */
++static void bt_codec_auto(void)
 +{
-+    "LDAC_HQ", "APTX", "AAC", "SBC", NULL
-+};
-+
-+static void bt_set_codec(const char *codec)
-+{
-+    char cmd[64];
-+
-+    snprintf(cmd, sizeof(cmd), "/usr/bin/bt_codec %s >/dev/null 2>&1", codec);
-+    system(cmd);
++    system("sed -i '/^DefaultCodec=/d' /etc/bluetooth/audio.conf 2>/dev/null");
 +}
 +
-+/* Walk the preference list: set the codec, renegotiate the link and probe
-+ * the plugin.  The first codec whose transport comes up wins. */
-+static const char *bt_pick_codec(const char *mac)
++/* Wait for the A2DP transport the vendor stack is opening (the codec was
++ * negotiated by it): probe the ALSA plugin until it accepts the PCM.
++ * Never re-dials the link. */
++static bool bt_wait_transport(const char *mac, int ms)
 +{
-+    char cmd[96];
-+    int i, t;
++    int i;
 +
-+    for (i = 0; bt_codec_pref[i] != NULL; i++)
++    for (i = 0; i < ms / 250; i++)
 +    {
-+        /* Give the first attempt (on the link the caller just made) time
-+         * to come up before stepping down the codec list. */
-+        int probes = (i == 0) ? 12 : 6;
-+
-+        bt_set_codec(bt_codec_pref[i]);
-+
-+        /* The codec is fixed when the A2DP transport is set up, so a new
-+         * codec needs a fresh connection.  Only ever renegotiate while
-+         * the link is really up: toggling a link that is not up wedges
-+         * the stock bluetooth stack (reboot required). */
-+        if (i > 0)
-+        {
-+            if (!bt_peer_linked(mac))
-+            {
-+                break;
-+            }
-+
-+            snprintf(cmd, sizeof(cmd),
-+                     "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
-+            system(cmd);
-+            sleep(HZ / 2);
-+            snprintf(cmd, sizeof(cmd),
-+                     "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
-+            system(cmd);
-+        }
-+
-+        for (t = 0; t < probes; t++)
-+        {
-+            if (pcm_alsa_bt_probe() == 0)
-+            {
-+                return bt_codec_pref[i];
-+            }
-+            sleep(HZ / 4);
-+        }
-+
-+        /* Nothing came up and the link is gone: cycling would only wedge
-+         * the stack further. */
++        if (pcm_alsa_bt_probe() == 0)
++            return true;
 +        if (!bt_peer_linked(mac))
-+        {
-+            break;
-+        }
++            return false;
++        bt_sleep(HZ / 4);            /* keep the UI pumping meanwhile */
 +    }
-+
-+    return NULL;
++    return pcm_alsa_bt_probe() == 0;
 +}
 +
 +/* Rockbox has a single volume, so the bluetooth and wired outputs each keep
@@ -616870,16 +616943,12 @@ index 0000000000..cb7e8a0dcc
 +
 +    bt_write_asound(mac);
 +
-+    /* Pick the highest codec the earphone supports; on success the A2DP
-+     * transport is already up, so no extra wait is needed. */
++    /* The system bluetooth stack negotiates the codec by itself; all we do
++     * is wait for the transport it is setting up. */
++    if (!bt_wait_transport(mac, 2000))
 +    {
-+        const char *codec = bt_pick_codec(mac);
-+
-+        if (!codec)
-+        {
-+            bt_route_to_local(false);
-+            return false;
-+        }
++        bt_route_to_local(false);
++        return false;
 +    }
 +
 +    if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0 &&
@@ -616970,7 +617039,7 @@ index 0000000000..cb7e8a0dcc
 +    }
 +
 +    fclose(f);
-+    return codec[0] ? codec : "Unknown";
++    return codec[0] ? codec : "Auto";
 +}
 +
 +/* The stock HiByOS control daemon is started by /etc/init.d/S50sys_server,
@@ -616993,6 +617062,10 @@ index 0000000000..cb7e8a0dcc
 +    int i;
 +
 +    bt_ensure_sys_server();
++
++    /* never leave a pinned codec behind: bluetoothd picks the best codec
++     * both ends share, exactly like the stock player */
++    bt_codec_auto();
 +
 +    bt_run_cmd("bt_enable >/dev/null 2>&1");
 +
