@@ -615901,10 +615901,10 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..6df88a54db
+index 0000000000..f859eefd87
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1732 @@
+@@ -0,0 +1,1730 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -616821,18 +616821,16 @@ index 0000000000..6df88a54db
 +
 +static bool bt_route_to_bluetooth(const char *mac)
 +{
-+
 +    if (!mac || !mac[0])
 +        return false;
 +
 +    bt_write_asound(mac);
 +
-+    /* The A2DP transport is negotiated when the link comes up, so the
-+     * codec has to be settled *before* connecting (bt_connect_device does
-+     * that).  Walking codecs here meant rewriting audio.conf and
-+     * re-dialling a live link, which is what made the link drop right
-+     * after "connected" on earphones that do not do LDAC.  Just wait for
-+     * the transport the vendor stack is bringing up. */
++    /* The A2DP transport is negotiated when the link comes up (the stock
++     * player leaves the codec to bluetoothd, and so do we), so all this
++     * does is wait for the transport the vendor stack is opening.  Never
++     * re-dial the link here: that is what made earphones drop right after
++     * "connected" in the old codec walk. */
 +    if (!bt_wait_transport(mac, 2000))
 +    {
 +        bt_route_to_local(false);
@@ -618266,10 +618264,10 @@ index 0000000000..0c9282bc85
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 new file mode 100644
-index 0000000000..b0d759a2d7
+index 0000000000..80f73d98ec
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
-@@ -0,0 +1,285 @@
+@@ -0,0 +1,293 @@
 +/***************************************************************************
 + * N3Pro dynamic PCM routing hooks for the shared hosted ALSA backend.
 + *
@@ -618440,8 +618438,16 @@ index 0000000000..b0d759a2d7
 +{
 +    int err;
 +
-+    if (!handle || rate == 0)
++    if (!handle)
 +        return -1;
++
++    /* Nothing has been played yet (no sample rate known): the freshly
++     * opened handle already carries the backend's defaults, so there is
++     * nothing to re-apply.  Returning -1 here made the route switch fail
++     * with "connected, but no audio output" whenever Bluetooth was
++     * connected before the first track had ever started. */
++    if (rate == 0)
++        return 0;
 +
 +    snd_pcm_drop(handle);
 +    last_sample_rate = rate;
