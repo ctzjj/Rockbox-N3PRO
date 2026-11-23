@@ -357,6 +357,13 @@ void shell_nav_push(lv_obj_t *scr)
     }
     shell_toast_clear();          /* a new screen hides a sticky splash */
     nav_stack[nav_depth++] = scr;
+
+    /* Home asked for the start screen: a stock flow can still push one
+     * more list while it unwinds.  Build it silently (the stack entry is
+     * deleted by the teardown) instead of flashing a half-built screen. */
+    if (ui_home_pending())
+        return;
+
     /* Switch immediately, then slide the NEW screen in over the
      * background.  Never lv_scr_load_anim(): it parks the target in
      * disp->scr_to_load and keeps it there until the animation's timer
@@ -2018,6 +2025,9 @@ void shell_toast(int ticks, const char *msg, const char *icon)
 {
     shell_toast_clear();
     if (!msg || !msg[0])
+        return;
+    /* leaving for Home: do not paint anything on the way out */
+    if (ui_home_pending())
         return;
 
     lv_obj_t *scr = lv_layer_top();

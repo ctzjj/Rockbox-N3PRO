@@ -543312,10 +543312,10 @@ index 0000000000..534b5824e1
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..b507dee537
+index 0000000000..30c0515713
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,256 @@
+@@ -0,0 +1,267 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543390,7 +543390,18 @@ index 0000000000..b507dee537
 + * shell_kbd_input while it blocks a stock handler. */
 +void lvgui_idle_pump(void)
 +{
++    /* Long stock operations (bluetooth scan, connect probes) pump the UI
++     * through this while they own the thread; nothing else is reading the
++     * button queue at that moment, so HOME must be taken here - otherwise
++     * it sat in the queue until the operation finished and the user was
++     * stuck looking at the modal screen (and got a flash when it finally
++     * unwound).  Other buttons are dropped on purpose: the operation is
++     * modal. */
++    int button = button_get_w_tmo(0);
++    if ((button & BUTTON_HOME) && !(button & (BUTTON_REL | BUTTON_REPEAT)))
++        lvgui_home_key();
 +    lv_timer_handler();
++    lvgui_home_tick();
 +}
 +
 +/* Run the plugin queued by the stock tree (plugin_open()), then repaint
@@ -554699,10 +554710,10 @@ index 0000000000..a548458da5
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..72bb46d542
+index 0000000000..c80e7809ed
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2829 @@
+@@ -0,0 +1,2839 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -555062,6 +555073,13 @@ index 0000000000..72bb46d542
 +    }
 +    shell_toast_clear();          /* a new screen hides a sticky splash */
 +    nav_stack[nav_depth++] = scr;
++
++    /* Home asked for the start screen: a stock flow can still push one
++     * more list while it unwinds.  Build it silently (the stack entry is
++     * deleted by the teardown) instead of flashing a half-built screen. */
++    if (ui_home_pending())
++        return;
++
 +    /* Switch immediately, then slide the NEW screen in over the
 +     * background.  Never lv_scr_load_anim(): it parks the target in
 +     * disp->scr_to_load and keeps it there until the animation's timer
@@ -556723,6 +556741,9 @@ index 0000000000..72bb46d542
 +{
 +    shell_toast_clear();
 +    if (!msg || !msg[0])
++        return;
++    /* leaving for Home: do not paint anything on the way out */
++    if (ui_home_pending())
 +        return;
 +
 +    lv_obj_t *scr = lv_layer_top();
@@ -616018,10 +616039,10 @@ index 0000000000..4ce003796a
 +#endif
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
 new file mode 100644
-index 0000000000..8067a5b2a5
+index 0000000000..41332cd28f
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bluetooth.c
-@@ -0,0 +1,1820 @@
+@@ -0,0 +1,1844 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
@@ -616508,6 +616529,7 @@ index 0000000000..8067a5b2a5
 +
 +    if (pid == 0)
 +    {
++        setpgid(0, 0);              /* helpers spawn children: kill them all */
 +        execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
 +        _exit(127);
 +    }
@@ -616516,6 +616538,18 @@ index 0000000000..8067a5b2a5
 +    while (waitpid(pid, &status, WNOHANG) == 0)
 +    {
 +        bt_pump();
++        {
++            /* Home pressed: stop the helper instead of making the user
++             * wait out the whole inquiry. */
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++            {
++                kill(-pid, SIGKILL);
++                kill(pid, SIGKILL);
++                waitpid(pid, &status, 0);
++                return;
++            }
++        }
 +        sleep(HZ / 10);
 +        waited += HZ / 10;
 +        if (waited >= HZ * 20)
@@ -616593,6 +616627,17 @@ index 0000000000..8067a5b2a5
 +    {
 +        if (bt_audio_idle_hook)
 +            bt_audio_idle_hook();
++        {
++            /* Home pressed during the inquiry: stop it right away (the
++             * shell teardown waits for this job to return). */
++            bool lvgui_home_wanted(void);
++            if (lvgui_home_wanted())
++            {
++                kill(pid, SIGKILL);
++                waitpid(pid, &status, 0);
++                break;
++            }
++        }
 +        sleep(HZ / 10);
 +        waited += HZ / 10;
 +        if (waited >= HZ * 20)
