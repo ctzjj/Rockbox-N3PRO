@@ -336,6 +336,19 @@ void shell_nav_push(lv_obj_t *scr)
     }
     shell_toast_clear();          /* a new screen hides a sticky splash */
     nav_stack[nav_depth++] = scr;
+    /* Stock handlers (a job) push and pop several screens in a row: an
+     * animated transition still in flight when the next one comes in makes
+     * LVGL delete the screen it was animating (lv_scr_load_anim's
+     * "another load in progress" branch with del_prev) - that is a
+     * use-after-free of a screen our nav stack still references (seen as
+     * spins in lv_obj_get_screen and crashes in the style getters).
+     * Jobs do not need the eye candy: load immediately and keep the stack
+     * consistent. */
+    if (lvgui_in_job())
+    {
+        lv_scr_load(scr);
+        return;
+    }
     /* forward navigation slides in from the right (matches the back
      * gesture rolling it out to the right below) */
     lv_scr_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200, 0, false);
@@ -351,6 +364,16 @@ static void nav_pop_do(void *param)
     if (nav_depth <= 1)
         return;                    /* never pop Home */
     lv_obj_t *scr = nav_stack[--nav_depth];
+    if (lvgui_in_job())
+    {
+        /* same reasoning as shell_nav_push(): no animation machinery for
+         * stock-driven navigation; switch first, then free the old screen
+         * (it is no longer active and not referenced by the nav stack) */
+        lv_scr_load(nav_stack[nav_depth - 1]);
+        lv_obj_del(scr);
+        shell_toast_clear();
+        return;
+    }
     /* roll the outgoing screen out to the right, Android-style: the
      * parent slides in from the left; auto_del frees the popped screen
      * when the animation is done (never delete the active screen) */
@@ -1472,6 +1495,7 @@ static void *g_pick_move_ud;
 static lv_obj_t *g_pick_stack[8];
 static int g_pick_n;
 static char g_pick_title[80];   /* title of the list currently on screen */
+static lv_obj_t *g_pick_scr;    /* the picker running right now, or NULL */
 
 static void picker_forget(lv_obj_t *scr)
 {
@@ -1496,11 +1520,26 @@ static void picker_add(lv_obj_t *scr)
 /* called when a job finishes: drop picker screens left on top */
 void shell_pick_cleanup(void)
 {
+    /* Only ever drop a picker that is still a live screen: the registry
+     * can hold pointers of screens its owner already popped (the delete
+     * event runs later than the pop), and deleting one of those again is
+     * a use-after-free. */
+    for (int i = 0; i < g_pick_n; )
+    {
+        lv_obj_t *scr = g_pick_stack[i];
+        if (!lv_obj_is_valid(scr))
+        {
+            picker_forget(scr);
+            continue;
+        }
+        i++;
+    }
     while (nav_depth > 1 && g_pick_n > 0 &&
            g_pick_stack[g_pick_n - 1] == lv_scr_act())
     {
-        g_pick_n--;
-        shell_nav_pop_now();
+        lv_obj_t *scr = g_pick_stack[--g_pick_n];
+        if (scr == lv_scr_act())
+            shell_nav_pop_now();
     }
 }
 
@@ -1514,8 +1553,10 @@ static void pick_row_cb(lv_event_t *e)
 
 static void pick_close_cb(lv_event_t *e)
 {
-    picker_forget(lv_event_get_current_target(e));
-    if (!g_pick_done)
+    lv_obj_t *scr = lv_event_get_current_target(e);
+
+    picker_forget(scr);
+    if (scr == g_pick_scr && !g_pick_done)
     {
         g_pick_res = -1;
         g_pick_done = true;
@@ -1744,23 +1785,18 @@ int shell_list_pick(const char *title, const char **items, int count,
      * push itself ends any sticky status toast ("扫描中…"). */
     lv_obj_t *list;
     lv_obj_t *scr;
-    bool same = (g_pick_n > 0 && g_pick_stack[g_pick_n - 1] == lv_scr_act() &&
-                 g_pick_title[0] && title &&
-                 !strcmp(g_pick_title, title));
-    if (same)
-    {
-        scr = g_pick_stack[--g_pick_n];
-        lv_obj_clean(scr);
-        lv_obj_remove_event_cb(scr, pick_close_cb);
-        menu_screen_build(scr, title, &list, pick_close_cb);
-        shell_toast_clear();  /* in-place rebuild does no navigation */
-    }
-    else
-    {
-        scr = shell_menu_screen_push(title, &list, pick_close_cb);
-    }
+
+    /* Always push a fresh screen.  Rebuilding "the same" list in place
+     * meant reusing a pointer from the registry, and that pointer may
+     * already be a deleted screen (its delete event can run after the pop
+     * that removed it from the stack) - lv_obj_clean() on it is a
+     * use-after-free.  A push costs one transition, never a crash. */
+    while (shell_nav_full())
+        shell_nav_pop_now();     /* make room instead of losing the screen */
+    scr = shell_menu_screen_push(title, &list, pick_close_cb);
     snprintf(g_pick_title, sizeof g_pick_title, "%s", title ? title : "");
 
+    g_pick_scr = scr;
     g_pick_done = false;
     g_pick_res = -1;
     picker_add(scr);
@@ -1785,6 +1821,19 @@ int shell_list_pick(const char *title, const char **items, int count,
     lvgui_pump();               /* let the deferred nav pop run */
     g_pick_icns = NULL;
     g_pick_grads = NULL;
+    if (g_pick_scr == scr)
+        g_pick_scr = NULL;      /* this picker is over */
+
+    /* The selection is in.  If the action did not push its successor on
+     * top, this screen has no reason to stay on the stack (stock callers
+     * re-show lists in a loop and stale pickers would pile up until the
+     * nav stack overflows).  When a successor *was* pushed, keep it:
+     * going back must reveal this list again. */
+    if (lv_obj_is_valid(scr) && lv_scr_act() == scr)
+    {
+        shell_nav_pop_now();
+        lvgui_pump();
+    }
 
     return ok ? g_pick_res : -1;
 }
