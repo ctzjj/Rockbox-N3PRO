@@ -1,10 +1,10 @@
 # LVGL UI — architecture and the backend boundary
 
-The `n3pro-lvgl` line replaces Rockbox's classic renderer with a touch-first
-LVGL 8.4 UI. Engine code (playback, playlist, tagcache, settings, DSP, WiFi,
-Bluetooth, netfm, DLNA) is reused **unmodified**; only presentation changes.
-The golden rule of this line: **screens never talk to Rockbox core — they talk
-to `ui_backend.c`.**
+The `main` line (formerly `n3pro-lvgl`) replaces Rockbox's classic renderer
+with a touch-first LVGL 8.4 UI. Engine code (playback, playlist, tagcache,
+settings, DSP, WiFi, Bluetooth, netfm, DLNA) is reused **unmodified**; only
+presentation changes.  The golden rule of this line: **screens never talk to
+Rockbox core — they talk to `ui_backend.c`.**
 
 Rockbox-tree branch that produced the overlay: `lvgl-ui` (from
 `n3pro-newbase`), working tree `/home/ctzjj/rockbox`.
@@ -34,13 +34,14 @@ Ports (the only code allowed to touch both worlds):
 | file | role |
 |---|---|
 | `lvgl_port_disp.c` | LVGL flush → per-row memcpy into Rockbox's RGB565 framebuffer (`FBADDR`) + `lcd_update_rect()`; the n3pro LCD driver keeps doing the 180° rotation and the beam-chasing tear-free blit. Partial refresh (`full_refresh = 0`), one full-screen draw buffer. |
-| `lvgl_port_input.c` | Rockbox button queue → LVGL pointer indev. Touch rides `BUTTON_TOUCHSCREEN` with `(x << 16) \| y` in the button data word; also owns the global gestures (top strip 40 px = control centre, side edge 24 px + 56 px drag = back, lock screen = swipe up ≥ 80 px). |
+| `lvgl_port_input.c` | Rockbox button queue → LVGL pointer indev. Touch rides `BUTTON_TOUCHSCREEN` with `(x << 16) \| y` in the button data word; also owns the global gestures (top strip 40 px = control centre, side edge 48 px + 45 px drag = back, lock screen = swipe up ≥ 80 px). |
 | `lvgl_ui.c` | The GUI thread loop: replaces `root_menu()` (apps/main.c). `lvgui_pump()` = wake-redraw + `button_get_w_tmo()` + volume knob + `lvgui_input_feed()` + `lv_timer_handler()`; stock blocking handlers run as *jobs* between pumps. |
 | `ui_compat.c` | No-op stand-ins for classic-UI symbols the frozen plugin ABI/settings still reference (skin engine, WPS, playlist_viewer). |
 
 `HAVE_LVGL_UI` lives in `firmware/export/config/n3pro.h`; `apps/SOURCES`
-compiles the `gui/lvglui/` block and drops the classic UI files
-(`wps.c`, `playlist_viewer.c`, `gui/skin_engine/*`, `statusbar-skinned.c`).
+compiles the `gui/lvglui/` block; the classic UI files (`wps.c`,
+`playlist_viewer.c`, `gui/skin_engine/*`, `statusbar-skinned.c`) are deleted
+outright on this line.
 LVGL itself is the `lib/lvgl` submodule (v8.4.0), built by `lib/lvgl.make`.
 
 ---
@@ -149,8 +150,9 @@ logic (menu trees, option editors, confirmations) intact. Consequently:
 
 ## 4. Stock entry points remapped for LVGL
 
-Only these files contain `#ifdef HAVE_LVGL_UI` inside shared Rockbox code.
-Each is a two-line hook: *if `lvgui_in_job()` → LVGL implementation, else the
+These files contain the main `#ifdef HAVE_LVGL_UI` hooks inside shared
+Rockbox code (smaller hooks also exist in a number of other files).  Each is
+a two-line hook: *if `lvgui_in_job()` → LVGL implementation, else the
 byte-identical upstream path.*
 
 | stock entry point | LVGL implementation |

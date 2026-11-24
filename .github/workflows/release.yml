@@ -78,7 +78,7 @@ jobs:
           echo "building against rockbox $BASE"
           git clone --quiet https://github.com/Rockbox/rockbox /tmp/rb
           git -C /tmp/rb checkout --quiet "$BASE"
-          # lib/lvgl is a submodule in the n3pro-lvgl line: the patch only
+          # lib/lvgl is a submodule in the LVGL (main) line: the patch only
           # carries the gitlink, so stage the patch and fetch the pinned LVGL
           # sources (shallow: just that commit) before building.
           git -C /tmp/rb apply --check --binary "$GITHUB_WORKSPACE/n3pro_port.patch"

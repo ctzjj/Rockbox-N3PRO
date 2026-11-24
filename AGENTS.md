@@ -5,8 +5,8 @@ checkout needs in order to build for the **Cayin N3Pro** DAP (HiByOS / Ingenic
 X1000, Linux 3.10.14), plus a `n3pro_port.patch` that applies them to a pristine
 tree, and `n3pro_patcher.sh` which builds the flashable `.upt` image.
 
-Base commit the patch was generated against: **`1784c9b8a7`** (Rockbox master,
-2026-09).  See "Applying to a newer master" below.
+Base commit the patch was generated against: **`98a55f623b`** (Rockbox master,
+2026-09-17).  See "Applying to a newer master" below.
 
 ---
 
@@ -14,31 +14,37 @@ Base commit the patch was generated against: **`1784c9b8a7`** (Rockbox master,
 
 Three release lines share this repository:
 
-- **`main`** — the clean hardware port: target drivers, config, keymaps, WPS
-  assets and hardware-level fixes only.  It stays minimal — pure hardware
-  porting, no feature work.  **`v1.x` releases are tagged from `main`.**
-- **`n3pro`** — the feature integration line: everything
-  `main` has, plus the Bluetooth work (output, A2DP input, menu, reset) and
-  future features built on the ported hardware.  **`v2.x` releases are
-  tagged from `n3pro`.**  It is always a superset of `main`.
-- **`n3pro-lvgl`** — the modern-UI line: everything `n3pro` has, with the
-  classic renderer replaced by the touch-first LVGL shell
-  (`apps/gui/lvglui/`, `HAVE_LVGL_UI`).  **`v3.x` releases are tagged from
-  `n3pro-lvgl`.**  It is always a superset of `n3pro`.  The architecture and
-  the mandatory backend boundary are documented in **`docs/lvgl-ui.md`** —
-  read it before touching any `ui_*` file.  Its patch adds the `lib/lvgl`
-  submodule as a gitlink only: a tree rebuilt from `n3pro_port.patch` needs
-  `git submodule update --init lib/lvgl` (v8.4.0) before building.
+- **`n3pro-rockbox`** (formerly `main`) — the clean hardware port: target
+  drivers, config, keymaps, WPS assets and hardware-level fixes only.  It
+  stays minimal — pure hardware porting, no feature work.  **`v1.x` releases
+  are tagged from `n3pro-rockbox`.**
+- **`n3pro-custom`** (formerly `n3pro`) — the feature integration line:
+  everything `n3pro-rockbox` has, plus the Bluetooth work (output, A2DP
+  input, menu, reset) and future features built on the ported hardware.
+  **`v2.x` releases are tagged from `n3pro-custom`.**  It is always a
+  superset of `n3pro-rockbox`.
+- **`main`** (formerly `n3pro-lvgl`) — the modern-UI line: everything
+  `n3pro-custom` has, with the classic renderer replaced by the touch-first
+  LVGL shell (`apps/gui/lvglui/`, `HAVE_LVGL_UI`).  **`v3.x` releases are
+  tagged from `main`.**  It is always a superset of `n3pro-custom`.  The
+  architecture and the mandatory backend boundary are documented in
+  **`docs/lvgl-ui.md`** — read it before touching any `ui_*` file.  Its
+  patch adds the `lib/lvgl` submodule as a gitlink only: a tree rebuilt
+  from `n3pro_port.patch` needs `git submodule update --init lib/lvgl`
+  (v8.4.0) before building.
 
 All code changes are made in a separate rockbox checkout (the working tree),
 never directly in this repository — this repo only holds overlay files plus
-`n3pro_port.patch`.  Branch mapping:
+`n3pro_port.patch`.  The overlay branches are synced per change rather than
+merged, so a line's commits here need not descend from the line below it;
+the superset statements describe the content, and hold by ancestry between
+the rockbox-tree branches in the table below.  Branch mapping:
 
 | rockbox working tree                               | this repository |
 |----------------------------------------------------|-----------------|
-| `port-newbase` = upstream base + the port commit   | `main`          |
-| `n3pro-newbase` = `port-newbase` + feature work    | `n3pro`         |
-| `lvgl-ui` = `n3pro-newbase` + the LVGL UI          | `n3pro-lvgl`    |
+| `port-newbase` = upstream base + the port commit   | `n3pro-rockbox` |
+| `n3pro-newbase` = `port-newbase` + feature work    | `n3pro-custom`  |
+| `lvgl-ui` = `n3pro-newbase` + the LVGL UI          | `main`          |
 
 Landing changes on a line (same procedure for both branches):
 
@@ -56,34 +62,40 @@ Landing changes on a line (same procedure for both branches):
 
 Flow rules:
 
-1. **One-way merging**: `main` merges INTO `n3pro`; never merge or wholesale
-   cherry-pick `n3pro` into `main`.  The same applies from `n3pro` into
-   `n3pro-lvgl`.  To promote a general improvement (one
-   with no BT-file dependencies) back to `main`, extract a clean hunk in
-   the rockbox tree, land it on `main`, and let it flow into `n3pro` with
-   the next merge.
+1. **One-way merging**: `n3pro-rockbox` merges INTO `n3pro-custom`; never
+   merge or wholesale cherry-pick `n3pro-custom` into `n3pro-rockbox`.  The
+   same applies from `n3pro-custom` into `main`.  To promote a general
+   improvement (one with no BT-file dependencies) back to `n3pro-rockbox`,
+   extract a clean hunk in the rockbox tree, land it on `n3pro-rockbox`, and
+   let it flow into `n3pro-custom` with the next merge.
 2. **Ownership**: hardware-related fixes (volume model, wheel, power, USB,
-   display) belong on `main` and must be merged down promptly; code that
-   depends on the BT files (`apps/n3pro_bluetooth.c`, `n3pro-bt-input.*`,
-   `n3pro_bt_rx_*()` calls, BT-aware tube logic) stays on `n3pro` only.
-3. **Merge `main` into `n3pro` after every `main` release** — do not let
-   the lines diverge, or the shared files (`hibylinux_codec.c`,
-   `cayin-n3pro.c`, `apps/lang/*.lang`) accumulate conflicts.
+   display) belong on `n3pro-rockbox` and must be merged down promptly; code
+   that depends on the Bluetooth feature files (`apps/bluetooth.c`,
+   `apps/menus/bluetooth_menu.c`, the `n3pro-bluetooth.c` /
+   `n3pro-bt-input.c` target drivers, `firmware/export/bt_input.h`,
+   BT-aware tube logic) stays on `n3pro-custom` only.
+3. **Merge `n3pro-rockbox` into `n3pro-custom` after every `n3pro-rockbox`
+   release** — do not let the lines diverge, or the shared files
+   (`hibylinux_codec.c`, `cayin-n3pro.c`, `apps/lang/*.lang`) accumulate
+   conflicts.
 
-Working procedure for a `main` → `n3pro` merge (the real merge happens in
-the rockbox tree, not here):
+Working procedure for a `n3pro-rockbox` → `n3pro-custom` merge (the real
+merge happens in the rockbox tree, not here):
 
-1. In the rockbox tree, bring `port-newbase` (= `main`'s content on the
-   upstream base) up to date, then `git merge` it into `n3pro-newbase` and
-   resolve the conflicts there once.
+1. In the rockbox tree, bring `port-newbase` (= `n3pro-rockbox`'s content
+   on the upstream base) up to date, then `git merge` it into
+   `n3pro-newbase` and resolve the conflicts there once.
 2. Rebuild (`tools/configure --target=n3pro --type=N && make`) and verify
    on the device.
 3. Land `n3pro-newbase` here with the "Landing changes" procedure above.
 
 Releases: CI builds whatever commit a release tag points at (it reads the
-patch header for the rockbox base), so publishing `v2.x` from `n3pro` works
-exactly like `v1.x` from `main`.  Upgrading v1 → v2 (or v2 → v2) is
-replacing the `.rockbox` folder; the bootloader is unchanged.
+patch header for the rockbox base).  It runs only when a release is
+published or via a manual `workflow_dispatch` — pushing a branch does not
+build.  Artifacts go to the triggering release and to that line's rolling
+channel (`n3pro-rockbox` → `v1.x`, `n3pro-custom` → `v2.x`, `main` →
+`v3.x`).  Upgrading v1 → v2 (or v2 → v2) is replacing the `.rockbox`
+folder; the bootloader is unchanged.
 
 ---
 
@@ -100,14 +112,15 @@ firmware/target/hosted/cayin/n3pro/                 the N3Pro target driver
     powermgmt-n3pro.c                               battery curves (see "Battery")
     led-n3pro.c                                     RGB LED (LP5562 pattern engine)
     cayin-n3pro.c/.h                                tube / output routing housekeeping
-    n3pro-bluetooth.c / n3pro-bt-input.c/.h         BT output route + A2DP receive
+    n3pro-bluetooth.c / n3pro-bt-input.c            BT output route + A2DP receive
+                                                      (+ n3pro-bt-pcm*.h ALSA hooks)
     n3pro-usb-out.c                                 USB DAC *output* route (uevent listener
                                                       + executor, see the routing section)
     n3pro-usb-pcm.h / n3pro-usb-pcm-hooks.h         USB route contract + ALSA backend hooks
                                                       (private-config open, link-lost)
     n3pro_patcher.sh                                unpack + inject + pack a .upt
 apps/keymaps/keymap-n3pro.c                         keymap (scroll wheel + HOME)
-apps/gui/lvglui/                                     the LVGL UI (n3pro-lvgl line only):
+apps/gui/lvglui/                                     the LVGL UI (main line only):
                                                      screens (ui_shell/ui_library/ui_player/
                                                      ui_menu/ui_control), shell + job API
                                                      (lvgl_ui.{c,h}), theme, widgets, icons,
@@ -143,8 +156,10 @@ n3pro_port.patch                                    ALL of the port as a unified
 
 The LCD and USB drivers are **standalone per-target files**, selected in
 `firmware/SOURCES` (the shared `lcd-linuxfb.c` / `usb-hiby.c` are excluded for
-`CAYIN_N3PRO` there, exactly like the R1/R3ProII exclusions) — the shared files
-themselves are **byte-identical to upstream**.  The generic debug screen and the
+`CAYIN_N3PRO` there, exactly like the R1/R3ProII exclusions) — the
+`CAYIN_N3PRO` blocks those shared files still carry are dead here (the
+standalone drivers provide the symbols) and compile out for every other
+target.  The generic debug screen and the
 `lcd-target.h` / `system-target.h` / `adc-target.h` headers come from the shared
 HiBy directory (`tools/configure` adds `-I target/hosted/hiby` for this target,
 like the existing `game_console` include-path precedent).
@@ -161,20 +176,23 @@ must obey the rules below.
    Every change to a file used by other targets must be wrapped in
    `#if defined(CAYIN_N3PRO) … #else … #endif` (or
    `#if (AUDIOHW_CAPS & TUBE_MODE_CAP)` for the tube setting), with the `#else`
-   branch byte-identical to upstream.  Shared files touched so far (small,
-   in-place guards following the per-target precedent already in those files):
+   branch byte-identical to upstream.  Shared files touched so far include
+   (small, in-place guards following the per-target precedent already in
+   those files; the LVGL UI hooks guard the same way with `HAVE_LVGL_UI`):
    `firmware/usb.c`, `firmware/SOURCES`,
    `firmware/target/hosted/hiby/hibylinux_codec.c` / `.h`,
    `firmware/target/hosted/hiby/usb-dac-hiby.c`, `apps/recorder/keyboard.c`,
    `apps/settings{,_list}.c`, `apps/settings.h`, `apps/menus/{sound,settings}_menu.c`,
    `firmware/{sound.c,export/sound.h,export/audiohw.h,export/audiohw_settings.h,export/config.h}`,
-   `bootloader/hibyos_linux.c`, `firmware/export/usb.h`.
+   `bootloader/hibyos_linux.c`.
    Bigger subsystems must **not** grow `CAYIN_N3PRO` blocks inside shared
    files: implement them as standalone files under
    `firmware/target/hosted/cayin/n3pro/` and exclude the shared file for
    `CAYIN_N3PRO` in `firmware/SOURCES` — `lcd-n3pro.c` and `usb-n3pro.c` are
-   the templates; the shared `lcd-linuxfb.c` / `usb-hiby.c` stay
-   byte-identical to upstream.     `usb-dac-hiby.c` is also compiled for
+   the templates; the `CAYIN_N3PRO` blocks left inside the shared
+   `lcd-linuxfb.c` / `usb-hiby.c` are dead code here, and every other
+   target still compiles the byte-identical upstream path.
+   `usb-dac-hiby.c` is also compiled for
    R1/R3ProII/AP80Max, so breaking its `#else` path is the easiest way to
    regress other players.
    The device runtime is **old**: never call a libm/glibc entry point that
@@ -220,7 +238,7 @@ must obey the rules below.
    up as an unbootable player or a slow death.  Only reach for the heap when an
    API you must use forces it, keep it out of hot paths, and free it
    deterministically.
-7. **LVGL screens talk to `ui_backend.c` only.**  On `n3pro-lvgl`, `ui_*.c`
+7. **LVGL screens talk to `ui_backend.c` only.**  On `main`, `ui_*.c`
    must not include Rockbox core headers, `ui_backend.c` must not include
    LVGL, blocking stock calls run through `lvgui_run_job()`, and nothing but
    the GUI thread may touch LVGL.  The full contract, recipes and review
@@ -317,8 +335,9 @@ output, they are not routing events):
   `usb_volume_set` (same swap model as `bt_volume`), applied entirely by
   the shared 32-bit digital gain (`pcm_set_mixer_volume()`, 50 dB window)
   in `hibylinux_codec.c` -- no softvol control (its registration through
-  the private tree proved unreliable).  While the route is active
-  `audiohw_set_volume()` skips the AK4493 registers and drives that gain.
+  the private tree proved unreliable).  While the route is active the
+  AK4493 hardware volume is bypassed (the register write stays but is
+  inert) and that gain carries the whole curve.
 - Tube: `cayin_tube_tick()` powers the tube off (`tube_off_now()`) while
   the USB route is active, exactly like the bluetooth route.
 - Jack detection: `headphones_inserted()` (button-n3pro.c) reports
@@ -331,7 +350,8 @@ output, they are not routing events):
 
 - `apps/playback.c` `audio_start_playback` — local playback **stops** the
   radio (`netfm_stream_stop_async()`); **refuses** DLNA / BT / USB (the DLNA
-  refusal is mirrored by the `apps/gui/wps.c` `gui_wps_show` splash).
+  refusal is mirrored by the `be_playback_allowed()` splash in
+  `apps/gui/lvglui/ui_backend.c`).
 - `apps/web_control.c` `web_local_playback` — stops the radio;
   **refuses** DLNA / BT / USB.
 - `apps/netfm.c` `netfm_play_screen` — stops DLNA + local; **refuses** BT/USB.
@@ -427,21 +447,22 @@ adb shell "sync; reboot"                                # UMS gadget is up
 
 - **SoC / OS**: Ingenic X1000, Linux 3.10.14, HiByOS.
 - **Display**: 360×480 panel.  `/dev/fb0` is **32bpp XRGB8888** with a
-  1440-byte stride and the panel is mounted **rotated 180°**.  Rockbox keeps its
-  internal 16bpp RGB565 framebuffer and converts/rotates on update
-  (`fb_blit_n3pro()` in `lcd-linuxfb.c`).  The panel is scanned straight out of
-  the framebuffer at **60 Hz with no blanking interval** (pixclock 96450 ps,
-  zero sync margins), and the kernel fbdev can neither page-flip
+  1440-byte stride and the panel is mounted **rotated 180°**.  Rockbox keeps
+  its internal 16bpp RGB565 framebuffer and converts/rotates on update
+  (`fb_blit_n3pro()` in `lcd-n3pro.c`).  The panel is scanned straight out
+  of the framebuffer at **60 Hz with no blanking interval** (pixclock 96450
+  ps, zero sync margins), and the kernel fbdev can neither page-flip
   (`yres_virtual` is clamped to `yres`; `FBIOPAN_DISPLAY` is a no-op) nor
-  `FBIO_WAITFORVSYNC`.  Writing the visible buffer therefore tears unless it is
-  synchronised: the panel TE signal is wired to a GPIO that the kernel counts
-  as the **`slcd_vsync` interrupt (~60 Hz)**, so `lcd-linuxfb.c` locks onto that
-  counter via `/proc/interrupts` (sleep until the predicted edge, then a ~1 ms
-  tight poll) and blits **in scan order**, which runs ahead of the beam
-  (7 ms/frame vs 35 µs/row) — tear-free.  Only updates ≥ 1/8 of the screen are
-  synchronised; without the sync source the code falls back to unsynchronised
-  writes.  The framebuffer may read as all zeros once the backlight is off
-  (the panel latches the image), so idle screenshots are unreliable.
+  `FBIO_WAITFORVSYNC`.  Writing the visible buffer therefore tears unless it
+  is synchronised: the panel TE signal is wired to a GPIO that the kernel
+  counts as the **`slcd_vsync` interrupt (~60 Hz)**, so `lcd-n3pro.c` locks
+  onto that counter via `/proc/interrupts` (sleep until the predicted edge,
+  then a ~1 ms tight poll) and blits **in scan order**, which runs ahead of
+  the beam (~9 ms/frame vs 35 µs/row) — tear-free.  Only updates ≥ 1/8 of
+  the screen are synchronised; without the sync source the code falls back
+  to unsynchronised writes.  The framebuffer may read as all zeros once the
+  backlight is off (the panel latches the image), so idle screenshots are
+  unreliable.
 - **Audio**: dual AK4493 on ALSA card 0 (`n3pro-ak4493-i2s`).  Digital filter:
   ALSA `AK4493 Digital Filter` (5 modes) + `Digital Filter`.  The output stage
   carries **two JAN6418 subminiature tubes**; *Tube Mode* is the operating mode
@@ -548,7 +569,7 @@ adb shell "sync; reboot"                                # UMS gadget is up
 
 ```sh
 git clone git://git.rockbox.org/rockbox && cd rockbox
-git checkout 1784c9b8a7          # patch base (safest)
+git checkout 98a55f623b          # patch base (safest)
 git apply /path/to/n3pro_port.patch
 # on a much newer tree: git apply --3way … , or --reject and fix the .rej
 ```
@@ -565,14 +586,3 @@ Bump `MODEL_NUMBER` / menu id / `CAYIN_N3PRO_PAD` if upstream has taken them.
 - Battery voltage curves are inherited from R1; the gauge itself is exact.
 - `BUTTON_LEFT`/`BUTTON_RIGHT` intentionally mirror `BUTTON_PREV`/`BUTTON_NEXT`
   (affects simulator/plugins only).
-- **TODO — DLNA transport seek / progress**: the renderer reports no
-  position and rejects AVTransport `Seek`, so dragging the progress bar in
-  the controller does nothing.  `dlna_output_get_position()` and
-  `dlna_output_seek()` in `apps/dlna/dlna_output.c` both `return -1`.
-  Plan: (1) report `track_duration` from `id3->length` and
-  `track_position` from the decode-host elapsed counter (`dp_set_elapsed`)
-  so the controller can draw progress; (2) forward `Seek` into the engine —
-  a target within the retained ~4 MB ring can go through
-  `ci->seek_buffer` directly, a farther target needs a new HTTP request
-  with a `Range:` header (NetEase CDN Range support must be verified
-  first).  Not started; do it after the exclusivity work is verified.

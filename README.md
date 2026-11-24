@@ -129,8 +129,9 @@ The port drives the vendor Bluetooth stack (BlueZ4 + `sys_server` + the stock
 ALSA `bluetooth` plugin, BCM4345C5) through a two-entry menu:
 
 * **Audio output** — A2DP to earphones/speakers:
-  * scan, pair, connect, disconnect; a codec preference walk negotiates the
-    best codec the peer accepts (LDAC_HQ → APTX → AAC → SBC).
+  * scan, pair, connect, disconnect; the codec is negotiated automatically
+    (the stock flow: any `DefaultCodec` pin is removed and the vendor stack
+    picks the best codec the peer accepts — LDAC/APTX/AAC/SBC).
   * An output watchdog follows the link state: audio auto-routes to the
     earphone when it (re)connects and falls back to the wired jack when it
     drops — pausing playback across the switch so the bluetooth-side volume
@@ -142,8 +143,7 @@ ALSA `bluetooth` plugin, BCM4345C5) through a two-entry menu:
   plays through Rockbox:
   * the received A2DP stream is decoded by the vendor plugin, pumped through
     the full Rockbox DSP chain (**EQ and Sound settings apply**) and played
-    out of the wired outputs, with the sample rate following the link
-    (44.1/48/88.2/96 kHz).
+    out of the wired outputs, with the sample rate following the link.
   * entering the screen powers the radio on (the phone can then pair) and
     stops local playback, like USB DAC; the screen shows link state, peer,
     codec and rate. **Back** keeps receiving in the background; the
