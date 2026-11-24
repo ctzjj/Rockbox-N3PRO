@@ -15,11 +15,11 @@ Rockbox-tree branch that produced the overlay: `lvgl-ui` (from
 
 ```
 apps/gui/lvglui/
-  ui_shell.c  ui_library.c  ui_player.c  ui_menu.c  ui_control.c   ← screens
-        │           │            │           │           │
+  ui_shell.c  ui_library.c  ui_player.c  ui_control.c              ← screens
+        │           │            │           │
         │     ui_theme.c (th->)  ui_widgets.c (ui_*)  ui_icons.c   ← house style
-        │           │            │           │           │
-        └───────────┴────────────┴───────────┴───────────┘
+        │           │            │           │
+        └───────────┴────────────┴───────────┘
                               │  only these three entry points:
                 lvgl_ui.h (shell/job API) · ui_backend.h (be_*) · ui_theme.h
                               │
@@ -36,6 +36,7 @@ Ports (the only code allowed to touch both worlds):
 | `lvgl_port_disp.c` | LVGL flush → per-row memcpy into Rockbox's RGB565 framebuffer (`FBADDR`) + `lcd_update_rect()`; the n3pro LCD driver keeps doing the 180° rotation and the beam-chasing tear-free blit. Partial refresh (`full_refresh = 0`), one full-screen draw buffer. |
 | `lvgl_port_input.c` | Rockbox button queue → LVGL pointer indev. Touch rides `BUTTON_TOUCHSCREEN` with `(x << 16) \| y` in the button data word; also owns the global gestures (top strip 40 px = control centre, side edge 48 px + 45 px drag = back, lock screen = swipe up ≥ 80 px). |
 | `lvgl_ui.c` | The GUI thread loop: replaces `root_menu()` (apps/main.c). `lvgui_pump()` = wake-redraw + `button_get_w_tmo()` + volume knob + `lvgui_input_feed()` + `lv_timer_handler()`; stock blocking handlers run as *jobs* between pumps. |
+| `ui_stock.c` | The stock-UI bridge: implements `do_menu()`, `option_screen()`, the graphical EQ and the other classic surfaces on LVGL when a job is running. May include core headers **and** `lvgl.h` — together with the ports below, the one place where the two worlds meet. Externally visible data accessors (`be_eq_*`) live in `ui_stock.h`. |
 | `ui_compat.c` | No-op stand-ins for classic-UI symbols the frozen plugin ABI/settings still reference (skin engine, WPS, playlist_viewer). |
 
 `HAVE_LVGL_UI` lives in `firmware/export/config/n3pro.h`; `apps/SOURCES`
@@ -53,11 +54,18 @@ pure data API: no LVGL types, no `lvgl.h`, no UI callbacks.
 
 ### Rules
 
-1. **No Rockbox headers in screens.** `ui_*.c` may include only `lvgl.h`,
-   `lvgl_ui.h`, `ui_theme.h`, `ui_widgets.h` (plus libc). Anything from
-   `audio.h`, `settings.h`, `playlist.h`, `tagtree.h`, `bt_audio.h`,
-   `wifi_hal.h`, `netfm*.h`, `dlna/*` must be reached through a `be_*` call.
-2. **`ui_backend.c` stays LVGL-free.** It must not include `lvgl.h`. If a
+1. **No Rockbox headers in screens.** `ui_shell.c`, `ui_library.c`,
+   `ui_player.c`, `ui_control.c` and the house-style `ui_theme.c`,
+   `ui_widgets.c`, `ui_icons.c` may include only `lvgl.h`, `lvgl_ui.h`,
+   `ui_theme.h`, `ui_widgets.h`, `ui_backend.h`, `config.h` (compile-time
+   switches), `lang.h` (`str(LANG_*)`), `string-extra.h` (header-only libc
+   extensions) and libc. Anything else — `audio.h`, `settings.h`,
+   `playlist.h`, `tagcache.h`, `onplay.h`, the netfm/dlna headers, … — must
+   be reached through a `be_*` call; `sh tools/n3pro-lvgl-boundary.sh`
+   machine-checks the list.
+2. **`ui_backend.c` stays LVGL-free.** It must not include `lvgl.h` (or any
+   LVGL-tree header — PNG decoding goes through `ui_png_decode_rgba()` in
+   `png_decode.c`). If a
    backend routine has to notify the UI (e.g. a toast during a blocking reset),
    declare the tiny UI hook locally at the top of the file
    (`void shell_toast(int, const char *, const char *);`,
@@ -157,7 +165,7 @@ byte-identical upstream path.*
 
 | stock entry point | LVGL implementation |
 |---|---|
-| `do_menu()` (apps/menu.c) | `lvgui_do_menu()` (ui_menu.c) — whole menu tree, settings editors, EQ |
+| `do_menu()` (apps/menu.c) | `lvgui_do_menu()` (ui_stock.c) — whole menu tree, settings editors, EQ |
 | `simplelist_run*` (apps/gui/list.c) | `shell_list_pick*()` / `shell_list_pick_refresh()` |
 | `gui_syncyesno_run*` (apps/gui/yesno.c) | `shell_yesno_run()` |
 | `splash()` (apps/gui/splash.c) | `shell_splash()` |
@@ -234,6 +242,12 @@ mkdir -p build-n3pro && cd build-n3pro
 ../tools/configure --target=n3pro --type=N && make -j$(nproc)
 ```
 
+Keep the backend boundary honest (run from the repository root):
+
+```sh
+sh tools/n3pro-lvgl-boundary.sh
+```
+
 Deploy on the device (the SD card is not mounted at boot):
 
 ```sh
@@ -274,7 +288,7 @@ other lines.
 
 ## 8. Review checklist
 
-- [ ] No `#include` of Rockbox core headers in `ui_*.c`; everything through `be_*`.
+- [ ] `sh tools/n3pro-lvgl-boundary.sh` passes (no core headers in screens).
 - [ ] No `lvgl.h`/UI headers in `ui_backend.c`.
 - [ ] Blocking stock calls wrapped in `lvgui_run_job()`; blocking dialogs only in jobs.
 - [ ] No LVGL call from a non-GUI thread.

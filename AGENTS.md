@@ -122,11 +122,13 @@ firmware/target/hosted/cayin/n3pro/                 the N3Pro target driver
 apps/keymaps/keymap-n3pro.c                         keymap (scroll wheel + HOME)
 apps/gui/lvglui/                                     the LVGL UI (main line only):
                                                      screens (ui_shell/ui_library/ui_player/
-                                                     ui_menu/ui_control), shell + job API
+                                                     ui_control), the stock-UI bridge
+                                                     ui_stock.c, shell + job API
                                                      (lvgl_ui.{c,h}), theme, widgets, icons,
                                                      display/input ports, and the backend
-                                                     boundary ui_backend.{c,h} — see
-                                                     docs/lvgl-ui.md before editing
+                                                     boundary ui_backend.{c,h} (machine-
+                                                     checked by tools/n3pro-lvgl-boundary.sh)
+                                                     — see docs/lvgl-ui.md before editing
 lib/lvgl, lib/lvgl.make, .gitmodules                 LVGL v8.4.0 submodule + build glue
 docs/lvgl-ui.md                                      LVGL architecture and the
                                                      backend call-layer rules
@@ -238,11 +240,17 @@ must obey the rules below.
    up as an unbootable player or a slow death.  Only reach for the heap when an
    API you must use forces it, keep it out of hot paths, and free it
    deterministically.
-7. **LVGL screens talk to `ui_backend.c` only.**  On `main`, `ui_*.c`
-   must not include Rockbox core headers, `ui_backend.c` must not include
-   LVGL, blocking stock calls run through `lvgui_run_job()`, and nothing but
-   the GUI thread may touch LVGL.  The full contract, recipes and review
-   checklist are in `docs/lvgl-ui.md`.
+7. **LVGL screens talk to `ui_backend.c` only.**  On `main`, the screens
+   (`ui_shell.c`, `ui_library.c`, `ui_player.c`, `ui_control.c` and the
+   house-style `ui_theme.c` / `ui_widgets.c` / `ui_icons.c`) must not
+   include Rockbox core headers — engine access goes through `be_*` calls,
+   and `sh tools/n3pro-lvgl-boundary.sh` machine-checks the include lists.
+   `ui_backend.c` must not include LVGL; `ui_stock.c` is the stock-UI
+   bridge (do_menu / option_screen / EQ on LVGL) and, like the
+   `lvgl_port_*` files, is the one place the two worlds meet.  Blocking
+   stock calls run through `lvgui_run_job()`, and nothing but the GUI
+   thread may touch LVGL.  The full contract, recipes and review checklist
+   are in `docs/lvgl-ui.md`.
 
 ---
 
