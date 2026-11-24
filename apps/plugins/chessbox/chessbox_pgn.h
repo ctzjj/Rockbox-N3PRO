@@ -566,7 +566,15 @@
 #define CB_SCROLL_LEFT  (BUTTON_LEFT|BUTTON_REPEAT)
 #define CB_SCROLL_RIGHT (BUTTON_RIGHT|BUTTON_REPEAT)
 
-#elif CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD || CONFIG_KEYPAD == CAYIN_N3PRO_PAD
+#elif CONFIG_KEYPAD == CAYIN_N3PRO_PAD
+/* 3x3 touchscreen grid, same convention as the rest of the target:
+ * top-left opens the menu (quit lives there), power quits directly,
+ * the difficulty level moves to the bottom-right cell */
+#define CB_MENU          (BUTTON_TOPLEFT|BUTTON_REL)
+#define CB_RC_QUIT       BUTTON_POWER
+#define CB_LEVEL         BUTTON_BOTTOMRIGHT
+
+#elif CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD
 /* use touchscreen */
 
 #elif CONFIG_KEYPAD == MA_PAD

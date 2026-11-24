@@ -23,22 +23,10 @@
 
 #include "config.h"
 #include "lvgl.h"
-#include "lcd.h"
 #include "lvgl_ui.h"
-#include "root_menu.h"
 #include "ui_theme.h"
-#include "dlna/dlna_output.h"
 #include "ui_backend.h"
-#include "kernel.h"
-#include "powermgmt.h"
-#include "timefuncs.h"
-#include "settings.h"
 #include "lang.h"
-#include "statusbar.h"
-#include "sound.h"
-#include "button.h"
-#include "audio.h"
-#include "metadata.h"
 #include "string-extra.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -178,7 +166,7 @@ static void backdrop_init(void)
 
     /* base vertical gradient: the theme's, or the chosen preset's 24-bit
      * palette.  Theme colours come packed at 5/6/5 -- expand to 8 bits. */
-    int preset = global_settings.ui_backdrop;
+    int preset = be_ui_backdrop_preset();
     const bd_preset_t *bp = (preset > 0 && preset < BD_PRESET_COUNT)
                             ? &bd_presets[preset] : NULL;
     uint8_t tr, tg, tb, br, bg_, bb;
@@ -186,7 +174,7 @@ static void backdrop_init(void)
     {
         tr = (bp->top >> 16) & 0xff; tg = (bp->top >> 8) & 0xff; tb = bp->top & 0xff;
         br = (bp->bot >> 16) & 0xff; bg_ = (bp->bot >> 8) & 0xff; bb = bp->bot & 0xff;
-        if (global_settings.ui_dark_mode)
+        if (be_ui_dark_mode())
         {
             /* dark theme: same presets, night-time palette */
             tr /= 4; tg /= 4; tb /= 4;
@@ -227,7 +215,7 @@ static void backdrop_init(void)
             cr = (bp->blob[i].col >> 16) & 0xff;
             cg = (bp->blob[i].col >> 8) & 0xff;
             cb = bp->blob[i].col & 0xff;
-            if (global_settings.ui_dark_mode)
+            if (be_ui_dark_mode())
             {
                 cr /= 3; cg /= 3; cb /= 3; strv /= 2;
             }
@@ -636,66 +624,55 @@ static void statusbar_tick(lv_timer_t *t)
 {
     (void)t;
     /* panel off: nothing to update (the wake repaint refreshes it) */
-    if (!lcd_active())
+    if (!be_lcd_active())
         return;
-    struct tm *tm = get_time();
-    int batt = battery_level();
-    /* classic status-bar volume readout: raw volume, /10 when it has a
-     * decimal place (see gui_statusbar_icon_volume in statusbar.c) */
-    int vol = global_status.volume;
-    int nd = sound_numdecimals(SOUND_VOLUME);
-    if (nd)
-        vol /= 10 * nd;
+    struct be_statusbar sb;
+    be_statusbar_snapshot(&sb);
     for (int i = 0; i < SB_SLOTS; i += 4)
     {
         lv_obj_t *tl = sb_slots[i], *bl = sb_slots[i + 1],
                  *vl = sb_slots[i + 2], *wl = sb_slots[i + 3];
-        if (tl && tm)
+        if (tl && sb.have_time)
         {
-            if (global_settings.timeformat == 1)
+            if (sb.timeformat_12h)
             {
-                int h12 = tm->tm_hour % 12;
+                int h12 = sb.hour % 12;
                 if (!h12)
                     h12 = 12;
-                lv_label_set_text_fmt(tl, "%d:%02d %s", h12, tm->tm_min,
-                                      tm->tm_hour < 12 ? "AM" : "PM");
+                lv_label_set_text_fmt(tl, "%d:%02d %s", h12, sb.min,
+                                      sb.hour < 12 ? "AM" : "PM");
             }
             else
-                lv_label_set_text_fmt(tl, "%02d:%02d", tm->tm_hour, tm->tm_min);
+                lv_label_set_text_fmt(tl, "%02d:%02d", sb.hour, sb.min);
         }
         if (bl)
         {
-            if (global_settings.battery_display == 0) /* graphic */
+            if (sb.batt_graphic) /* graphic */
             {
                 const char *s =
-                    batt >= 95 ? LV_SYMBOL_BATTERY_FULL :
-                    batt >= 75 ? LV_SYMBOL_BATTERY_3   :
-                    batt >= 50 ? LV_SYMBOL_BATTERY_2   :
-                    batt >= 25 ? LV_SYMBOL_BATTERY_1   :
+                    sb.batt >= 95 ? LV_SYMBOL_BATTERY_FULL :
+                    sb.batt >= 75 ? LV_SYMBOL_BATTERY_3   :
+                    sb.batt >= 50 ? LV_SYMBOL_BATTERY_2   :
+                    sb.batt >= 25 ? LV_SYMBOL_BATTERY_1   :
                                  LV_SYMBOL_BATTERY_EMPTY;
                 lv_label_set_text(bl, s);
             }
             else
-                lv_label_set_text_fmt(bl, "%d%%", batt);
+                lv_label_set_text_fmt(bl, "%d%%", sb.batt);
         }
         if (vl)
-        {
-            int vmin = sound_min(SOUND_VOLUME), vmax = sound_max(SOUND_VOLUME);
-            int pct = (vmax > vmin)
-                      ? (global_status.volume - vmin) * 100 / (vmax - vmin)
-                      : 0;
-            lv_label_set_text_fmt(vl, "%s %d%%", LV_SYMBOL_VOLUME_MAX, pct);
-        }
+            lv_label_set_text_fmt(vl, "%s %d%%", LV_SYMBOL_VOLUME_MAX,
+                                  sb.vol_pct);
         if (wl)
         {
             char net[16];
             int n = 0;
-            if (be_wifi_up())
+            if (sb.wifi_up)
             {
                 strcpy(net, LV_SYMBOL_WIFI);
                 n = strlen(net);
             }
-            if (be_bt_active())
+            if (sb.bt_active)
             {
                 if (n)
                     net[n++] = ' ';
@@ -712,9 +689,11 @@ static void statusbar_tick(lv_timer_t *t)
 
 static void statusbar_build(lv_obj_t *parent)
 {
-    if (global_settings.statusbar == STATUSBAR_OFF)
+    bool sb_off, sb_bot;
+    be_statusbar_mode(&sb_off, &sb_bot);
+    if (sb_off)
         return;
-    bool bot = (global_settings.statusbar == STATUSBAR_BOTTOM);
+    bool bot = sb_bot;
     lv_align_t al_l = bot ? LV_ALIGN_BOTTOM_LEFT : LV_ALIGN_TOP_LEFT;
     lv_align_t al_r = bot ? LV_ALIGN_BOTTOM_RIGHT : LV_ALIGN_TOP_RIGHT;
     int dy = bot ? -7 : 7;
@@ -751,9 +730,10 @@ static void statusbar_build(lv_obj_t *parent)
 
 void shell_scrollbar_setup(lv_obj_t *list)
 {
-    lv_obj_set_scrollbar_mode(list,
-        global_settings.scrollbar == SCROLLBAR_OFF ? LV_SCROLLBAR_MODE_OFF
-                                                   : LV_SCROLLBAR_MODE_AUTO);
+    bool off;
+    be_scrollbar_prefs(&off, NULL);
+    lv_obj_set_scrollbar_mode(list, off ? LV_SCROLLBAR_MODE_OFF
+                                        : LV_SCROLLBAR_MODE_AUTO);
 }
 
 void shell_statusbar_build(lv_obj_t *parent)
@@ -1753,7 +1733,7 @@ lv_obj_t *shell_menu_row_new(lv_obj_t *list, const char *icon, bool sym,
         lv_obj_set_style_bg_grad_color(row,
             lv_color_darken(th->accent_blue, 30), 0);
         lv_obj_set_style_bg_grad_dir(row, LV_GRAD_DIR_VER, 0);
-        lv_obj_set_style_bg_opa(row, global_settings.ui_dark_mode ? 150 : 128, 0);
+        lv_obj_set_style_bg_opa(row, be_ui_dark_mode() ? 150 : 128, 0);
         lv_obj_set_style_border_color(row,
             lv_color_lighten(th->accent_blue, 100), 0);
         lv_obj_set_style_border_opa(row, LV_OPA_60, 0);
@@ -2101,7 +2081,7 @@ void shell_toast(int ticks, const char *msg, const char *icon)
 
     if (ticks > 0)
     {
-        uint32_t ms = (uint32_t)ticks * 1000 / HZ;
+        uint32_t ms = be_ticks_to_ms(ticks);
         uint32_t t0 = lv_tick_get();
         while (lv_tick_elaps(t0) < ms && g_splash)
             lvgui_pump();
@@ -2275,36 +2255,37 @@ static void open_settings(lv_event_t *e)  { (void)e; lvgui_run_job(menu_job, (vo
  * shutdown message from its SYS_POWEROFF handler, mirror that here. */
 void shell_shutdown_notice(void)
 {
-    if (global_settings.show_shutdown_message)
+    if (be_show_shutdown_message())
         shell_toast(0, str(LANG_SHUTTINGDOWN), NULL);
 }
 
 /* Settings -> Startup/Shutdown -> Start Screen, applied once at boot.
  * Same arithmetic as root_menu_setup_screens(): the setting stores
- * GO_TO_* + 2, 0 means "previous screen" (global_status.last_screen). */
+ * GO_TO_* + 2, 0 means "previous screen" (be_start_screen() normalizes
+ * it to a BE_START_* value). */
 void shell_start_screen_apply(void)
 {
     switch (be_start_screen())
     {
-    case GO_TO_FILEBROWSER:
+    case BE_START_FILES:
         shell_files_show();
         break;
-    case GO_TO_DBBROWSER:
+    case BE_START_DATABASE:
         library_open();
         break;
-    case GO_TO_WPS:
+    case BE_START_WPS:
         shell_player_show();
         break;
-    case GO_TO_RECENTBMARKS:
+    case BE_START_BOOKMARKS:
         open_bookmarks(NULL);
         break;
-    case GO_TO_PLUGIN:
+    case BE_START_PLUGINS:
         open_plugins(NULL);
         break;
-    case GO_TO_PLAYLISTS_SCREEN:
+    case BE_START_PLAYLISTS:
         shell_playlists_show();
         break;
-    default:                  /* GO_TO_ROOT / GO_TO_MAINMENU: Home */
+    default:                  /* BE_START_HOME: root/main menu -> Home */
         break;
     }
 }
@@ -2364,10 +2345,10 @@ static lv_obj_t *dock_art;          /* cover thumbnail in the dock chip */
 static lv_obj_t *dock_glyph;        /* fallback music note */
 static lv_obj_t *dock_chip;         /* 32x32 cover chip container */
 static lvui_art_t *dock_art_dsc;
-static char dock_path[MAX_PATH];
+static char dock_path[BE_PATH_MAX];
 static lv_timer_t *dock_timer;
 
-static char dock_art_path[MAX_PATH];
+static char dock_art_path[BE_PATH_MAX];
 static lv_img_dsc_t *dock_dsc_p;
 
 static void dock_art_drop(void)
@@ -2429,7 +2410,7 @@ static void dock_set_dlna_art_impl(void)
     unsigned gen = 0, pg = 0;
     int pw = 0, ph = 0, x, y;
 
-    data = dlna_output_art_data(&len, &gen);
+    data = be_dlna_art_data(&len, &gen);
     if (gen == dock_dlna_gen)
         return;
     dock_dlna_gen = gen;
@@ -2475,9 +2456,9 @@ static void dock_set_dlna_art_impl(void)
 
 static void dock_set_dlna_art(void)
 {
-    dlna_output_art_lock();
+    be_dlna_art_lock();
     dock_set_dlna_art_impl();
-    dlna_output_art_unlock();
+    be_dlna_art_unlock();
 }
 
 /* ---- lock screen (clock only, up-swipe to unlock) ---------------------- */
@@ -2543,7 +2524,7 @@ void shell_lock_show(void)
 static void dock_tick(lv_timer_t *t)
 {
     (void)t;
-    if (!dock_l1 || !lcd_active())
+    if (!dock_l1 || !be_lcd_active())
         return;
 
     char tb[128], sb[64];
@@ -2578,9 +2559,9 @@ static void dock_tick(lv_timer_t *t)
         title = tb[0] ? tb : str(LANG_BT_RX);
         sub = str(LANG_BT_RX);
     }
-    else if (trk && trk[0] && (st & (AUDIO_STATUS_PLAY | AUDIO_STATUS_PAUSE)))
+    else if (trk && trk[0] && (st & (BE_AUDIO_STATUS_PLAY | BE_AUDIO_STATUS_PAUSE)))
     {
-        char namebuf[MAX_PATH];
+        char namebuf[BE_PATH_MAX];
         const char *base = strrchr(trk, '/');
         const char *ttl;
         base = base ? base + 1 : trk;
@@ -2617,7 +2598,7 @@ static void dock_tick(lv_timer_t *t)
     }
     lv_label_set_text(dock_l2, sub);
     lv_label_set_text(dock_btn,
-                      (st & AUDIO_STATUS_PAUSE) ? LV_SYMBOL_PLAY
+                      (st & BE_AUDIO_STATUS_PAUSE) ? LV_SYMBOL_PLAY
                                                 : LV_SYMBOL_PAUSE);
     if (local)
         dock_set_local_art(trk);

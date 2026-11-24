@@ -326,6 +326,21 @@ static inline bool action_poll_button(action_last_t *last, action_cur_t *cur)
 
     *button = button_get_w_tmo(cur->timeout);
 
+#ifdef HAVE_LVGL_UI
+    /* HOME is global: it always returns to the start screen, never a
+     * per-screen action.  Classic loops (simplelists, plugin screens)
+     * read the queue here, so the key must be taken before the keymap
+     * turns it into ACTION_STD_MENU - otherwise the screen consumed it
+     * and the shell stayed where it was (Home looked like "back"). */
+    if ((*button & BUTTON_HOME) && !(*button & (BUTTON_REL | BUTTON_REPEAT)))
+    {
+        void lvgui_home_key(void);
+        lvgui_home_key();
+        *button = ACTION_STD_CANCEL;   /* leave this loop now */
+        return true;
+    }
+#endif
+
    /* ********************************************************
     * Can return button immediately, sys_event & multimedia
     * button presses don't use the action system, Data from

@@ -503,11 +503,12 @@ bool option_screen(const struct settings_list *setting,
 {
 #ifdef HAVE_LVGL_UI
     bool lvgui_in_job(void);                       /* apps/gui/lvglui */
+    bool plugin_is_running(void);                  /* apps/plugin.c */
     bool lvgui_option_screen(const struct settings_list *setting,
                              struct viewport parent[NB_SCREENS],
                              bool use_temp_var,
                              const unsigned char *option_title);
-    if (lvgui_in_job())
+    if (lvgui_in_job() && !plugin_is_running())
         return lvgui_option_screen(setting, parent, use_temp_var,
                                    option_title);
 #endif

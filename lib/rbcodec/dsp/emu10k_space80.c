@@ -207,19 +207,26 @@ static intptr_t space80_configure(struct dsp_proc_entry *this, struct dsp_config
     switch (setting)
     {
     case DSP_PROC_INIT:
-        if (value != 0)
+        /* value == 0 means the stage was just enabled (dsp_proc_enable()
+         * passes the previous state); nonzero is a re-init of an already
+         * enabled stage.  The old test was inverted, so data stayed NULL
+         * on the first enable and the matching CLOSE dereferenced it. */
+        if (value == 0)
         {
             this->data = (intptr_t)&space80_data;
-            ((struct space80_data *)this->data)->dsp = dsp;
+            space80_data.dsp = dsp;
         }
         this->process = space80_process;
-        //dsp_proc_activate(dsp, DSP_PROC_SPACE80, true);
         break;
     case DSP_FLUSH:
         space80_flush();
         break;
     case DSP_PROC_CLOSE:
-        ((struct space80_data *)this->data)->dsp = NULL;
+        if (this->data != 0)
+        {
+            ((struct space80_data *)this->data)->dsp = NULL;
+            this->data = 0;
+        }
         break;
     }
     return 1;

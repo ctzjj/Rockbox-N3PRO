@@ -40,6 +40,7 @@
 #include "ui_theme.h"
 #include "ui_widgets.h"
 #include "ui_backend.h"
+#include "ui_stock.h"
 #include "menus/eq_menu.h"
 
 #include "system.h"

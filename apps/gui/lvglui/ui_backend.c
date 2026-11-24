@@ -3,6 +3,11 @@
  * metadata, artwork); nothing here talks to LVGL. */
 
 #include "config.h"
+#include "lcd.h"
+#include "timefuncs.h"
+#include "statusbar.h"
+#include "action.h"
+#include <fcntl.h>
 #include "misc.h"
 #include "tagcache.h"
 #include "playlist.h"
@@ -59,6 +64,7 @@
 #include "lang.h"
 #include "gui/splash.h"
 #include "ui_backend.h"
+#include "ui_stock.h"
 
 /* forward: local playback refusal with a toast (defined near
  * be_playlist_start; used by the earlier start paths too) */
@@ -89,19 +95,18 @@ void be_list_free(be_list_t *t)
 
 /* ---- artwork: embedded JPEG first, then folder images ------------------- */
 
-#include "../../../lib/lvgl/src/extra/libs/png/lodepng.h"
+/* PNG decode (png_decode.c compiles lodepng): declared locally so this
+ * file stays free of LVGL-tree headers */
+unsigned char *ui_png_decode_rgba(const unsigned char *data, size_t len,
+                                  int *w, int *h);
 
 /* decode any PNG blob into a w x h RGB565 buffer (nearest-neighbour scale) */
 static be_img_t *be_png_blob(const unsigned char *data, size_t len, int w, int h)
 {
-    unsigned pw = 0, ph = 0;
-    unsigned char *rgba = NULL;
-    if (lodepng_decode32(&rgba, &pw, &ph, data, len) != 0 || !rgba ||
-        !pw || !ph)
-    {
-        free(rgba);
+    int pw = 0, ph = 0;
+    unsigned char *rgba = ui_png_decode_rgba(data, len, &pw, &ph);
+    if (!rgba)
         return NULL;
-    }
     void *out = malloc((size_t)w * h * 2);
     if (!out)
     {
@@ -110,10 +115,10 @@ static be_img_t *be_png_blob(const unsigned char *data, size_t len, int w, int h
     }
     for (int y = 0; y < h; y++)
     {
-        unsigned sy = (unsigned)y * ph / (unsigned)h;
+        int sy = (int)((unsigned)y * (unsigned)ph / (unsigned)h);
         for (int x = 0; x < w; x++)
         {
-            unsigned sx = (unsigned)x * pw / (unsigned)w;
+            int sx = (int)((unsigned)x * (unsigned)pw / (unsigned)w);
             const unsigned char *p = rgba + 4 * ((size_t)sy * pw + sx);
             ((uint16_t *)out)[(size_t)y * w + x] =
                 (uint16_t)(((p[0] >> 3) << 11) | ((p[1] >> 2) << 5) |
@@ -1055,6 +1060,435 @@ void be_playlist_shuffle_apply(bool on)
 void be_volume_set(int v)
 {
     sound_set(SOUND_VOLUME, v);
+    global_status.volume = v;
+}
+
+int be_volume_get(void)
+{
+    return global_status.volume;
+}
+
+void be_volume_range(int *lo, int *hi)
+{
+    if (lo)
+        *lo = sound_min(SOUND_VOLUME);
+    if (hi)
+        *hi = sound_max(SOUND_VOLUME);
+}
+
+/* The setting's own callback (settings_list.c repeat_mode_callback) has to
+ * run for the change to reach the playlist: the buffered track list is
+ * rebuilt so the *current* track's successor is recomputed.  Setting the
+ * global alone only changed the label - repeat-one kept skipping to the
+ * next track. */
+void be_player_cycle_repeat(void)
+{
+    int r = global_settings.repeat_mode;
+    if (r < REPEAT_OFF || r > REPEAT_ONE)
+        r = REPEAT_OFF;
+    else
+        r = (r == REPEAT_ONE) ? REPEAT_OFF : r + 1;
+    global_settings.repeat_mode = r;
+    settings_save();
+    if ((audio_status() & AUDIO_STATUS_PLAY) == AUDIO_STATUS_PLAY)
+        audio_flush_and_reload_tracks();
+}
+
+int be_player_repeat_mode(void)
+{
+    return global_settings.repeat_mode;
+}
+
+bool be_player_shuffle(void)
+{
+    return global_settings.playlist_shuffle;
+}
+
+bool be_player_toggle_shuffle(void)
+{
+    global_settings.playlist_shuffle = !global_settings.playlist_shuffle;
+    be_playlist_shuffle_apply(global_settings.playlist_shuffle);
+    return global_settings.playlist_shuffle;
+}
+
+/* ---- shell state snapshots (status bar, theme, scrollbar) --------------- */
+
+void be_statusbar_snapshot(struct be_statusbar *out)
+{
+    struct tm *tm = get_time();
+    memset(out, 0, sizeof *out);
+    if (tm)
+    {
+        out->have_time = true;
+        out->hour = tm->tm_hour;
+        out->min = tm->tm_min;
+    }
+    out->timeformat_12h = (global_settings.timeformat == 1);
+    out->batt = battery_level();
+    out->batt_graphic = (global_settings.battery_display == 0);
+    out->vol_pct = be_volume_pct_get();
+    out->wifi_up = be_wifi_up();
+    out->bt_active = be_bt_active();
+}
+
+void be_statusbar_mode(bool *off, bool *bottom)
+{
+    if (off)
+        *off = (global_settings.statusbar == STATUSBAR_OFF);
+    if (bottom)
+        *bottom = (global_settings.statusbar == STATUSBAR_BOTTOM);
+}
+
+void be_scrollbar_prefs(bool *off, bool *left)
+{
+    if (off)
+        *off = (global_settings.scrollbar == SCROLLBAR_OFF);
+    if (left)
+        *left = (global_settings.scrollbar == SCROLLBAR_LEFT);
+}
+
+bool be_lcd_active(void)
+{
+    return lcd_active();
+}
+
+int be_ui_backdrop_preset(void)
+{
+    return global_settings.ui_backdrop;
+}
+
+bool be_ui_dark_mode(void)
+{
+    return global_settings.ui_dark_mode;
+}
+
+int be_ui_font_size(void)
+{
+    return global_settings.ui_font_size;
+}
+
+bool be_show_shutdown_message(void)
+{
+    return global_settings.show_shutdown_message;
+}
+
+uint32_t be_ticks_to_ms(int ticks)
+{
+    return (uint32_t)ticks * 1000 / HZ;
+}
+
+const unsigned char *be_dlna_art_data(size_t *len, unsigned *gen)
+{
+    return dlna_output_art_data(len, gen);
+}
+
+void be_dlna_art_lock(void)
+{
+    dlna_output_art_lock();
+}
+
+void be_dlna_art_unlock(void)
+{
+    dlna_output_art_unlock();
+}
+
+/* ---- stock onplay context menu: opaque accessors ------------------------ */
+
+int be_menu_count(be_menu_h menu)
+{
+    return MENU_GET_COUNT(((const struct menu_item_ex *)menu)->flags);
+}
+
+int be_menu_item_type(be_menu_h menu, int i)
+{
+    const struct menu_item_ex *m = menu;
+    switch (m->submenus[i]->flags & MENU_TYPE_MASK)
+    {
+        case MT_MENU:                  return BE_ITEM_MENU;
+        case MT_FUNCTION_CALL:         return BE_ITEM_FUNCTION;
+        case MT_FUNCTION_CALL_W_PARAM: return BE_ITEM_FUNCTION_PARAM;
+        default:                       return BE_ITEM_OTHER;
+    }
+}
+
+bool be_menu_item_visible(be_menu_h menu, int i)
+{
+    const struct menu_item_ex *m = menu;
+    const struct menu_item_ex *item = m->submenus[i];
+    menu_callback_type cb;
+    if (item->flags & (MENU_HAS_DESC | MENU_DYNAMIC_DESC))
+        cb = item->callback_and_desc->menu_callback;
+    else
+        cb = item->menu_callback;
+    if (!cb)
+        return true;
+    return cb(ACTION_REQUEST_MENUITEM, item, NULL) != ACTION_EXIT_MENUITEM;
+}
+
+const char *be_menu_item_label(be_menu_h menu, int i, char *buf, size_t bufsz)
+{
+    const struct menu_item_ex *m = menu;
+    const struct menu_item_ex *item = m->submenus[i];
+    if (item->flags & MENU_DYNAMIC_DESC)
+        return item->menu_get_name_and_icon->list_get_name(i,
+                   item->menu_get_name_and_icon->list_get_name_data,
+                   buf, bufsz);
+    return P2STR(item->callback_and_desc->desc);
+}
+
+const char *be_menu_title(be_menu_h menu)
+{
+    const struct menu_item_ex *m = menu;
+    return (m->flags & MENU_HAS_DESC)
+        ? P2STR(m->callback_and_desc->desc) : NULL;
+}
+
+be_menu_item_h be_menu_item(be_menu_h menu, int i)
+{
+    return ((const struct menu_item_ex *)menu)->submenus[i];
+}
+
+int be_menu_item_kind(be_menu_item_h item)
+{
+    return onplay_item_kind((const struct menu_item_ex *)item);
+}
+
+int be_menu_item_run(be_menu_item_h item)
+{
+    const struct menu_item_ex *it = item;
+    int type = it->flags & MENU_TYPE_MASK;
+    int res = ONPLAY_OK;
+
+    if (type == MT_FUNCTION_CALL_W_PARAM)
+        res = it->function_param->function_w_param(it->function_param->param);
+    else if (type == MT_FUNCTION_CALL)
+        res = it->function->function();
+    else
+        return -1;
+
+    if (!(it->flags & MENU_FUNC_CHECK_RETVAL) || res == ONPLAY_OK)
+        res = onplay_result_code();
+    switch (res)
+    {
+        case ONPLAY_START_PLAY: return BE_ONPLAY_START_PLAY;
+        case ONPLAY_PLAYLIST:   return BE_ONPLAY_PLAYLIST;
+        case ONPLAY_RELOAD_DIR: return BE_ONPLAY_RELOAD_DIR;
+        default:                return BE_ONPLAY_NONE;
+    }
+}
+
+int be_onplay_result(void)
+{
+    switch (onplay_result_code())
+    {
+        case ONPLAY_START_PLAY: return BE_ONPLAY_START_PLAY;
+        case ONPLAY_PLAYLIST:   return BE_ONPLAY_PLAYLIST;
+        case ONPLAY_RELOAD_DIR: return BE_ONPLAY_RELOAD_DIR;
+        default:                return BE_ONPLAY_NONE;
+    }
+}
+
+void be_onplay_prepare(const char *path, int attr)
+{
+    onplay_prepare(path, attr);
+}
+
+be_menu_h be_onplay_tree_menu(void)
+{
+    return onplay_tree_menu();
+}
+
+int be_filetype_attr(const char *path)
+{
+    return filetype_get_attr(path);
+}
+
+int be_attr_directory(void)
+{
+    return ATTR_DIRECTORY;
+}
+
+int be_dirfilter_user(void)
+{
+    return global_settings.dirfilter;
+}
+
+int be_dirfilter_show_m3u(void)
+{
+    return SHOW_M3U;
+}
+
+/* The stock onplay menu decides visibility from *tree_context->dirfilter
+ * (onplay.c clipboard_callback / dir_callback).  Set it to the scenario we
+ * are showing (file browser = user's File settings filter, playlist catalog
+ * = SHOW_M3U) for the lifetime of the context menu, then restore. */
+static int be_ctx_dirfilter_val;
+static int *be_ctx_dirfilter_prev;
+static bool be_ctx_dirfilter_set;
+
+void be_tree_dirfilter_set(int filter)
+{
+    struct tree_context *tc = tree_get_context();
+    if (be_ctx_dirfilter_set)
+        return;
+    be_ctx_dirfilter_prev = tc->dirfilter;
+    be_ctx_dirfilter_val = filter;
+    tc->dirfilter = &be_ctx_dirfilter_val;
+    be_ctx_dirfilter_set = true;
+}
+
+void be_tree_dirfilter_restore(void)
+{
+    if (be_ctx_dirfilter_set)
+    {
+        tree_get_context()->dirfilter = be_ctx_dirfilter_prev;
+        be_ctx_dirfilter_set = false;
+    }
+}
+
+void be_tree_dirfilter_reset_to_user(void)
+{
+    tree_get_context()->dirfilter = &global_settings.dirfilter;
+}
+
+int be_playlist_viewer_menu(void)
+{
+    MENUITEM_STRINGLIST(menu_items, ID2P(LANG_PLAYLIST), NULL,
+                        ID2P(LANG_PLAYING_NEXT), ID2P(LANG_ADD_TO_PL),
+                        ID2P(LANG_REMOVE), ID2P(LANG_MOVE),
+                        ID2P(LANG_MENU_SHOW_ID3_INFO), ID2P(LANG_SHUFFLE),
+                        ID2P(LANG_SAVE), ID2P(LANG_PLAYLISTVIEWER_SETTINGS));
+    return do_menu(&menu_items, NULL, NULL, false);
+}
+
+int be_playlist_catalog_scan(char ***titles, char ***paths, int max)
+{
+    char dir[BE_PATH_MAX];
+    catalog_get_directory(dir, sizeof dir);
+    if (!dir[0])
+        strlcpy(dir, "/Playlists", sizeof dir);
+
+    /* collect the catalog playlists in one pass (no rewinddir in rockbox) */
+    int cap = 16, n = 0;
+    char **tt = malloc(cap * sizeof(char *));
+    char **pp = malloc(cap * sizeof(char *));
+    DIR *dp = opendir(dir);
+    if (dp)
+    {
+        struct dirent *en;
+        while ((en = readdir(dp)) != NULL && n < max)
+        {
+            if (!be_is_playlist_name(en->d_name))
+                continue;
+            if (n == cap)
+            {
+                cap *= 2;
+                tt = realloc(tt, cap * sizeof(char *));
+                pp = realloc(pp, cap * sizeof(char *));
+            }
+            char full[BE_PATH_MAX];
+            snprintf(full, sizeof full, "%s/%s", dir, en->d_name);
+            pp[n] = strdup(full);
+            char st[BE_PATH_MAX];
+            strlcpy(st, en->d_name, sizeof st);
+            char *dot = strrchr(st, '.');
+            if (dot)
+                *dot = '\0';
+            tt[n] = strdup(st);
+            n++;
+        }
+        closedir(dp);
+    }
+    *titles = tt;
+    *paths = pp;
+    return n;
+}
+
+/* ---- tagcache build state, field by field ------------------------------- */
+
+/* tagcache.c scan-phase file counter (scan counts files, not dirs) */
+extern int tc_scan_files;
+
+bool be_db_commit_delayed(void)
+{
+    struct tagcache_stat *st = tagcache_get_stat();
+    return st && st->commit_delayed;
+}
+
+bool be_db_readyvalid(void)
+{
+    struct tagcache_stat *st = tagcache_get_stat();
+    return st && st->readyvalid;
+}
+
+int be_db_commit_step(void)
+{
+    struct tagcache_stat *st = tagcache_get_stat();
+    return st ? st->commit_step : 0;
+}
+
+const char *be_db_curentry(void)
+{
+    struct tagcache_stat *st = tagcache_get_stat();
+    return (st && st->curentry) ? st->curentry : "";
+}
+
+int be_db_scan_count(void)
+{
+    return tc_scan_files;
+}
+
+bool be_db_ask_needed(void)
+{
+    struct tagcache_stat *st = tagcache_get_stat();
+    return st && st->readyvalid && !st->ready &&
+           st->processed_entries == 0 && st->commit_step == 0;
+}
+
+/* ---- tag snapshot for the properties screen ----------------------------- */
+
+static struct mp3entry be_tag_id3;
+
+bool be_track_tags(const char *path)
+{
+    memset(&be_tag_id3, 0, sizeof be_tag_id3);
+    int fd = open(path, O_RDONLY);
+    if (fd < 0)
+        return false;
+    bool ok = get_metadata(&be_tag_id3, fd, path);
+    close(fd);
+    return ok;
+}
+
+const char *be_tag_title(void)  { return be_tag_id3.title; }
+const char *be_tag_artist(void) { return be_tag_id3.artist; }
+const char *be_tag_album(void)  { return be_tag_id3.album; }
+const char *be_tag_genre(void)  { return be_tag_id3.genre_string; }
+int  be_tag_year(void)          { return be_tag_id3.year; }
+long be_tag_length(void)        { return be_tag_id3.length; }
+int  be_tag_bitrate(void)       { return be_tag_id3.bitrate; }
+long be_tag_frequency(void)     { return be_tag_id3.frequency; }
+
+/* ---- browser settings ---------------------------------------------------- */
+
+bool be_browser_keep_directory(void)
+{
+    return global_settings.keep_directory;
+}
+
+bool be_browser_full_paths(void)
+{
+    return global_settings.show_path_in_browser == SHOW_PATH_FULL;
+}
+
+bool be_browser_resume_current(void)
+{
+    return global_settings.browse_current;
+}
+
+bool be_dir_exists(const char *path)
+{
+    return dir_exists(path);
 }
 
 void be_settings_save(void)
@@ -1066,11 +1500,6 @@ void be_settings_save(void)
 bool be_db_usable(void)
 {
     return tagcache_is_usable();
-}
-
-struct tagcache_stat *be_db_stat(void)
-{
-    return tagcache_get_stat();
 }
 
 void be_db_rebuild(void)
@@ -1126,7 +1555,16 @@ int be_start_screen(void)
     if (screen > GO_TO_SHORTCUTMENU ||
         (screen == GO_TO_WPS && global_status.resume_index == -1))
         screen = GO_TO_ROOT;
-    return screen;
+    switch (screen)
+    {
+        case GO_TO_FILEBROWSER:      return BE_START_FILES;
+        case GO_TO_DBBROWSER:        return BE_START_DATABASE;
+        case GO_TO_WPS:              return BE_START_WPS;
+        case GO_TO_RECENTBMARKS:     return BE_START_BOOKMARKS;
+        case GO_TO_PLUGIN:           return BE_START_PLUGINS;
+        case GO_TO_PLAYLISTS_SCREEN: return BE_START_PLAYLISTS;
+        default:                     return BE_START_HOME;
+    }
 }
 
 void be_playlist_viewer_opts(int *indices, int *track_display)

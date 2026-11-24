@@ -388,13 +388,16 @@ void do_setting_from_menu(const struct menu_item_ex *temp,
  * when do_menu() is reached from an lvgui_run_job() blocking context */
 int lvgui_do_menu(const struct menu_item_ex *menu, int *start_selected);
 bool lvgui_in_job(void);
+bool plugin_is_running(void);          /* apps/plugin.c */
 #endif
 
 int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
             struct viewport parent[NB_SCREENS], bool hide_theme)
 {
 #ifdef HAVE_LVGL_UI
-    if (lvgui_in_job())
+    /* a plugin's own menus keep the classic UI: the native engine pops
+     * back to the shell underneath the running plugin otherwise */
+    if (lvgui_in_job() && !plugin_is_running())
         return lvgui_do_menu(start_menu, start_selected);
 #endif
     int selected = start_selected? *start_selected : 0;
@@ -413,10 +416,13 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
     int old_audio_status = audio_status();
 
 #ifdef HAVE_TOUCHSCREEN
-    /* plugins possibly have grid mode active. force global settings in lists */
+    /* The classic list UI only understands the 3x3 grid cells, never raw
+     * points.  Plugins may run in point mode (their own touch UIs), so put
+     * the panel in grid mode for the lifetime of the menu; the previous
+     * mode is restored below. */
     enum touchscreen_mode tsm = touchscreen_get_mode();
     enum touchscreen_mode old_global_mode = global_settings.touch_mode;
-    touchscreen_set_mode(global_settings.touch_mode);
+    touchscreen_set_mode(TOUCHSCREEN_BUTTON);
 #endif
 
     title = init_title(menu, &icon, buf, sizeof buf);
@@ -821,9 +827,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
     /* This is needed because this function runs the settings menu and we do
      * not want to switch back to the old mode if the user intentionally went
      * to a different one. This is a very hacky way to do this... */
-    if(!(global_settings.touch_mode != (int)old_global_mode &&
-         tsm == old_global_mode))
-        touchscreen_set_mode(tsm);
+    (void)old_global_mode;
+    touchscreen_set_mode(tsm);
 #endif
     return ret;
 }

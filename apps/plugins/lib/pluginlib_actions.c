@@ -302,6 +302,23 @@ const struct button_mapping pla_main_ctx[] =
     { PLA_DOWN_REPEAT,      BUTTON_DOWN|BUTTON_REPEAT,          BUTTON_NONE },
     { PLA_LEFT_REPEAT,      BUTTON_LEFT|BUTTON_REPEAT,          BUTTON_NONE },
     { PLA_RIGHT_REPEAT,     BUTTON_RIGHT|BUTTON_REPEAT,         BUTTON_NONE },
+#elif CONFIG_KEYPAD == CAYIN_N3PRO_PAD
+    /* physical prev/next walk lists, the 3x3 grid supplements them:
+     * top/bottom-middle = up/down, mid-left/right = left/right */
+    { PLA_UP,               BUTTON_PREV,                        BUTTON_NONE },
+    { PLA_DOWN,             BUTTON_NEXT,                        BUTTON_NONE },
+    { PLA_UP_REPEAT,        BUTTON_PREV|BUTTON_REPEAT,          BUTTON_NONE },
+    { PLA_DOWN_REPEAT,      BUTTON_NEXT|BUTTON_REPEAT,          BUTTON_NONE },
+#ifdef HAVE_TOUCHSCREEN
+    { PLA_UP,               BUTTON_TOPMIDDLE,                   BUTTON_NONE },
+    { PLA_DOWN,             BUTTON_BOTTOMMIDDLE,                BUTTON_NONE },
+    { PLA_UP_REPEAT,        BUTTON_TOPMIDDLE|BUTTON_REPEAT,     BUTTON_NONE },
+    { PLA_DOWN_REPEAT,      BUTTON_BOTTOMMIDDLE|BUTTON_REPEAT,  BUTTON_NONE },
+    { PLA_LEFT,             BUTTON_MIDLEFT,                     BUTTON_NONE },
+    { PLA_RIGHT,            BUTTON_MIDRIGHT,                    BUTTON_NONE },
+    { PLA_LEFT_REPEAT,      BUTTON_MIDLEFT|BUTTON_REPEAT,       BUTTON_NONE },
+    { PLA_RIGHT_REPEAT,     BUTTON_MIDRIGHT|BUTTON_REPEAT,      BUTTON_NONE },
+#endif
 #else
 #   ifndef HAVE_TOUCHSCREEN
 #       error pluginlib_actions: No directions defined
@@ -529,7 +546,21 @@ const struct button_mapping pla_main_ctx[] =
     {PLA_SELECT,            BUTTON_SELECT,                      BUTTON_NONE},
     {PLA_SELECT_REL,        BUTTON_SELECT|BUTTON_REL,           BUTTON_SELECT},
     {PLA_SELECT_REPEAT,     BUTTON_SELECT|BUTTON_REPEAT,        BUTTON_NONE},
-#elif (CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD || CONFIG_KEYPAD == CAYIN_N3PRO_PAD)
+#elif CONFIG_KEYPAD == CAYIN_N3PRO_PAD
+    /* 3x3 grid: top-left tap = cancel, hold = exit; centre/play = select */
+#ifdef HAVE_TOUCHSCREEN
+    {PLA_CANCEL,            BUTTON_TOPLEFT,                     BUTTON_NONE},
+    {PLA_EXIT,              BUTTON_TOPLEFT|BUTTON_REPEAT,       BUTTON_NONE},
+    {PLA_SELECT,            BUTTON_CENTER,                      BUTTON_NONE},
+    {PLA_SELECT_REL,        BUTTON_CENTER|BUTTON_REL,           BUTTON_CENTER},
+    {PLA_SELECT_REPEAT,     BUTTON_CENTER|BUTTON_REPEAT,        BUTTON_CENTER},
+#endif
+    {PLA_EXIT,              BUTTON_POWER,                       BUTTON_NONE},
+    {PLA_CANCEL,            BUTTON_POWER|BUTTON_REL,            BUTTON_POWER},
+    {PLA_SELECT,            BUTTON_PLAY,                        BUTTON_NONE},
+    {PLA_SELECT_REL,        BUTTON_PLAY|BUTTON_REL,             BUTTON_PLAY},
+    {PLA_SELECT_REPEAT,     BUTTON_PLAY|BUTTON_REPEAT,          BUTTON_PLAY},
+#elif (CONFIG_KEYPAD == SHANLING_Q1_PAD || CONFIG_KEYPAD == HIBY_R3PROII_PAD || CONFIG_KEYPAD == HIDIZS_AP80MAX_PAD)
     {PLA_EXIT,              BUTTON_POWER,                       BUTTON_NONE},
 #elif (CONFIG_KEYPAD == MA_PAD)
     {PLA_CANCEL,            BUTTON_BACK|BUTTON_REL,            BUTTON_BACK},

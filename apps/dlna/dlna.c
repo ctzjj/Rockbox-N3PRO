@@ -225,6 +225,14 @@ static void dlna_nowplaying_screen(void)
         int dur;
         unsigned int ms;
 
+#ifdef HAVE_LVGL_UI
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+                break;
+        }
+#endif
+
         dlna_stream_get_status(&st);
         if (!dlna_stream_is_active() ||
             st.state == DLNA_STREAM_IDLE ||

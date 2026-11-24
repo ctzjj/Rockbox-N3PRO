@@ -8,8 +8,8 @@
 #include "ui_theme.h"
 #include "ui_widgets.h"
 #include "ui_backend.h"
-#include "settings.h"
 #include "lang.h"
+#include "string-extra.h"       /* strlcpy */
 
 /* iOS26-style control centre: full-screen frosted panel, [connectivity 2x2]
  * top-left, [now playing] top-right, volume/brightness pills below. */
@@ -31,7 +31,7 @@ static lv_obj_t *g_med_play_lbl; /* play/pause glyph */
 static lv_obj_t *g_wifi_btn, *g_bt_btn, *g_tr_btn, *g_ul_btn;
 static lvui_art_t *g_med_dsc;
 static lv_obj_t *g_med_b1, *g_med_b2, *g_med_b3, *g_med_bx;
-static char g_med_path[MAX_PATH];
+static char g_med_path[BE_PATH_MAX];   /* == core MAX_PATH */
 static lv_timer_t *g_med_timer;
 
 bool lvgui_control_is_open(void) { return g_open; }

@@ -16,14 +16,7 @@
 #include "ui_widgets.h"
 #include "lvgl_ui.h"
 #include "ui_backend.h"
-#include "audio.h"
-#include "metadata.h"
-#include "settings.h"
 #include "lang.h"
-#include "sound.h"
-#include "powermgmt.h"
-#include "playlist.h"
-#include "timefuncs.h"
 #include "string-extra.h"
 #include <time.h>
 #include <string.h>
@@ -94,13 +87,13 @@ typedef struct
     lv_obj_t *lr_lbl[LR_ROWS];
     lv_obj_t *lr_none;
     lv_timer_t *lr_timer;
-    char lr_path[MAX_PATH];
+    char lr_path[BE_PATH_MAX];
 
     /* info page */
     lv_obj_t *inf_v[INFO_ROWS];
 
     lvui_art_t *art;
-    char path[MAX_PATH];
+    char path[BE_PATH_MAX];
 } player_t;
 
 typedef struct lr_line
@@ -244,8 +237,8 @@ static void cover_gesture_cb(lv_event_t *e)
  * 单曲循环 = loop arrows + "1" badge */
 static void player_set_repeat(player_t *p)
 {
-    int r = global_settings.repeat_mode;
-    if (r == REPEAT_OFF)
+    int r = be_player_repeat_mode();
+    if (r == BE_REPEAT_OFF)
     {
         lv_obj_clear_flag(p->rep_lines, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(p->rep_ic, LV_OBJ_FLAG_HIDDEN);
@@ -255,29 +248,19 @@ static void player_set_repeat(player_t *p)
     {
         lv_obj_add_flag(p->rep_lines, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(p->rep_ic, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text(p->rep_badge, r == REPEAT_ONE ? "1" : "A");
+        lv_label_set_text(p->rep_badge, r == BE_REPEAT_ONE ? "1" : "A");
         lv_obj_clear_flag(p->rep_badge, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
 LV_IMG_DECLARE(ui_icon_repeat);
 
-/* The setting's own callback (settings_list.c repeat_mode_callback) has to
- * run for the change to reach the playlist: the buffered track list is
- * rebuilt so the *current* track's successor is recomputed.  Setting the
- * global alone only changed the label - repeat-one kept skipping to the
- * next track. */
+/* the cycle itself runs in the backend (be_player_cycle_repeat): the
+ * setting's own callback has to fire for the change to reach the
+ * playlist -- see ui_backend.c */
 static void player_cycle_repeat(player_t *p)
 {
-    int r = global_settings.repeat_mode;
-    if (r < REPEAT_OFF || r > REPEAT_ONE)
-        r = REPEAT_OFF;
-    else
-        r = (r == REPEAT_ONE) ? REPEAT_OFF : r + 1;
-    global_settings.repeat_mode = r;
-    settings_save();
-    if ((audio_status() & AUDIO_STATUS_PLAY) == AUDIO_STATUS_PLAY)
-        audio_flush_and_reload_tracks();
+    be_player_cycle_repeat();
     player_set_repeat(p);
 }
 
@@ -332,18 +315,13 @@ static void seek_released_cb(lv_event_t *e)
 /* ---- volume side capsule (HyperOS-style vertical slider) ---------------- */
 static void vol_update_label(player_t *p)
 {
-    int v = global_status.volume;
-    int lo = sound_min(SOUND_VOLUME), hi = sound_max(SOUND_VOLUME);
-    int pct = hi > lo ? (v - lo) * 100 / (hi - lo) : 0;
-    ui_volume_label(p->vol_val, pct);
+    ui_volume_label(p->vol_val, be_volume_pct_get());
 }
 
 static void vol_slider_cb(lv_event_t *e)
 {
     player_t *p = lv_event_get_user_data(e);
-    int v = lv_slider_get_value(p->vol_slider);
-    be_volume_set(v);
-    global_status.volume = v;
+    be_volume_set(lv_slider_get_value(p->vol_slider));
     vol_update_label(p);
 }
 
@@ -475,18 +453,16 @@ static void dr_rep_cb(lv_event_t *e)
     for (int i = 0; i < 3; i++)
         snprintf(names[i], sizeof names[i], "%s · %s", str(LANG_REPEAT),
                  str(modes[i]));
-    lv_label_set_text(p->dr_rep, names[global_settings.repeat_mode]);
+    lv_label_set_text(p->dr_rep, names[be_player_repeat_mode()]);
 }
 
 static void dr_shf_cb(lv_event_t *e)
 {
     player_t *p = lv_event_get_user_data(e);
-    global_settings.playlist_shuffle = !global_settings.playlist_shuffle;
-    be_playlist_shuffle_apply(global_settings.playlist_shuffle);
+    bool sh = be_player_toggle_shuffle();
     char b[48];
     snprintf(b, sizeof b, "%s · %s", str(LANG_SHUFFLE),
-             global_settings.playlist_shuffle ? str(LANG_SET_BOOL_YES)
-                                              : str(LANG_SET_BOOL_NO));
+             sh ? str(LANG_SET_BOOL_YES) : str(LANG_SET_BOOL_NO));
     lv_label_set_text(p->dr_shf, b);
 }
 
@@ -555,16 +531,15 @@ static void drawer_open(player_t *p)
     /* playback settings */
     char rb[3][48], sb[48];
     static const int modes[3] = { LANG_OFF, LANG_ALL, LANG_REPEAT_ONE };
+    int rm = be_player_repeat_mode();
     for (int i = 0; i < 3; i++)
         snprintf(rb[i], sizeof rb[i], "%s · %s", str(LANG_REPEAT),
                  str(modes[i]));
     snprintf(sb, sizeof sb, "%s · %s", str(LANG_SHUFFLE),
-             global_settings.playlist_shuffle ? str(LANG_SET_BOOL_YES)
-                                              : str(LANG_SET_BOOL_NO));
+             be_player_shuffle() ? str(LANG_SET_BOOL_YES)
+                                 : str(LANG_SET_BOOL_NO));
     p->dr_rep = dr_chip(d, 16, 60,
-                        rb[(global_settings.repeat_mode >= 0 &&
-                            global_settings.repeat_mode <= 2)
-                           ? global_settings.repeat_mode : 0],
+                        rb[(rm >= 0 && rm <= 2) ? rm : 0],
                         dr_rep_cb, p);
     p->dr_shf = dr_chip(d, 196, 60, sb, dr_shf_cb, p);
 
@@ -704,7 +679,7 @@ static void player_tick_refresh(player_t *p)
         strlcpy(p->path, pi.path, sizeof p->path);
 
         lv_label_set_text(p->title, pi.title);
-        char sub[MAX_PATH];
+        char sub[BE_PATH_MAX];
         sub[0] = '\0';
         if (pi.artist[0])
             strlcpy(sub, pi.artist, sizeof sub);
@@ -749,9 +724,9 @@ static void player_tick_refresh(player_t *p)
 
     /* volume capsule follows the physical volume keys */
     if (p->vol_slider &&
-        lv_slider_get_value(p->vol_slider) != global_status.volume)
+        lv_slider_get_value(p->vol_slider) != be_volume_get())
     {
-        lv_slider_set_value(p->vol_slider, global_status.volume, LV_ANIM_OFF);
+        lv_slider_set_value(p->vol_slider, be_volume_get(), LV_ANIM_OFF);
         vol_update_label(p);
     }
 }
@@ -825,7 +800,7 @@ static void lr_find_and_parse(player_t *p, const char *track)
 
     /* split the audio path into directory + filename-without-extension,
      * so the sidecar lyric file is "<same name>.lrc" */
-    char dir[MAX_PATH], stem[MAX_PATH];
+    char dir[BE_PATH_MAX], stem[BE_PATH_MAX];
     strlcpy(dir, track, sizeof dir);
     char *slash = strrchr(dir, '/');
     if (!slash)
@@ -840,7 +815,7 @@ static void lr_find_and_parse(player_t *p, const char *track)
     if (!p->lines)
         return;
 
-    char fname[MAX_PATH], rb[MAX_PATH];
+    char fname[BE_PATH_MAX], rb[BE_PATH_MAX];
     snprintf(rb, sizeof rb, "%s/%s.lrc", dir, stem);
     snprintf(fname, sizeof fname, "%s%s", PIVOT_ROOT, rb);   /* rockbox path -> host */
     lr_parse(p, fname);

@@ -30,31 +30,10 @@
 #include "ui_theme.h"
 #include "ui_widgets.h"
 #include "ui_backend.h"
-#include "tagcache.h"
-#include "playlist.h"
-#include "thread.h"
-#include "kernel.h"
-#include "metadata.h"
-#include "dir.h"
-#include "file.h"
-#include "tree.h"
-#include "filetree.h"
-#include "filetypes.h"
-#include "onplay.h"
-#include "playlist_catalog.h"
-#include "menu.h"
-#include "action.h"
-#include "settings.h"
 #include "lang.h"
-#include "albumart.h"
-#include "jpeg_load.h"
-#include "bmp.h"
 #include "string-extra.h"
 #include <fcntl.h>
 #include <unistd.h>
-
-/* tagcache.c scan-phase file counter (scan counts files, not dirs) */
-extern int tc_scan_files;
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -158,7 +137,7 @@ static void lib_db_push_level(void);
 
 /* "Browse current directory" / "Keep last directory" from File View:
  * the remembered folder survives only while keep_directory is enabled. */
-static char files_last_dir[MAX_PATH] = "/";
+static char files_last_dir[BE_PATH_MAX] = "/";
 
 static void files_open_dir(const char *path);
 static void files_play(lib_data *d, int idx);
@@ -168,40 +147,28 @@ static void files_dir_menu(void);
 static void files_empty_hold_cb(lv_event_t *e);
 
 /* selection the context menu was opened on (used by props/delete/playlist) */
-static char g_ctx_path[MAX_PATH];
+static char g_ctx_path[BE_PATH_MAX];
 static bool g_ctx_isdir;
 static bool g_ctx_pllist;    /* ctx menu opened from the playlists list */
 
 /* stock playlist catalog browses with dirfilter = SHOW_M3U (playlist_catalog.c
  * display_playlists); mirror rockbox_browse's temporary dirfilter swap while
  * the onplay menu is open so item visibility matches the original exactly */
-static int g_ctx_dirfilter_val;
-static int *g_ctx_prev_dirfilter;
-static bool g_ctx_dirfilter_set;
-
-/* The stock onplay menu decides visibility from *tree_context->dirfilter
- * (onplay.c clipboard_callback / dir_callback).  Set it to the scenario we
- * are showing (file browser = user's File settings filter, playlist catalog
- * = SHOW_M3U) for the lifetime of the context menu, then restore. */
+/* dirfilter juggling lives in the backend (be_tree_dirfilter_set/restore):
+ * the stock onplay menu decides visibility from *tree_context->dirfilter
+ * (onplay.c clipboard_callback / dir_callback), so the scenario we are
+ * showing (file browser = user's File settings filter, playlist catalog =
+ * SHOW_M3U) is applied for the lifetime of the context menu, then
+ * restored. */
 static void ctx_dirfilter_begin(int filter)
 {
-    struct tree_context *tc = tree_get_context();
-    if (g_ctx_dirfilter_set)
-        return;
-    g_ctx_prev_dirfilter = tc->dirfilter;
-    g_ctx_dirfilter_val = filter;
-    tc->dirfilter = &g_ctx_dirfilter_val;
-    g_ctx_dirfilter_set = true;
+    be_tree_dirfilter_set(filter);
 }
 
 static void ctx_dirfilter_restore_cb(lv_event_t *e)
 {
     (void)e;
-    if (g_ctx_dirfilter_set)
-    {
-        tree_get_context()->dirfilter = g_ctx_prev_dirfilter;
-        g_ctx_dirfilter_set = false;
-    }
+    be_tree_dirfilter_restore();
 }
 static void ctx_do_props(void *p);
 
@@ -261,7 +228,7 @@ static void lib_activate(lib_data *d, int idx, int action)
         shell_player_show();
         break;
     case A_FILE:      /* file browser row -> enter a folder or play a file */
-        if (dir_exists(d->tk.path[idx]))
+        if (be_dir_exists(d->tk.path[idx]))
             files_open_dir(d->tk.path[idx]);
         else if (be_is_playlist_name(d->tk.path[idx]))
             lvgui_run_job(pl_file_job, strdup(d->tk.path[idx]));
@@ -443,15 +410,16 @@ static vlist_t *vlist_new(lv_obj_t *scr, int y, int h, int total_h, void *ud,
     lv_obj_add_event_cb(cont, vlist_release_cb, LV_EVENT_RELEASED, v);
     lv_obj_add_event_cb(cont, vlist_delete_cb, LV_EVENT_DELETE, v);
 
-    if (total_h > h && global_settings.scrollbar != SCROLLBAR_OFF)
+    bool sb_off, sb_left;
+    be_scrollbar_prefs(&sb_off, &sb_left);
+    if (total_h > h && !sb_off)
     {
         v->sbar = lv_obj_create(cont);
         int sbh = h * h / total_h;
         if (sbh < 24)
             sbh = 24;
         lv_obj_set_size(v->sbar, 3, sbh);
-        lv_obj_set_pos(v->sbar,
-            global_settings.scrollbar == SCROLLBAR_LEFT ? 2 : 355, 0);
+        lv_obj_set_pos(v->sbar, sb_left ? 2 : 355, 0);
         lv_obj_clear_flag(v->sbar, LV_OBJ_FLAG_SCROLLABLE |
                                     LV_OBJ_FLAG_CLICKABLE);
         lv_obj_set_style_radius(v->sbar, 2, 0);
@@ -723,17 +691,13 @@ static void pl_reload_async(void *p)
 static void pl_menu_job(void *param)
 {
     int idx = (int)(long)param;
-    char path[MAX_PATH];
+    char path[BE_PATH_MAX];
     if (!be_playlist_track_path(idx, path, sizeof path))
         return;
 
-    MENUITEM_STRINGLIST(menu_items, ID2P(LANG_PLAYLIST), NULL,
-                        ID2P(LANG_PLAYING_NEXT), ID2P(LANG_ADD_TO_PL),
-                        ID2P(LANG_REMOVE), ID2P(LANG_MOVE),
-                        ID2P(LANG_MENU_SHOW_ID3_INFO), ID2P(LANG_SHUFFLE),
-                        ID2P(LANG_SAVE), ID2P(LANG_PLAYLISTVIEWER_SETTINGS));
-
-    int sel = do_menu(&menu_items, NULL, NULL, false);
+    /* the playlist_viewer.c context menu itself runs in the backend (the
+     * stock item list, fed through do_menu -> our native engine) */
+    int sel = be_playlist_viewer_menu();
     if (sel < 0)
         return;                              /* cancelled / USB attached */
 
@@ -806,12 +770,12 @@ void shell_playlist_show(void)
         char **pa = malloc(total * sizeof(char *));
         if (ti && su && pa)
         {
-            char tpath[MAX_PATH];
+            char tpath[BE_PATH_MAX];
             for (int i = 0; i < total; i++)
             {
                 if (!be_playlist_track_path(i, tpath, sizeof tpath))
                     break;
-                char line[MAX_PATH + 16];
+                char line[BE_PATH_MAX + 16];
                 be_playlist_row_label(i, i == cur, line, sizeof line);
                 ti[n] = strdup(line);
                 su[n] = strdup("");
@@ -894,7 +858,7 @@ static void lib_db_delete_cb(lv_event_t *e)
     be_db_back();
     /* tagtree points tree_context->dirfilter at its own SHOW_ID3DB; restore
      * the file-browser filter so later file context menus behave normally */
-    tree_get_context()->dirfilter = &global_settings.dirfilter;
+    be_tree_dirfilter_reset_to_user();
 }
 
 static void lib_db_push_level(void)
@@ -913,7 +877,7 @@ static void lib_db_push_level(void)
 /* Mirrors the classic GO_TO_DBBROWSER branch in root_menu.c: entering the
  * database without a usable index asks the user once (gui_syncyesno in
  * the original), starts the build via be_db_rebuild() and polls
- * be_db_stat() until be_db_usable(), showing the same
+ * be_db_ask_needed() until be_db_usable(), showing the same
  * numbers the original splash did (files scanned / commit step). */
 static lv_obj_t *lib_root_scr;
 static lv_obj_t *lib_prog_label;
@@ -947,10 +911,6 @@ static bool lib_db_ready(void)
  * stays hidden; it only appears for the real commit step count. */
 static void lib_prog_tick(lv_timer_t *t)
 {
-    struct tagcache_stat *st = be_db_stat();
-    if (!st)
-        return;
-
     if (be_db_usable())
     {
         lv_timer_del(t);
@@ -972,7 +932,7 @@ static void lib_prog_tick(lv_timer_t *t)
         return;
     }
 
-    if (st->commit_delayed)
+    if (be_db_commit_delayed())
     {
         /* classic behavior: delayed commit needs a reboot */
         if (lib_prog_bar)
@@ -985,7 +945,7 @@ static void lib_prog_tick(lv_timer_t *t)
         return;
     }
 
-    if (!st->readyvalid)
+    if (!be_db_readyvalid())
     {
         if (lib_prog_label)
             lv_label_set_text(lib_prog_label, str(LANG_N3_DB_PREPARING));
@@ -994,19 +954,20 @@ static void lib_prog_tick(lv_timer_t *t)
         return;
     }
 
-    if (st->commit_step > 0)
+    int step = be_db_commit_step();
+    if (step > 0)
     {
         int max = be_db_max_commit_step();
         if (max < 1)
             max = 1;
         if (lib_prog_label)
             lv_label_set_text_fmt(lib_prog_label, str(LANG_N3_DB_COMMITTING),
-                                  st->commit_step, max);
+                                  step, max);
         if (lib_prog_bar)
         {
             lv_obj_clear_flag(lib_prog_bar, LV_OBJ_FLAG_HIDDEN);
             lv_bar_set_range(lib_prog_bar, 0, max);
-            lv_bar_set_value(lib_prog_bar, st->commit_step, LV_ANIM_OFF);
+            lv_bar_set_value(lib_prog_bar, step, LV_ANIM_OFF);
         }
     }
     else
@@ -1014,8 +975,8 @@ static void lib_prog_tick(lv_timer_t *t)
         if (lib_prog_label)
             lv_label_set_text_fmt(lib_prog_label,
                                   str(LANG_N3_DB_SCANNING),
-                                  tc_scan_files,
-                                  st->curentry ? st->curentry : "");
+                                  be_db_scan_count(),
+                                  be_db_curentry());
         if (lib_prog_bar)
             lv_obj_add_flag(lib_prog_bar, LV_OBJ_FLAG_HIDDEN);
     }
@@ -1072,9 +1033,7 @@ static bool lib_need_ask(void)
 {
     if (lib_asked || be_db_usable())
         return false;
-    struct tagcache_stat *st = be_db_stat();
-    return st && st->readyvalid && !st->ready &&
-           st->processed_entries == 0 && st->commit_step == 0;
+    return be_db_ask_needed();
 }
 
 static void lib_build_confirm(void)
@@ -1096,7 +1055,7 @@ static void lib_build_confirm(void)
  * stays compact and buflib-managed. We only render the resulting cache. */
 
 
-static char g_files_dir[MAX_PATH];      /* current browser folder */
+static char g_files_dir[BE_PATH_MAX];      /* current browser folder */
 
 static void files_open_dir(const char *path)
 {
@@ -1108,12 +1067,12 @@ static void files_open_dir(const char *path)
         return;
     strlcpy(g_files_dir, path, sizeof g_files_dir);
     strlcpy(files_last_dir,
-            global_settings.keep_directory ? path : "/",
+            be_browser_keep_directory() ? path : "/",
             sizeof files_last_dir);
 
     const char *base = strrchr(path, '/');
     const char *ttl = (base && base[1]) ? base + 1 : str(LANG_DIR_BROWSER);
-    if (global_settings.show_path_in_browser == SHOW_PATH_FULL)
+    if (be_browser_full_paths())
         ttl = (path[0] == '/' && path[1]) ? path + 1 : path;
     lv_obj_t *scr = lib_screen(ttl);
     shell_nav_push(scr);
@@ -1211,45 +1170,22 @@ static void ctx_do_delete(void *p);
 
 typedef struct
 {
-    const struct menu_item_ex *menu;
+    be_menu_h menu;      /* opaque stock menu tree */
     int idx;
     lv_obj_t *overlay;
 } ctx_item_t;
-
-static bool ctx_visible(const struct menu_item_ex *menu, int i)
-{
-    const struct menu_item_ex *item = menu->submenus[i];
-    menu_callback_type cb;
-    if (item->flags & (MENU_HAS_DESC | MENU_DYNAMIC_DESC))
-        cb = item->callback_and_desc->menu_callback;
-    else
-        cb = item->menu_callback;
-    if (!cb)
-        return true;
-    return cb(ACTION_REQUEST_MENUITEM, item, NULL) != ACTION_EXIT_MENUITEM;
-}
-
-static const char *ctx_label(const struct menu_item_ex *menu, int i,
-                             char *buf, size_t bufsz)
-{
-    const struct menu_item_ex *item = menu->submenus[i];
-    if (item->flags & MENU_DYNAMIC_DESC)
-        return item->menu_get_name_and_icon->list_get_name(i,
-                   item->menu_get_name_and_icon->list_get_name_data,
-                   buf, bufsz);
-    return P2STR(item->callback_and_desc->desc);
-}
 
 static void ctx_scrim_cb(lv_event_t *e);
 static void ctx_row_cb(lv_event_t *e);
 static void ctx_row_free_cb(lv_event_t *e);
 
-static void ctx_open(const struct menu_item_ex *menu, lv_obj_t *parent)
+static void ctx_open(be_menu_h menu, lv_obj_t *parent)
 {
-    int count = MENU_GET_COUNT(menu->flags);
+    int count = be_menu_count(menu);
 
-    const char *title = (menu->flags & MENU_HAS_DESC)
-        ? P2STR(menu->callback_and_desc->desc) : str(LANG_N3_OPTION);
+    const char *title = be_menu_title(menu);
+    if (!title)
+        title = str(LANG_N3_OPTION);
     lv_obj_t *list;
     lv_obj_t *scr = shell_menu_screen_push(title, &list, ctx_scrim_cb);
     if (!parent)
@@ -1258,22 +1194,21 @@ static void ctx_open(const struct menu_item_ex *menu, lv_obj_t *parent)
 
     for (int i = 0; i < count; i++)
     {
-        const struct menu_item_ex *item = menu->submenus[i];
-        int type = item->flags & MENU_TYPE_MASK;
-        if (type != MT_MENU && type != MT_FUNCTION_CALL &&
-            type != MT_FUNCTION_CALL_W_PARAM)
+        int type = be_menu_item_type(menu, i);
+        if (type != BE_ITEM_MENU && type != BE_ITEM_FUNCTION &&
+            type != BE_ITEM_FUNCTION_PARAM)
             continue;
-        if (!ctx_visible(menu, i))
+        if (!be_menu_item_visible(menu, i))
             continue;
         char lbuf[128];
-        const char *lab = ctx_label(menu, i, lbuf, sizeof lbuf);
+        const char *lab = be_menu_item_label(menu, i, lbuf, sizeof lbuf);
         if (!lab || !lab[0])
             continue;
 
         char icb[8];
         lvgui_first_char(lab, icb, sizeof icb);
         lv_obj_t *row = shell_menu_row_new(list, icb[0] ? icb : NULL, false,
-                                           lab, type == MT_MENU, false, 0,
+                                           lab, type == BE_ITEM_MENU, false, 0,
                                            NULL, 3);
 
         ctx_item_t *ci = malloc(sizeof *ci);
@@ -1301,34 +1236,25 @@ static void ctx_row_free_cb(lv_event_t *e)
     free(lv_event_get_user_data(e));
 }
 
-/* run the stock onplay handler for one item (job context) */
+/* run the stock onplay handler for one item (job context); the handler
+ * dispatch itself lives in the backend (be_menu_item_run) */
 static void ctx_stock_job(void *p)
 {
-    const struct menu_item_ex *item = p;
-    int type = item->flags & MENU_TYPE_MASK;
-    int res = ONPLAY_OK;
-
-    if (type == MT_FUNCTION_CALL_W_PARAM)
-        res = item->function_param->function_w_param(
-                                          item->function_param->param);
-    else if (type == MT_FUNCTION_CALL)
-        res = item->function->function();
-    else
+    be_menu_item_h item = p;
+    int res = be_menu_item_run(item);
+    if (res < 0)
         return;
-
-    if (!(item->flags & MENU_FUNC_CHECK_RETVAL) || res == ONPLAY_OK)
-        res = onplay_result_code();
     lv_obj_invalidate(lv_scr_act());
 
-    if (res == ONPLAY_START_PLAY)
+    if (res == BE_ONPLAY_START_PLAY)
         shell_player_show();
-    else if (res == ONPLAY_PLAYLIST)
+    else if (res == BE_ONPLAY_PLAYLIST)
         shell_playlist_show();
-    else if (res == ONPLAY_RELOAD_DIR && g_ctx_pllist)
+    else if (res == BE_ONPLAY_RELOAD_DIR && g_ctx_pllist)
         lv_async_call(pllist_reload_async, NULL);
-    else if (res == ONPLAY_RELOAD_DIR && g_files_dir[0])
+    else if (res == BE_ONPLAY_RELOAD_DIR && g_files_dir[0])
     {
-        char dir[MAX_PATH];
+        char dir[BE_PATH_MAX];
         strlcpy(dir, g_files_dir, sizeof dir);
         lv_async_call(files_reload_async, strdup(dir));
     }
@@ -1341,16 +1267,16 @@ static void ctx_after_action(void *p)
     (void)p;
     if (g_ctx_top && lv_scr_act() == g_ctx_top)
         shell_nav_pop_now();
-    int res = onplay_result_code();
-    if (res == ONPLAY_START_PLAY)
+    int res = be_onplay_result();
+    if (res == BE_ONPLAY_START_PLAY)
         shell_player_show();
-    else if (res == ONPLAY_PLAYLIST)
+    else if (res == BE_ONPLAY_PLAYLIST)
         shell_playlist_show();
-    else if (res == ONPLAY_RELOAD_DIR && g_ctx_pllist)
+    else if (res == BE_ONPLAY_RELOAD_DIR && g_ctx_pllist)
         lv_async_call(pllist_reload_async, NULL);
-    else if (res == ONPLAY_RELOAD_DIR && g_files_dir[0])
+    else if (res == BE_ONPLAY_RELOAD_DIR && g_files_dir[0])
     {
-        char dir[MAX_PATH];
+        char dir[BE_PATH_MAX];
         strlcpy(dir, g_files_dir, sizeof dir);
         lv_async_call(files_reload_async, strdup(dir));
     }
@@ -1361,12 +1287,12 @@ static void ctx_after_action(void *p)
 static void ctx_row_cb(lv_event_t *e)
 {
     ctx_item_t *ci = lv_event_get_user_data(e);
-    const struct menu_item_ex *item = ci->menu->submenus[ci->idx];
-    int type = item->flags & MENU_TYPE_MASK;
+    be_menu_item_h item = be_menu_item(ci->menu, ci->idx);
+    int type = be_menu_item_type(ci->menu, ci->idx);
 
     /* properties / delete: our own native LVGL implementation (the stock
      * handlers would fall back to the classic GUI) */
-    int special = onplay_item_kind(item);
+    int special = be_menu_item_kind(item);
     if (special == 1)
     {
         lv_async_call(ctx_do_props, NULL);
@@ -1378,14 +1304,14 @@ static void ctx_row_cb(lv_event_t *e)
         return;
     }
 
-    if (type == MT_MENU)
+    if (type == BE_ITEM_MENU)
     {
         ctx_open(item, ci->overlay);
         return;
     }
     /* every other item keeps its ORIGINAL handler; deferred to the top of
      * the UI loop (see ctx_stock_job) */
-    if (type == MT_FUNCTION_CALL || type == MT_FUNCTION_CALL_W_PARAM)
+    if (type == BE_ITEM_FUNCTION || type == BE_ITEM_FUNCTION_PARAM)
     {
         lv_async_call(ctx_after_action, NULL);      /* close the menu */
         lvgui_run_job(ctx_stock_job, (void *)item);
@@ -1467,32 +1393,24 @@ static void props_show(const char *path, bool isdir)
 
     if (!isdir && be_is_audio(base))
     {
-        static struct mp3entry id3;
-        memset(&id3, 0, sizeof id3);
-        int fd = open(path, O_RDONLY);
-        if (fd >= 0)
+        if (be_track_tags(path))
         {
-            bool ok = get_metadata(&id3, fd, path);
-            close(fd);
-            if (ok)
+            props_row(list, str(LANG_ID3_TITLE), be_tag_title());
+            props_row(list, str(LANG_ID3_ARTIST), be_tag_artist());
+            props_row(list, str(LANG_ID3_ALBUM), be_tag_album());
+            props_row(list, str(LANG_ID3_GENRE), be_tag_genre());
+            if (be_tag_year())
             {
-                props_row(list, str(LANG_ID3_TITLE), id3.title);
-                props_row(list, str(LANG_ID3_ARTIST), id3.artist);
-                props_row(list, str(LANG_ID3_ALBUM), id3.album);
-                props_row(list, str(LANG_ID3_GENRE), id3.genre_string);
-                if (id3.year)
-                {
-                    snprintf(b, sizeof b, "%d", id3.year);
-                    props_row(list, str(LANG_ID3_YEAR), b);
-                }
-                snprintf(b, sizeof b, "%ld:%02ld", (long)(id3.length / 60000),
-                         (long)((id3.length / 1000) % 60));
-                props_row(list, str(LANG_ID3_LENGTH), b);
-                snprintf(b, sizeof b, "%u kbps", id3.bitrate);
-                props_row(list, str(LANG_ID3_BITRATE), b);
-                snprintf(b, sizeof b, "%lu Hz", id3.frequency);
-                props_row(list, str(LANG_ID3_FREQUENCY), b);
+                snprintf(b, sizeof b, "%d", be_tag_year());
+                props_row(list, str(LANG_ID3_YEAR), b);
             }
+            snprintf(b, sizeof b, "%ld:%02ld", (long)(be_tag_length() / 60000),
+                     (long)((be_tag_length() / 1000) % 60));
+            props_row(list, str(LANG_ID3_LENGTH), b);
+            snprintf(b, sizeof b, "%u kbps", be_tag_bitrate());
+            props_row(list, str(LANG_ID3_BITRATE), b);
+            snprintf(b, sizeof b, "%lu Hz", be_tag_frequency());
+            props_row(list, str(LANG_ID3_FREQUENCY), b);
         }
     }
 }
@@ -1558,42 +1476,10 @@ int shell_plcat_pick(char *out, size_t outsz)
     g_plpick_out = out;
     g_plpick_outsz = outsz;
 
-    char dir[MAX_PATH];
-    catalog_get_directory(dir, sizeof dir);
-    if (!dir[0])
-        strlcpy(dir, "/Playlists", sizeof dir);
-
-    /* collect the catalog playlists in one pass (no rewinddir in rockbox) */
-    int cap = 16, n = 0;
-    char **tt = malloc(cap * sizeof(char *));
-    char **pp = malloc(cap * sizeof(char *));
-    DIR *dp = opendir(dir);
-    if (dp)
-    {
-        struct dirent *en;
-        while ((en = readdir(dp)) != NULL && n < LIB_MAX_ITEMS)
-        {
-            if (!be_is_playlist_name(en->d_name))
-                continue;
-            if (n == cap)
-            {
-                cap *= 2;
-                tt = realloc(tt, cap * sizeof(char *));
-                pp = realloc(pp, cap * sizeof(char *));
-            }
-            char full[MAX_PATH];
-            snprintf(full, sizeof full, "%s/%s", dir, en->d_name);
-            pp[n] = strdup(full);
-            char st[MAX_PATH];
-            strlcpy(st, en->d_name, sizeof st);
-            char *dot = strrchr(st, '.');
-            if (dot)
-                *dot = '\0';
-            tt[n] = strdup(st);
-            n++;
-        }
-        closedir(dp);
-    }
+    /* the catalog scan itself runs in the backend (catalog_get_directory +
+     * readdir); the strings keep their owners, only the arrays are ours */
+    char **tt = NULL, **pp = NULL;
+    int n = be_playlist_catalog_scan(&tt, &pp, LIB_MAX_ITEMS);
 
     lv_obj_t *list;
     shell_menu_screen_push(str(LANG_PLAYLISTS), &list, plpick_cancel_cb);
@@ -1706,7 +1592,7 @@ static void del_do_async(void *p)
         lv_async_call(pllist_reload_async, NULL);
     else if (g_files_dir[0])
     {
-        char dir[MAX_PATH];
+        char dir[BE_PATH_MAX];
         strlcpy(dir, g_files_dir, sizeof dir);
         lv_async_call(files_reload_async, strdup(dir));
     }
@@ -1722,7 +1608,7 @@ static void del_go_cb(lv_event_t *e)
 static void our_delete(const char *path, bool isdir)
 {
     strlcpy(g_ctx_path, path, sizeof g_ctx_path);
-    char body[MAX_PATH + 16];
+    char body[BE_PATH_MAX + 16];
     snprintf(body, sizeof body, "%s\n\n%s",
              isdir ? str(LANG_DELETE_DIR) : str(LANG_DELETE), path);
     const shell_modal_btn_t btns[] = {
@@ -1748,17 +1634,17 @@ static void files_hold(lib_data *d, int idx)
     if (!path)
         return;
 
-    int attr = filetype_get_attr(path);
+    int attr = be_filetype_attr(path);
     if (d->fsym && d->fsym[idx] && d->fsym[idx][0] == 'd')
-        attr |= ATTR_DIRECTORY;
+        attr |= be_attr_directory();
 
     g_ctx_pllist = false;
     strlcpy(g_ctx_path, path, sizeof g_ctx_path);
-    g_ctx_isdir = (attr & ATTR_DIRECTORY) != 0;
+    g_ctx_isdir = (attr & be_attr_directory()) != 0;
 
-    ctx_dirfilter_begin(global_settings.dirfilter);
-    onplay_prepare(path, attr);
-    ctx_open(onplay_tree_menu(), NULL);
+    ctx_dirfilter_begin(be_dirfilter_user());
+    be_onplay_prepare(path, attr);
+    ctx_open(be_onplay_tree_menu(), NULL);
     if (g_ctx_root)
         lv_obj_add_event_cb(g_ctx_root, ctx_dirfilter_restore_cb,
                             LV_EVENT_DELETE, NULL);
@@ -1773,14 +1659,14 @@ static void plfile_hold(lib_data *d, int idx)
     if (!path)
         return;
 
-    ctx_dirfilter_begin(SHOW_M3U);
+    ctx_dirfilter_begin(be_dirfilter_show_m3u());
 
     g_ctx_pllist = true;
     g_ctx_isdir = false;
     strlcpy(g_ctx_path, path, sizeof g_ctx_path);
 
-    onplay_prepare(path, filetype_get_attr(path));
-    ctx_open(onplay_tree_menu(), NULL);
+    be_onplay_prepare(path, be_filetype_attr(path));
+    ctx_open(be_onplay_tree_menu(), NULL);
     if (g_ctx_root)
         lv_obj_add_event_cb(g_ctx_root, ctx_dirfilter_restore_cb,
                             LV_EVENT_DELETE, NULL);
@@ -1790,12 +1676,12 @@ static void plfile_hold(lib_data *d, int idx)
  * where there is no row to long press). */
 static void files_dir_menu(void)
 {
-    ctx_dirfilter_begin(global_settings.dirfilter);
-    onplay_prepare(g_files_dir, ATTR_DIRECTORY);
+    ctx_dirfilter_begin(be_dirfilter_user());
+    be_onplay_prepare(g_files_dir, be_attr_directory());
     g_ctx_isdir = true;
     g_ctx_pllist = false;
     strlcpy(g_ctx_path, g_files_dir, sizeof g_ctx_path);
-    ctx_open(onplay_tree_menu(), NULL);
+    ctx_open(be_onplay_tree_menu(), NULL);
     if (g_ctx_root)
         lv_obj_add_event_cb(g_ctx_root, ctx_dirfilter_restore_cb,
                             LV_EVENT_DELETE, NULL);
@@ -1836,7 +1722,7 @@ void shell_playlists_show(void)
 
 void shell_files_show(void)
 {
-    files_open_dir(global_settings.browse_current ? files_last_dir : "/");
+    files_open_dir(be_browser_resume_current() ? files_last_dir : "/");
 }
 
 void library_open(void)
@@ -1864,8 +1750,7 @@ void library_open(void)
         return;
     }
 
-    struct tagcache_stat *st = be_db_stat();
-    if (st && st->commit_delayed)
+    if (be_db_commit_delayed())
     {
         /* classic: commit was delayed, reboot needed */
         lv_obj_t *l = lv_label_create(lib_root_scr);

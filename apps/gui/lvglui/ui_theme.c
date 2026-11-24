@@ -8,7 +8,7 @@
 #include "config.h"
 #include "lvgl.h"
 #include "ui_theme.h"
-#include "settings.h"
+#include "ui_backend.h"
 
 LV_FONT_DECLARE(notosans_sc_14);
 LV_FONT_DECLARE(notosans_sc_16);
@@ -27,7 +27,7 @@ const ui_theme_t *const th = &theme;
  * (SW renderer: no live blur, glass is simulated with transparency). */
 __attribute__((weak)) void ui_theme_fill(ui_theme_t *t)
 {
-    if (global_settings.ui_dark_mode)
+    if (be_ui_dark_mode())
     {
         /* dark variant: charcoal glass, vivid accents, dimmer wallpaper */
         t->fg_text        = lv_color_hex(0xe8eef8);
@@ -212,7 +212,7 @@ void ui_theme_init(void)
 {
     ui_theme_fill(&theme);
     /* honour the persisted UI font size (theme_menu 字体 item) */
-    switch (global_settings.ui_font_size)
+    switch (be_ui_font_size())
     {
         case 0:  theme.font_cjk = &notosans_sc_14; break;
         case 2:  theme.font_cjk = &notosans_sc_20; break;

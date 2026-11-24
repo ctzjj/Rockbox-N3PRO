@@ -11,7 +11,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <time.h>
-#include "settings_list.h"
 
 #define BE_PATH_MAX 260            /* rockbox MAX_PATH */
 
@@ -109,6 +108,9 @@ bool be_track_lrc_title_path(char *out, size_t outsz);
 /* ---- current-playlist editing (playlist_viewer.c equivalents) ----------- */
 /* audio state / playback */
 int  be_audio_status(void);
+/* status bits, mirroring audio.h (for the be_audio_status() result) */
+#define BE_AUDIO_STATUS_PLAY  0x0001
+#define BE_AUDIO_STATUS_PAUSE 0x0002
 const char *be_audio_track_path(void);
 const char *be_audio_track_title(void);
 long be_audio_track_elapsed(void);
@@ -119,9 +121,118 @@ void be_playlist_start(int idx);
 void be_playlist_shuffle_apply(bool on);
 void be_volume_set(int v);
 void be_settings_save(void);
+/* repeat mode, mirroring global_settings.repeat_mode (settings.h enum) */
+#define BE_REPEAT_OFF  0
+#define BE_REPEAT_ALL  1
+#define BE_REPEAT_ONE  2
+int  be_player_repeat_mode(void);
+bool be_player_shuffle(void);
+void be_player_cycle_repeat(void);   /* cycle it like the stock setting callback */
+bool be_player_toggle_shuffle(void); /* flip playlist_shuffle, return the new state */
+int  be_volume_get(void);            /* global_status.volume */
+void be_volume_range(int *lo, int *hi);
+
+/* ---- shell state snapshots (status bar, theme, scrollbar) --------------- */
+struct be_statusbar
+{
+    bool have_time;
+    int  hour, min;        /* 0..23, 0..59 */
+    bool timeformat_12h;   /* global_settings.timeformat == 1 */
+    int  batt;             /* battery_level() */
+    bool batt_graphic;     /* global_settings.battery_display == 0 */
+    int  vol_pct;          /* volume as 0..100 */
+    bool wifi_up;
+    bool bt_active;
+};
+void be_statusbar_snapshot(struct be_statusbar *out);
+void be_statusbar_mode(bool *off, bool *bottom);
+void be_scrollbar_prefs(bool *off, bool *left);
+bool be_lcd_active(void);
+int  be_ui_backdrop_preset(void);
+bool be_ui_dark_mode(void);
+int  be_ui_font_size(void);
+bool be_show_shutdown_message(void);
+uint32_t be_ticks_to_ms(int ticks);
+/* DLNA cover RAM copy (the decoded pixels come from be_dlna_art_pixels) */
+const unsigned char *be_dlna_art_data(size_t *len, unsigned *gen);
+void be_dlna_art_lock(void);
+void be_dlna_art_unlock(void);
+
+/* ---- stock onplay context menu (opaque handles) -------------------------
+ * The LVGL context menu (ui_library.c) walks rockbox's own
+ * tree_onplay_menu() tree; these accessors keep every menu_item_ex
+ * detail on this side of the boundary.  Handles are opaque to the UI
+ * and stay valid until the next be_onplay_prepare(). */
+typedef const void *be_menu_h;         /* a whole menu tree */
+typedef const void *be_menu_item_h;    /* one entry of it */
+enum                    /* normalized item type (be_menu_item_type) */
+{
+    BE_ITEM_OTHER = 0,
+    BE_ITEM_MENU,
+    BE_ITEM_FUNCTION,
+    BE_ITEM_FUNCTION_PARAM,
+};
+enum                    /* onplay-style result, normalized */
+{
+    BE_ONPLAY_NONE = 0,
+    BE_ONPLAY_START_PLAY,
+    BE_ONPLAY_PLAYLIST,
+    BE_ONPLAY_RELOAD_DIR,
+};
+int  be_menu_count(be_menu_h menu);
+int  be_menu_item_type(be_menu_h menu, int i);
+bool be_menu_item_visible(be_menu_h menu, int i);
+const char *be_menu_item_label(be_menu_h menu, int i, char *buf, size_t bufsz);
+const char *be_menu_title(be_menu_h menu);      /* NULL when there is none */
+be_menu_item_h be_menu_item(be_menu_h menu, int i);
+int  be_menu_item_kind(be_menu_item_h item);    /* 0 none / 1 props / 2 delete */
+int  be_menu_item_run(be_menu_item_h item);     /* stock handler (job ctx);
+                                                 * BE_ONPLAY_*, -1 not runnable */
+int  be_onplay_result(void);                    /* BE_ONPLAY_* */
+void be_onplay_prepare(const char *path, int attr);
+be_menu_h be_onplay_tree_menu(void);
+int  be_filetype_attr(const char *path);
+int  be_attr_directory(void);
+int  be_dirfilter_user(void);                   /* global_settings.dirfilter */
+int  be_dirfilter_show_m3u(void);               /* the stock catalog's filter */
+void be_tree_dirfilter_set(int filter);         /* temp override while open */
+void be_tree_dirfilter_restore(void);           /* undo the override */
+void be_tree_dirfilter_reset_to_user(void);     /* point back at the setting */
+/* the playlist viewer's own context menu (stock item list via do_menu) */
+int  be_playlist_viewer_menu(void);             /* picked index, -1 cancel */
+/* scan the catalog directory (stock catalog_get_directory + readdir):
+ * returns the count and hands over two malloc'd string arrays (titles
+ * without extension, full paths); the caller frees the ARRAYS with free(),
+ * the strings keep their own owners (see shell_plcat_pick) */
+int  be_playlist_catalog_scan(char ***titles, char ***paths, int max);
+
+/* tagcache build state, field by field (no struct tagcache_stat here) */
+bool be_db_commit_delayed(void);
+bool be_db_readyvalid(void);
+int  be_db_commit_step(void);
+const char *be_db_curentry(void);
+int  be_db_scan_count(void);                    /* files scanned so far */
+bool be_db_ask_needed(void);   /* readyvalid && !ready && nothing processed */
+
+/* tag snapshot for the properties screen (strings valid until the next
+ * be_track_tags() call) */
+bool be_track_tags(const char *path);
+const char *be_tag_title(void);
+const char *be_tag_artist(void);
+const char *be_tag_album(void);
+const char *be_tag_genre(void);
+int  be_tag_year(void);
+long be_tag_length(void);
+int  be_tag_bitrate(void);
+long be_tag_frequency(void);
+
+/* browser settings */
+bool be_browser_keep_directory(void);
+bool be_browser_full_paths(void);      /* show_path_in_browser == SHOW_PATH_FULL */
+bool be_browser_resume_current(void);  /* browse_current */
+bool be_dir_exists(const char *path);
 /* tagcache / database build state */
 bool be_db_usable(void);
-struct tagcache_stat *be_db_stat(void);
 void be_db_rebuild(void);
 int  be_db_max_commit_step(void);
 
@@ -153,7 +264,19 @@ void be_bookmark_load(void);
 
 /* power: the control centre's 关机 / 重启 rows (confirm first, in the UI) */
 void be_keyclick(void);
-int be_start_screen(void);
+/* start screen target, normalized (root_menu GO_TO_* translated here so
+ * screens never see the enum) */
+enum
+{
+    BE_START_HOME = 0,     /* root/home, incl. GO_TO_ROOT / GO_TO_MAINMENU */
+    BE_START_FILES,
+    BE_START_DATABASE,
+    BE_START_WPS,
+    BE_START_BOOKMARKS,
+    BE_START_PLUGINS,
+    BE_START_PLAYLISTS,
+};
+int be_start_screen(void);   /* returns a BE_START_* value */
 void be_playlist_viewer_opts(int *indices, int *track_display);
 void be_playlist_row_label(int idx, bool current, char *out, size_t outsz);
 void be_power_off(void);
@@ -187,11 +310,8 @@ void be_root_apply(const char **keys, int n);
                    /* 最近书签 → load menu       */
 void be_shortcut_menu(void);                   /* 快捷方式 → do_shortcut_menu */
 
-/* equalizer graphical editor: stock gain editor data + stock apply */
-const struct int_setting *be_eq_gain_setting(void);
-void be_eq_apply(void);
-void be_eq_apply_band(int band);
-const char *be_eq_band_name(int band, char *buf, size_t len);
+/* the equalizer graphical editor's stock data accessors live in
+ * ui_stock.h (ui_stock.c is the stock-UI bridge) */
 
 /* network-source status screens (netfm / bt-rx / dlna); struct types are
  * declared in netfm_stream.h / dlna/dlna_stream.h */
@@ -218,7 +338,5 @@ void be_bt_rx_peer(char *buf, size_t sz);
 const char *be_bt_codec(void);
 int be_bt_rx_rate(void);
 void be_dlna_get_status(struct dlna_stream_status *st);
-const struct int_setting *be_eq_q_setting(void);
-const struct int_setting *be_eq_cutoff_setting(void);
 
 #endif

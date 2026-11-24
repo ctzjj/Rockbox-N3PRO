@@ -114,7 +114,14 @@ bool list_display_title(struct gui_synclist *list, enum screen_type screen)
 
 int list_get_nb_lines(struct gui_synclist *list, enum screen_type screen)
 {
+#ifdef HAVE_LVGL_UI
+    /* the native UI never drives classic lists through skins; a lingering
+     * skin list config reported its line count (one row) and the menus
+     * only ever drew the selected item */
+    int lines = -1;
+#else
     int lines = skinlist_get_line_count(screen, list);
+#endif
     if (lines < 0)
     {
         lines = list_nb_lines(list, screen);
@@ -251,10 +258,19 @@ void gui_synclist_draw(struct gui_synclist *gui_list)
     }
     FOR_NB_SCREENS(i)
     {
+#ifdef HAVE_LVGL_UI
+        list_draw(&screens[i], gui_list);
+#else
         if (!skinlist_draw(&screens[i], gui_list))
             list_draw(&screens[i], gui_list);
+#endif
         skin_mark_dirty(i);
     }
+    /* The classic UI relied on the caller to flush; on this port nothing
+     * did (menu, skinlist paths), so lists/menus never reached the panel.
+     * Push the finished frame out here. */
+    FOR_NB_SCREENS(i)
+        screens[i].update();
 }
 
 /* sets up the list so the selection is shown correctly on the screen */
@@ -1080,6 +1096,21 @@ bool simplelist_show_list(struct simplelist_info *info)
         /* We must yield in this case or no other thread can run */
         if (info->timeout == TIMEOUT_NOBLOCK)
             yield();
+
+#ifdef HAVE_LVGL_UI
+        /* Home was pressed: the native shell is tearing the stack down
+         * right now.  This loop belongs to a (possibly nested) menu item
+         * action that the menu engine cannot unwind, so report "cancelled"
+         * and let every caller break out of its own loop too. */
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+            {
+                info->selection = -1;
+                break;
+            }
+        }
+#endif
 
         if (info->action_callback)
         {

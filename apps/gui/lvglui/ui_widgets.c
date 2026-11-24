@@ -26,9 +26,8 @@
 #include "ui_theme.h"
 #include "ui_widgets.h"
 #include "lvgl_ui.h"          /* shell_style_shadow_off */
-#include "sound.h"
-#include "lang.h"            /* sound_min/sound_max */
-#include "settings.h"         /* global_status */
+#include "ui_backend.h"       /* be_volume_* */
+#include "lang.h"
 
 lv_obj_t *ui_card(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
                   lv_coord_t w, lv_coord_t h, lv_coord_t radius)
@@ -170,8 +169,10 @@ lv_obj_t *ui_volume_capsule(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     lv_obj_set_size(sl, 26, h - 60);           /* h > w -> vertical */
     lv_obj_set_pos(sl, (w - 26) / 2, 14);
     lv_obj_clear_flag(sl, LV_OBJ_FLAG_GESTURE_BUBBLE);
-    lv_slider_set_range(sl, sound_min(SOUND_VOLUME), sound_max(SOUND_VOLUME));
-    lv_slider_set_value(sl, global_status.volume, LV_ANIM_OFF);
+    int lo = 0, hi = 0;
+    be_volume_range(&lo, &hi);
+    lv_slider_set_range(sl, lo, hi);
+    lv_slider_set_value(sl, be_volume_get(), LV_ANIM_OFF);
     lv_obj_set_style_bg_opa(sl, th->bar_track_opa, LV_PART_MAIN);
     lv_obj_set_style_bg_color(sl, th->bar_track, LV_PART_MAIN);
     lv_obj_set_style_radius(sl, 13, LV_PART_MAIN);
@@ -189,9 +190,7 @@ lv_obj_t *ui_volume_capsule(lv_obj_t *parent, lv_coord_t x, lv_coord_t y,
     lv_obj_set_style_text_color(vv, th->fg_text, 0);
     lv_obj_align(vv, LV_ALIGN_BOTTOM_MID, 0, -10);
     {
-        int lo = sound_min(SOUND_VOLUME), hi = sound_max(SOUND_VOLUME);
-        int v = global_status.volume;
-        ui_volume_label(vv, hi > lo ? (v - lo) * 100 / (hi - lo) : 0);
+        ui_volume_label(vv, be_volume_pct_get());
     }
     if (val_out)
         *val_out = vv;

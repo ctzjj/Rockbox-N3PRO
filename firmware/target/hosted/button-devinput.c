@@ -128,6 +128,7 @@ static enum
     TOUCHSCREEN_STATE_DOWN
 } _last_touch_state = TOUCHSCREEN_STATE_UNKNOWN;
 
+
 /* Do _NOT_ change this.  Unofficial Linux API */
 #define EVENT_VALUE_TOUCHSCREEN_RELEASE  -1
 /* This is only used as an arbitrary placeholder */
@@ -283,9 +284,17 @@ int button_read_device(BDATA)
                         break;
                     }
                 }
+                /* EOF or a hard error means the node is gone.  Without
+                 * this, poll keeps reporting POLLIN (together with
+                 * POLLHUP) on the dead descriptor and read() returns 0
+                 * forever, spinning this loop at 100% and starving the
+                 * button queue: the whole UI freezes.  A hot-plugged
+                 * Bluetooth AVRCP node produces exactly that. */
+                else if (size <= 0) {
+                    button_remove_input_device(i);
+                }
             }
-            /* device was removed/disconnected — close it to stop poll returning POLLHUP forever */
-            else if (poll_fds[i].revents & (POLLERR | POLLHUP)) {
+            else if (poll_fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                 button_remove_input_device(i);
             }
         }

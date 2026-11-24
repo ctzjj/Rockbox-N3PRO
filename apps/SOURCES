@@ -31,7 +31,7 @@ gui/lvglui/ui_theme.c
 gui/lvglui/ui_control.c
 gui/lvglui/ui_icons.c
 gui/lvglui/ui_widgets.c
-gui/lvglui/ui_menu.c
+gui/lvglui/ui_stock.c
 gui/lvglui/ui_compat.c
 gui/lvglui/iconv_musl/iconv.c
 gui/lvglui/fonts/NotoSansSC_16.c

@@ -800,76 +800,32 @@ static void bt_write_asound(const char *mac)
     fclose(f);
 }
 
-/* High bitrate first (same idea as the R1 port): keep the best codec the
- * earphone actually accepts.  The stock ALSA plugin reads DefaultCodec from
- * /etc/bluetooth/audio.conf when it opens the PCM, so a codec change means
- * rewriting that file and renegotiating the A2DP transport. */
-static const char *const bt_codec_pref[] =
+/* The stock player lets bluetoothd negotiate the A2DP codec: audio.conf
+ * advertises every source codec and no DefaultCodec line pins one.  A
+ * pinned codec is only applied when the transport is set up, and stepping
+ * through them meant re-dialling a live link, which wedges the vendor
+ * stack - so never pin anything here. */
+static void bt_codec_auto(void)
 {
-    "LDAC_HQ", "APTX", "AAC", "SBC", NULL
-};
-
-static void bt_set_codec(const char *codec)
-{
-    char cmd[64];
-
-    snprintf(cmd, sizeof(cmd), "/usr/bin/bt_codec %s >/dev/null 2>&1", codec);
-    system(cmd);
+    system("sed -i '/^DefaultCodec=/d' /etc/bluetooth/audio.conf 2>/dev/null");
 }
 
-/* Walk the preference list: set the codec, renegotiate the link and probe
- * the plugin.  The first codec whose transport comes up wins. */
-static const char *bt_pick_codec(const char *mac)
+/* Wait for the A2DP transport the vendor stack is opening (the codec was
+ * negotiated by it): probe the ALSA plugin until it accepts the PCM.
+ * Never re-dials the link. */
+static bool bt_wait_transport(const char *mac, int ms)
 {
-    char cmd[96];
-    int i, t;
+    int i;
 
-    for (i = 0; bt_codec_pref[i] != NULL; i++)
+    for (i = 0; i < ms / 250; i++)
     {
-        /* Give the first attempt (on the link the caller just made) time
-         * to come up before stepping down the codec list. */
-        int probes = (i == 0) ? 12 : 6;
-
-        bt_set_codec(bt_codec_pref[i]);
-
-        /* The codec is fixed when the A2DP transport is set up, so a new
-         * codec needs a fresh connection.  Only ever renegotiate while
-         * the link is really up: toggling a link that is not up wedges
-         * the stock bluetooth stack (reboot required). */
-        if (i > 0)
-        {
-            if (!bt_peer_linked(mac))
-            {
-                break;
-            }
-
-            snprintf(cmd, sizeof(cmd),
-                     "/usr/bin/bt-connect -d %s >/dev/null 2>&1", mac);
-            system(cmd);
-            sleep(HZ / 2);
-            snprintf(cmd, sizeof(cmd),
-                     "/usr/bin/bt-connect -c %s >/dev/null 2>&1", mac);
-            system(cmd);
-        }
-
-        for (t = 0; t < probes; t++)
-        {
-            if (pcm_alsa_bt_probe() == 0)
-            {
-                return bt_codec_pref[i];
-            }
-            sleep(HZ / 4);
-        }
-
-        /* Nothing came up and the link is gone: cycling would only wedge
-         * the stack further. */
+        if (pcm_alsa_bt_probe() == 0)
+            return true;
         if (!bt_peer_linked(mac))
-        {
-            break;
-        }
+            return false;
+        bt_sleep(HZ / 4);            /* keep the UI pumping meanwhile */
     }
-
-    return NULL;
+    return pcm_alsa_bt_probe() == 0;
 }
 
 /* Rockbox has a single volume, so the bluetooth and wired outputs each keep
@@ -963,16 +919,12 @@ static bool bt_route_to_bluetooth(const char *mac)
 
     bt_write_asound(mac);
 
-    /* Pick the highest codec the earphone supports; on success the A2DP
-     * transport is already up, so no extra wait is needed. */
+    /* The system bluetooth stack negotiates the codec by itself; all we do
+     * is wait for the transport it is setting up. */
+    if (!bt_wait_transport(mac, 2000))
     {
-        const char *codec = bt_pick_codec(mac);
-
-        if (!codec)
-        {
-            bt_route_to_local(false);
-            return false;
-        }
+        bt_route_to_local(false);
+        return false;
     }
 
     if (pcm_alsa_switch_playback_device(N3PRO_BT_DEVICE) == 0 &&
@@ -1063,7 +1015,7 @@ static const char *bt_get_codec(void)
     }
 
     fclose(f);
-    return codec[0] ? codec : "Unknown";
+    return codec[0] ? codec : "Auto";
 }
 
 /* The stock HiByOS control daemon is started by /etc/init.d/S50sys_server,
@@ -1086,6 +1038,10 @@ static bool bt_prepare_stack(void)
     int i;
 
     bt_ensure_sys_server();
+
+    /* never leave a pinned codec behind: bluetoothd picks the best codec
+     * both ends share, exactly like the stock player */
+    bt_codec_auto();
 
     bt_run_cmd("bt_enable >/dev/null 2>&1");
 

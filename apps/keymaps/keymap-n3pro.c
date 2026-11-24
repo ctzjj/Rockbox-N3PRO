@@ -46,6 +46,22 @@ static const struct button_mapping button_context_standard[] =
 
     { ACTION_STD_KEYLOCK,        BUTTON_POWER|BUTTON_SCROLL_BACK,    BUTTON_POWER },
 
+#ifdef HAVE_TOUCHSCREEN
+    /* 3x3 touchscreen grid, same layout as keymap-touchscreen.c:
+     * top/bottom = prev/next, top-left = back, top-right = menu,
+     * centre = select, mid-left/right = page left/right */
+    { ACTION_STD_PREV,           BUTTON_TOPMIDDLE,                   BUTTON_NONE },
+    { ACTION_STD_PREVREPEAT,     BUTTON_TOPMIDDLE|BUTTON_REPEAT,     BUTTON_NONE },
+    { ACTION_STD_NEXT,           BUTTON_BOTTOMMIDDLE,                BUTTON_NONE },
+    { ACTION_STD_NEXTREPEAT,     BUTTON_BOTTOMMIDDLE|BUTTON_REPEAT,  BUTTON_NONE },
+    { ACTION_STD_OK,             BUTTON_CENTER|BUTTON_REL,           BUTTON_CENTER },
+    { ACTION_STD_CONTEXT,        BUTTON_CENTER|BUTTON_REPEAT,        BUTTON_CENTER },
+    { ACTION_STD_CANCEL,         BUTTON_TOPLEFT|BUTTON_REL,          BUTTON_TOPLEFT },
+    { ACTION_STD_MENU,           BUTTON_TOPRIGHT|BUTTON_REL,         BUTTON_TOPRIGHT },
+    { ACTION_LISTTREE_PGUP,      BUTTON_MIDLEFT,                     BUTTON_NONE },
+    { ACTION_LISTTREE_PGDOWN,    BUTTON_MIDRIGHT,                    BUTTON_NONE },
+#endif
+
     LAST_ITEM_IN_LIST
 };
 
@@ -125,6 +141,10 @@ static const struct button_mapping button_context_yesno[] =
 {
     { ACTION_YESNO_ACCEPT,       BUTTON_PLAY,                        BUTTON_NONE },
     { ACTION_STD_CANCEL,         BUTTON_POWER,                       BUTTON_NONE },
+#ifdef HAVE_TOUCHSCREEN
+    { ACTION_YESNO_ACCEPT,       BUTTON_CENTER|BUTTON_REL,           BUTTON_CENTER },
+    { ACTION_STD_CANCEL,         BUTTON_BOTTOMRIGHT,                 BUTTON_NONE },
+#endif
 
     LAST_ITEM_IN_LIST__NEXTLIST(CONTEXT_STD),
 };

@@ -326,7 +326,11 @@ static void netfm_play_screen(const struct netfm_station *station)
         int lvgui_netfm_play(struct netfm_stream_status *);
         if (lvgui_in_job())
         {
-            if (lvgui_netfm_play(&status))
+            int r = lvgui_netfm_play(&status);
+            {
+                bool lvgui_home_wanted(void);
+            }
+            if (r)
                 netfm_stream_stop();    /* the stop button was pressed */
             return;
         }
@@ -370,6 +374,17 @@ int netfm_menu(void)
         struct simplelist_info info;
         struct netfm_station station;
         struct netfm_station *s;
+#ifdef HAVE_LVGL_UI
+        /* Home pressed while the play screen was open: the stack is gone
+         * and this loop must not re-open the station list. */
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+            {
+                break;
+            }
+        }
+#endif
         simplelist_info_init(&info, str(LANG_NETFM), station_count, NULL);
         info.get_name = station_name_cb;
 #ifdef HAVE_LVGL_UI
@@ -378,6 +393,15 @@ int netfm_menu(void)
         info.selection = -1;
         info.title_icon = Icon_Submenu;
         simplelist_show_list(&info);
+#ifdef HAVE_LVGL_UI
+        {
+            bool lvgui_home_wanted(void);
+            if (lvgui_home_wanted())
+            {
+                break;
+            }
+        }
+#endif
         if (info.selection < 0)
             break;
         s = stations_ptr();
