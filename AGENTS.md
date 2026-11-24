@@ -5,23 +5,28 @@ checkout needs in order to build for the **Cayin N3Pro** DAP (HiByOS / Ingenic
 X1000, Linux 3.10.14), plus a `n3pro_port.patch` that applies them to a pristine
 tree, and `n3pro_patcher.sh` which builds the flashable `.upt` image.
 
-Base commit the patch was generated against: **`1784c9b8a7`** (Rockbox master,
-2026-09).  See "Applying to a newer master" below.
+Base commit the patch was generated against: **`98a55f623b`** (Rockbox master,
+2026-09-17).  See "Applying to a newer master" below.
 
 ---
 
 ## Branch model
 
-Two release lines share this repository:
+Three release lines share this repository:
 
-- **`main`** (this branch) — the clean hardware port: target drivers,
-  config, keymaps, WPS assets and hardware-level fixes only.  It stays
-  minimal — pure hardware porting, no feature work.  **`v1.x` releases are
-  tagged from `main`.**
-- **`n3pro`** — the feature integration line: everything `main` has, plus
-  the Bluetooth work (output, A2DP input, menu, reset) and future features
-  built on the ported hardware.  **`v2.x` releases are tagged from
-  `n3pro`.**  It is always a superset of `main`.
+- **`n3pro-rockbox`** (this branch, formerly `main`) — the clean hardware
+  port: target drivers, config, keymaps, WPS assets and hardware-level
+  fixes only.  It stays minimal — pure hardware porting, no feature work.
+  **`v1.x` releases are tagged from `n3pro-rockbox`.**
+- **`n3pro-custom`** (formerly `n3pro`) — the feature integration line:
+  everything `n3pro-rockbox` has, plus the Bluetooth work (output, A2DP
+  input, menu, reset) and future features built on the ported hardware.
+  **`v2.x` releases are tagged from `n3pro-custom`.**  It is always a
+  superset of `n3pro-rockbox`.
+- **`main`** (formerly `n3pro-lvgl`) — the modern-UI line: everything
+  `n3pro-custom` has, with the classic renderer replaced by a touch-first
+  LVGL shell.  **`v3.x` releases are tagged from `main`.**  See the
+  AGENTS.md on that branch.
 
 All code changes are made in a separate rockbox checkout (the working tree),
 never directly in this repository — this repo only holds overlay files plus
@@ -29,8 +34,8 @@ never directly in this repository — this repo only holds overlay files plus
 
 | rockbox working tree                               | this repository |
 |----------------------------------------------------|-----------------|
-| `port-newbase` = upstream base + the port commit   | `main`          |
-| `n3pro-newbase` = `port-newbase` + feature work    | `n3pro`         |
+| `port-newbase` = upstream base + the port commit   | `n3pro-rockbox` |
+| `n3pro-newbase` = `port-newbase` + feature work    | `n3pro-custom`  |
 
 Landing changes on a line (same procedure for both branches):
 
@@ -48,33 +53,39 @@ Landing changes on a line (same procedure for both branches):
 
 Flow rules:
 
-1. **One-way merging**: `main` merges INTO `n3pro`; never merge or wholesale
-   cherry-pick `n3pro` into `main`.  To promote a general improvement (one
-   with no BT-file dependencies) back to `main`, extract a clean hunk in
-   the rockbox tree, land it on `main`, and let it flow into `n3pro` with
-   the next merge.
+1. **One-way merging**: `n3pro-rockbox` merges INTO `n3pro-custom`; never
+   merge or wholesale cherry-pick `n3pro-custom` into `n3pro-rockbox`.  To
+   promote a general improvement (one with no BT-file dependencies) back to
+   `n3pro-rockbox`, extract a clean hunk in the rockbox tree, land it on
+   `n3pro-rockbox`, and let it flow into `n3pro-custom` with the next merge.
 2. **Ownership**: hardware-related fixes (volume model, wheel, power, USB,
-   display) belong on `main` and must be merged down promptly; code that
-   depends on the BT files (`apps/n3pro_bluetooth.c`, `n3pro-bt-input.*`,
-   `n3pro_bt_rx_*()` calls, BT-aware tube logic) stays on `n3pro` only.
-3. **Merge `main` into `n3pro` after every `main` release** — do not let
-   the lines diverge, or the shared files (`hibylinux_codec.c`,
-   `cayin-n3pro.c`, `apps/lang/*.lang`) accumulate conflicts.
+   display) belong on `n3pro-rockbox` and must be merged down promptly; code
+   that depends on the Bluetooth feature files (`apps/bluetooth.c`,
+   `apps/menus/bluetooth_menu.c`, the `n3pro-bluetooth.c` /
+   `n3pro-bt-input.c` target drivers, `firmware/export/bt_input.h`,
+   BT-aware tube logic) stays on `n3pro-custom` only.
+3. **Merge `n3pro-rockbox` into `n3pro-custom` after every `n3pro-rockbox`
+   release** — do not let the lines diverge, or the shared files
+   (`hibylinux_codec.c`, `cayin-n3pro.c`, `apps/lang/*.lang`) accumulate
+   conflicts.
 
-Working procedure for a `main` → `n3pro` merge (the real merge happens in
-the rockbox tree, not here):
+Working procedure for a `n3pro-rockbox` → `n3pro-custom` merge (the real
+merge happens in the rockbox tree, not here):
 
-1. In the rockbox tree, bring `port-newbase` (= `main`'s content on the
-   upstream base) up to date, then `git merge` it into `n3pro-newbase` and
-   resolve the conflicts there once.
+1. In the rockbox tree, bring `port-newbase` (= `n3pro-rockbox`'s content
+   on the upstream base) up to date, then `git merge` it into
+   `n3pro-newbase` and resolve the conflicts there once.
 2. Rebuild (`tools/configure --target=n3pro --type=N && make`) and verify
    on the device.
 3. Land `n3pro-newbase` here with the "Landing changes" procedure above.
 
 Releases: CI builds whatever commit a release tag points at (it reads the
-patch header for the rockbox base), so publishing `v2.x` from `n3pro` works
-exactly like `v1.x` from `main`.  Upgrading v1 → v2 (or v2 → v2) is
-replacing the `.rockbox` folder; the bootloader is unchanged.
+patch header for the rockbox base).  It runs only when a release is
+published or via a manual `workflow_dispatch` — pushing a branch does not
+build, and the artifacts go to the triggering release.  This branch's
+workflow predates the rolling-channel auto-refresh that `main` has, so the
+`v1.x` channel release is refreshed by hand.  Upgrading v1 → v2 (or v2 →
+v2) is replacing the `.rockbox` folder; the bootloader is unchanged.
 
 ---
 
@@ -118,14 +129,15 @@ must obey the rules below.
    Every change to a file used by other targets must be wrapped in
    `#if defined(CAYIN_N3PRO) … #else … #endif` (or
    `#if (AUDIOHW_CAPS & TUBE_MODE_CAP)` for the tube setting), with the `#else`
-   branch byte-identical to upstream.  Shared files touched so far (small,
-   in-place guards following the per-target precedent already in those files):
+   branch byte-identical to upstream.  Shared files touched so far include
+   (small, in-place guards following the per-target precedent already in
+   those files):
    `firmware/usb.c`, `firmware/SOURCES`,
    `firmware/target/hosted/hiby/hibylinux_codec.c` / `.h`,
    `firmware/target/hosted/hiby/usb-dac-hiby.c`, `apps/recorder/keyboard.c`,
    `apps/settings{,_list}.c`, `apps/settings.h`, `apps/menus/{sound,settings}_menu.c`,
    `firmware/{sound.c,export/sound.h,export/audiohw.h,export/audiohw_settings.h,export/config.h}`,
-   `bootloader/hibyos_linux.c`, `firmware/export/usb.h`.
+   `bootloader/hibyos_linux.c`.
    Bigger subsystems must **not** grow `CAYIN_N3PRO` blocks inside shared
    files: implement them as standalone files under
    `firmware/target/hosted/cayin/n3pro/` and exclude the shared file for
@@ -234,21 +246,22 @@ adb shell "sync; reboot"                                # UMS gadget is up
 
 - **SoC / OS**: Ingenic X1000, Linux 3.10.14, HiByOS.
 - **Display**: 360×480 panel.  `/dev/fb0` is **32bpp XRGB8888** with a
-  1440-byte stride and the panel is mounted **rotated 180°**.  Rockbox keeps its
-  internal 16bpp RGB565 framebuffer and converts/rotates on update
-  (`fb_blit_n3pro()` in `lcd-linuxfb.c`).  The panel is scanned straight out of
-  the framebuffer at **60 Hz with no blanking interval** (pixclock 96450 ps,
-  zero sync margins), and the kernel fbdev can neither page-flip
+  1440-byte stride and the panel is mounted **rotated 180°**.  Rockbox keeps
+  its internal 16bpp RGB565 framebuffer and converts/rotates on update
+  (`fb_blit_n3pro()` in `lcd-n3pro.c`).  The panel is scanned straight out
+  of the framebuffer at **60 Hz with no blanking interval** (pixclock 96450
+  ps, zero sync margins), and the kernel fbdev can neither page-flip
   (`yres_virtual` is clamped to `yres`; `FBIOPAN_DISPLAY` is a no-op) nor
-  `FBIO_WAITFORVSYNC`.  Writing the visible buffer therefore tears unless it is
-  synchronised: the panel TE signal is wired to a GPIO that the kernel counts
-  as the **`slcd_vsync` interrupt (~60 Hz)**, so `lcd-linuxfb.c` locks onto that
-  counter via `/proc/interrupts` (sleep until the predicted edge, then a ~1 ms
-  tight poll) and blits **in scan order**, which runs ahead of the beam
-  (7 ms/frame vs 35 µs/row) — tear-free.  Only updates ≥ 1/8 of the screen are
-  synchronised; without the sync source the code falls back to unsynchronised
-  writes.  The framebuffer may read as all zeros once the backlight is off
-  (the panel latches the image), so idle screenshots are unreliable.
+  `FBIO_WAITFORVSYNC`.  Writing the visible buffer therefore tears unless it
+  is synchronised: the panel TE signal is wired to a GPIO that the kernel
+  counts as the **`slcd_vsync` interrupt (~60 Hz)**, so `lcd-n3pro.c` locks
+  onto that counter via `/proc/interrupts` (sleep until the predicted edge,
+  then a ~1 ms tight poll) and blits **in scan order**, which runs ahead of
+  the beam (~9 ms/frame vs 35 µs/row) — tear-free.  Only updates ≥ 1/8 of
+  the screen are synchronised; without the sync source the code falls back
+  to unsynchronised writes.  The framebuffer may read as all zeros once the
+  backlight is off (the panel latches the image), so idle screenshots are
+  unreliable.
 - **Audio**: dual AK4493 on ALSA card 0 (`n3pro-ak4493-i2s`).  Digital filter:
   ALSA `AK4493 Digital Filter` (5 modes) + `Digital Filter`.  The output stage
   carries **two JAN6418 subminiature tubes**; *Tube Mode* is the operating mode
@@ -300,7 +313,7 @@ adb shell "sync; reboot"                                # UMS gadget is up
 
 ```sh
 git clone git://git.rockbox.org/rockbox && cd rockbox
-git checkout 1784c9b8a7          # patch base (safest)
+git checkout 98a55f623b          # patch base (safest)
 git apply /path/to/n3pro_port.patch
 # on a much newer tree: git apply --3way … , or --reject and fix the .rej
 ```
