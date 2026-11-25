@@ -543267,10 +543267,10 @@ index 0000000000..534b5824e1
 +}
 diff --git a/apps/gui/lvglui/lvgl_ui.c b/apps/gui/lvglui/lvgl_ui.c
 new file mode 100644
-index 0000000000..30c0515713
+index 0000000000..6c4a5048d4
 --- /dev/null
 +++ b/apps/gui/lvglui/lvgl_ui.c
-@@ -0,0 +1,267 @@
+@@ -0,0 +1,291 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__  _______  ___
@@ -543455,6 +543455,30 @@ index 0000000000..30c0515713
 +    int button = button_get_w_tmo(tmo);
 +    if (button)
 +        last_input = now_ms;
++    if (button & SYS_EVENT)
++    {
++        /* Headphone plug/unplug rides the same queue as the keys (button.c
++         * posts SYS_PHONE_*).  The classic screens ran these through
++         * default_event_handler(); the native UI owns the queue, so it has to
++         * run them itself or "pause on headphone unplug" never fires.  Only
++         * the plug class is dispatched: the USB event would drag in the
++         * classic USB screen and the power events already have their own
++         * add_event handlers. */
++        switch (button)
++        {
++            case SYS_PHONE_PLUGGED:
++            case SYS_PHONE_UNPLUGGED:
++#if defined(HAVE_LINEOUT_DETECTION)
++            case SYS_LINEOUT_PLUGGED:
++            case SYS_LINEOUT_UNPLUGGED:
++#endif
++                default_event_handler(button);
++                break;
++            default:
++                break;
++        }
++        button = 0;          /* a system event is not a key press */
++    }
 +    if (button)
 +    {
 +        /* Any user activity wakes the display and postpones idle
