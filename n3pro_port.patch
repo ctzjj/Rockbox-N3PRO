@@ -600604,7 +600604,7 @@ index 0000000000..67853c6bf7
 +
 +#endif
 diff --git a/apps/playback.c b/apps/playback.c
-index 29f06dcb69..fc292790d5 100644
+index 29f06dcb69..fb0ac14349 100644
 --- a/apps/playback.c
 +++ b/apps/playback.c
 @@ -45,6 +45,12 @@
@@ -600662,6 +600662,30 @@ index 29f06dcb69..fc292790d5 100644
  #endif
      static struct audio_resume_info resume = { 0, 0 };
      enum play_status old_status = play_status;
+@@ -4280,6 +4314,23 @@ static bool audio_auto_change_frequency(struct mp3entry *id3, bool play)
+ {
+     if (!valid_mp3entry(id3))
+         return false;
++
++#if defined(CAYIN_N3PRO)
++    /* A sink that runs at a fixed rate (the bluetooth route: the stock plugin
++     * is configured when it is opened and ignores later reconfiguration) can
++     * never satisfy a frequency change -- pcm_set_frequency() clamps it away
++     * and the DSP resamples instead.  Asking for the switch anyway made the
++     * mixer frequency and the guessed one disagree forever, so a track with a
++     * different rate (e.g. a 48 kHz FLAC after a 44.1 kHz one) put the engine
++     * into an endless "stop buffering, remake the audio buffer" loop and
++     * playback never restarted.  Leave the rate alone here: everything is
++     * resampled to the sink's rate anyway. */
++    {
++        extern unsigned int pcm_sink_fixed_rate(void);
++        if (pcm_sink_fixed_rate())
++            return false;
++    }
++#endif
+     unsigned long guessed_frequency = global_settings.play_frequency == 0 ? audio_guess_frequency(id3) : 0;
+     if (guessed_frequency && mixer_get_frequency() != guessed_frequency)
+     {
 diff --git a/apps/playlist.c b/apps/playlist.c
 index 294e2093b3..c0c1097c8f 100644
 --- a/apps/playlist.c
@@ -618831,10 +618855,10 @@ index 0000000000..0c9282bc85
 +}
 diff --git a/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
 new file mode 100644
-index 0000000000..b0d759a2d7
+index 0000000000..c0ac468271
 --- /dev/null
 +++ b/firmware/target/hosted/cayin/n3pro/n3pro-bt-pcm-hooks.h
-@@ -0,0 +1,285 @@
+@@ -0,0 +1,294 @@
 +/***************************************************************************
 + * N3Pro dynamic PCM routing hooks for the shared hosted ALSA backend.
 + *
@@ -619087,6 +619111,15 @@ index 0000000000..b0d759a2d7
 +    /* open_hwdev() resets last_sample_rate; keep the rate so the new
 +     * handle can be reconfigured in place. */
 +    rate = last_sample_rate ? last_sample_rate : real_sample_rate;
++
++    /* Nothing has configured a rate yet (a fresh boot, or playback that was
++     * stopped before the sink was ever set up).  Reapplying rate 0 fails, and
++     * then BOTH the requested device and the fallback stay unconfigured: the
++     * router retries every few seconds (the status bar icon blinking) and
++     * playback has no usable PCM.  Use the default rate instead; the first
++     * real stream re-applies its own rate through sink_set_freq(). */
++    if (!rate)
++        rate = hw_freq_sampr[HW_FREQ_DEFAULT];
 +
 +    open_hwdev(device, SND_PCM_STREAM_PLAYBACK);
 +    err = n3pro_pcm_reapply_nolock(rate);

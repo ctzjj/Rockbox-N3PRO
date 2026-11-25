@@ -308,6 +308,54 @@ BT receive and BT output are mutually exclusive at the vendor-stack level
 `bt_output_menu` **refuses** when `bt_input_active()`.  The output-ownership
 work above does not touch this.
 
+### Bluetooth output is a FIXED-RATE sink — read this before touching rates
+
+The stock plugin (`btvol` -> `type plug` -> `type softvol` ->
+`libasound_module_pcm_bluetooth.so`) is configured **once, when it is
+opened**, and rejects later reconfiguration.  `pcm_sink_fixed_rate()`
+therefore returns that rate and `pcm_set_frequency()` clamps every request to
+it; the DSP is expected to resample everything else.  Every one of the
+following has already cost a debugging session:
+
+1. **Never let the engine switch sample rate on this route.**
+   `audio_auto_change_frequency()` (HAVE_PLAY_FREQ) posts
+   `Q_AUDIO_REMAKE_AUDIO_BUFFER` and sets `filling = STATE_STOPPED` whenever
+   the guessed track rate differs from the mixer rate.  With the clamp the
+   two can never agree, so the first track change to a different rate (e.g. a
+   48 kHz FLAC after a 44.1 kHz one) ends in an endless "stop buffering /
+   remake" loop: no `bufopen`, no sound, the audio thread spinning between
+   `audio_load_track()` and `buffer_event_finished`.  The guard in
+   `apps/playback.c` returns false when `pcm_sink_fixed_rate() != 0`.
+   **The wired route has no such clamp**, which is why the symptom is exactly
+   "works on the wired output, dies on bluetooth at a track change".
+2. **Never route with sample rate 0.**  On a fresh boot nothing has configured
+   a rate yet; `n3pro_pcm_reapply_nolock(0)` fails, so both the requested
+   device and the fallback stay unconfigured, the router retries every few
+   seconds and the status-bar bluetooth icon blinks.  The guard lives in
+   `pcm_alsa_switch_playback_device()` (`hw_freq_sampr[HW_FREQ_DEFAULT]`).
+3. **The plugin's PCM state is not the link state.**  It reports
+   `SND_PCM_STATE_DISCONNECTED` whenever the A2DP stream is idle (and
+   `RUNNING` while a dead transport consumes nothing).  Never derive "link
+   lost" from `snd_pcm_state()`: doing that makes the router fall back to the
+   wired output and auto-route back every couple of seconds.  Use
+   `bt_peer_linked()` (kernel ACL / AVRCP input node) and, where money is on
+   it, the vendor stack (`/usr/bin/bt-device -i <mac>`, `BT:LIST`).
+
+Working checks, in order, when bluetooth playback misbehaves:
+
+```
+aplay -D btvol /tmp/tone.wav        # stock player: proves plugin+transport
+/usr/bin/bt-device -i <mac>         # vendor stack's own Connected flag
+hcitool con                         # kernel ACL (a ghost can survive here)
+ls -l /proc/$(pidof rockbox.n3pro)/fd   # pcmC0D0p = wired, plugin sockets = bt
+```
+
+`Slave PCM not usable` in `rblog.txt` (the app's stdout/stderr) means the
+vendor transport cannot be configured — the port cannot fix that, and neither
+can `aplay`; reconnect / re-pair the earpiece.  Keep in mind that each
+`pcm_alsa_bt_probe()`/route attempt opens and closes the vendor PCM, so
+retry loops hammer the stack: probe once, not in a loop.
+
 ### USB DAC output route (event-driven, automatic)
 
 A USB sound card on the OTG port becomes the wired output automatically --

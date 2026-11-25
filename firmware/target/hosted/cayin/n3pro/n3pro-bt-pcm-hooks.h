@@ -251,6 +251,15 @@ int pcm_alsa_switch_playback_device(const char *device)
      * handle can be reconfigured in place. */
     rate = last_sample_rate ? last_sample_rate : real_sample_rate;
 
+    /* Nothing has configured a rate yet (a fresh boot, or playback that was
+     * stopped before the sink was ever set up).  Reapplying rate 0 fails, and
+     * then BOTH the requested device and the fallback stay unconfigured: the
+     * router retries every few seconds (the status bar icon blinking) and
+     * playback has no usable PCM.  Use the default rate instead; the first
+     * real stream re-applies its own rate through sink_set_freq(). */
+    if (!rate)
+        rate = hw_freq_sampr[HW_FREQ_DEFAULT];
+
     open_hwdev(device, SND_PCM_STREAM_PLAYBACK);
     err = n3pro_pcm_reapply_nolock(rate);
 

@@ -4314,6 +4314,23 @@ static bool audio_auto_change_frequency(struct mp3entry *id3, bool play)
 {
     if (!valid_mp3entry(id3))
         return false;
+
+#if defined(CAYIN_N3PRO)
+    /* A sink that runs at a fixed rate (the bluetooth route: the stock plugin
+     * is configured when it is opened and ignores later reconfiguration) can
+     * never satisfy a frequency change -- pcm_set_frequency() clamps it away
+     * and the DSP resamples instead.  Asking for the switch anyway made the
+     * mixer frequency and the guessed one disagree forever, so a track with a
+     * different rate (e.g. a 48 kHz FLAC after a 44.1 kHz one) put the engine
+     * into an endless "stop buffering, remake the audio buffer" loop and
+     * playback never restarted.  Leave the rate alone here: everything is
+     * resampled to the sink's rate anyway. */
+    {
+        extern unsigned int pcm_sink_fixed_rate(void);
+        if (pcm_sink_fixed_rate())
+            return false;
+    }
+#endif
     unsigned long guessed_frequency = global_settings.play_frequency == 0 ? audio_guess_frequency(id3) : 0;
     if (guessed_frequency && mixer_get_frequency() != guessed_frequency)
     {
