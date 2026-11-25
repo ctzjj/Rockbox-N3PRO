@@ -141,8 +141,8 @@ struct be_statusbar
     int  batt;             /* battery_level() */
     bool batt_graphic;     /* global_settings.battery_display == 0 */
     int  vol_pct;          /* volume as 0..100 */
-    bool wifi_up;
-    bool bt_active;
+    /* wifi/bt are NOT part of the snapshot: be_wifi_up() runs wpa_cli, so
+     * the status bar asks for them only while the icon label exists */
 };
 void be_statusbar_snapshot(struct be_statusbar *out);
 void be_statusbar_mode(bool *off, bool *bottom);

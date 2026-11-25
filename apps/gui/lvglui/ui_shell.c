@@ -667,12 +667,15 @@ static void statusbar_tick(lv_timer_t *t)
         {
             char net[16];
             int n = 0;
-            if (sb.wifi_up)
+            /* asked only while the network-icon label exists: be_wifi_up()
+             * runs wpa_cli, so it must never fire from this 1 Hz timer on
+             * screens that show no status bar */
+            if (be_wifi_up())
             {
                 strcpy(net, LV_SYMBOL_WIFI);
                 n = strlen(net);
             }
-            if (sb.bt_active)
+            if (be_bt_active())
             {
                 if (n)
                     net[n++] = ' ';

@@ -543770,7 +543770,7 @@ index 0000000000..ef92baf6c7
 +}
 diff --git a/apps/gui/lvglui/ui_backend.c b/apps/gui/lvglui/ui_backend.c
 new file mode 100644
-index 0000000000..8e4c1aa786
+index 0000000000..bc5b67a237
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.c
 @@ -0,0 +1,2085 @@
@@ -544903,8 +544903,8 @@ index 0000000000..8e4c1aa786
 +    out->batt = battery_level();
 +    out->batt_graphic = (global_settings.battery_display == 0);
 +    out->vol_pct = be_volume_pct_get();
-+    out->wifi_up = be_wifi_up();
-+    out->bt_active = be_bt_active();
++    /* wifi/bt are deliberately not sampled here: be_wifi_up() runs wpa_cli
++     * (popen), and the status bar only asks while its icon label exists */
 +}
 +
 +void be_statusbar_mode(bool *off, bool *bottom)
@@ -545861,7 +545861,7 @@ index 0000000000..8e4c1aa786
 +}
 diff --git a/apps/gui/lvglui/ui_backend.h b/apps/gui/lvglui/ui_backend.h
 new file mode 100644
-index 0000000000..34763419a1
+index 0000000000..3227324273
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_backend.h
 @@ -0,0 +1,342 @@
@@ -546008,8 +546008,8 @@ index 0000000000..34763419a1
 +    int  batt;             /* battery_level() */
 +    bool batt_graphic;     /* global_settings.battery_display == 0 */
 +    int  vol_pct;          /* volume as 0..100 */
-+    bool wifi_up;
-+    bool bt_active;
++    /* wifi/bt are NOT part of the snapshot: be_wifi_up() runs wpa_cli, so
++     * the status bar asks for them only while the icon label exists */
 +};
 +void be_statusbar_snapshot(struct be_statusbar *out);
 +void be_statusbar_mode(bool *off, bool *bottom);
@@ -552088,10 +552088,10 @@ index 0000000000..def7eb79c9
 +#endif /* HAVE_LVGL_UI */
 diff --git a/apps/gui/lvglui/ui_shell.c b/apps/gui/lvglui/ui_shell.c
 new file mode 100644
-index 0000000000..64a412b93b
+index 0000000000..3db63aa9b5
 --- /dev/null
 +++ b/apps/gui/lvglui/ui_shell.c
-@@ -0,0 +1,2855 @@
+@@ -0,0 +1,2858 @@
 +/***************************************************************************
 + *             __________               __   ___.
 + *   Open      \______   \ ____   ____ |  | _\_ |__   ____  _______  ___
@@ -552761,12 +552761,15 @@ index 0000000000..64a412b93b
 +        {
 +            char net[16];
 +            int n = 0;
-+            if (sb.wifi_up)
++            /* asked only while the network-icon label exists: be_wifi_up()
++             * runs wpa_cli, so it must never fire from this 1 Hz timer on
++             * screens that show no status bar */
++            if (be_wifi_up())
 +            {
 +                strcpy(net, LV_SYMBOL_WIFI);
 +                n = strlen(net);
 +            }
-+            if (sb.bt_active)
++            if (be_bt_active())
 +            {
 +                if (n)
 +                    net[n++] = ' ';

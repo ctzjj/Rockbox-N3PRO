@@ -1127,8 +1127,8 @@ void be_statusbar_snapshot(struct be_statusbar *out)
     out->batt = battery_level();
     out->batt_graphic = (global_settings.battery_display == 0);
     out->vol_pct = be_volume_pct_get();
-    out->wifi_up = be_wifi_up();
-    out->bt_active = be_bt_active();
+    /* wifi/bt are deliberately not sampled here: be_wifi_up() runs wpa_cli
+     * (popen), and the status bar only asks while its icon label exists */
 }
 
 void be_statusbar_mode(bool *off, bool *bottom)
